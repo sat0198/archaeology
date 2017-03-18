@@ -429,10 +429,10 @@ ROPEANIM:
 ; After the game has loaded, this is where it all starts.
 BEGIN:
   DI                      ; Disable interrupts
-  LD HL,$5BFF             ; Place the address of the routine at ENTERCODES on
-  LD (HL),ENTERCODES/256  ; the stack
+  LD HL,$5BFF             ; Place the address of the routine at TITLESCREEN on
+  LD (HL),TITLESCREEN/256 ; the stack
   DEC HL
-  LD (HL),ENTERCODES%256
+  LD (HL),TITLESCREEN%256
   LD SP,$5BFE
   SUB A                   ; Set HL=8500 in a roundabout way
   LD L,A
@@ -450,7 +450,7 @@ BEGIN_0:
   INC HL
   BIT 7,H
   JR NZ,BEGIN_0
-  RET                     ; Make an indirect jump to ENTERCODES
+  RET                     ; Make an indirect jump to TITLESCREEN
 
 ; Current room number
 ;
