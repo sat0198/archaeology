@@ -4,9 +4,7 @@
 ; Copyright 1984 Software Projects Ltd (Jet Set Willy)
 ; Copyright 2012-2016 Richard Dymond (this disassembly)
 
-  ORG $7FFD
-
-  JP BEGIN
+  ORG $8000
 
 ; Room layout
 ;
@@ -11295,4 +11293,6 @@ FLYINGPIG0:
   AND $01
   RET
   DEFS $13
+
+  END BEGIN
 
