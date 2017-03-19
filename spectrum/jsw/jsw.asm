@@ -424,34 +424,6 @@ ROPEANIM:
   DEFB $00,$00,$00,$00,$00,$00,$00,$00
   DEFB $00,$00
 
-; The game has just loaded
-;
-; After the game has loaded, this is where it all starts.
-BEGIN:
-  DI                      ; Disable interrupts
-  LD HL,$5BFF             ; Place the address of the routine at TITLESCREEN on
-  LD (HL),TITLESCREEN/256 ; the stack
-  DEC HL
-  LD (HL),TITLESCREEN%256
-  LD SP,$5BFE
-  SUB A                   ; Set HL=8500 in a roundabout way
-  LD L,A
-  XOR $0A
-  LD B,A
-  INC B
-  LD H,B
-  RRC H
-BEGIN_0:
-  LD C,(HL)               ; Read through addresses 8500-FFFF, without changing
-  LD A,L                  ; their contents; perhaps this code was once used to
-  XOR C                   ; descramble the contents of pages 133-255, but now
-  XOR H                   ; all it does is introduce a pause of about 0.47s
-  LD (HL),C               ; before displaying the code entry screen
-  INC HL
-  BIT 7,H
-  JR NZ,BEGIN_0
-  RET                     ; Make an indirect jump to TITLESCREEN
-
 ; Current room number
 ;
 ; Initialised to 33 (The Bathroom) by the routine at TITLESCREEN, checked by
@@ -517,11 +489,6 @@ TRIANGLE2:
 TRIANGLE3:
   DEFB $FC,$F0,$C0,$00,$00,$00,$00,$00
 
-; 'AIR'
-;
-; This message is not used.
-  DEFM "AIR"
-
 ; '+++++ Press ENTER to Start +++++...'
 ;
 ; Used by the routine at TITLESCREEN.
@@ -571,18 +538,6 @@ MSG_CURTIME:
 ; Copied by the routine at STARTGAME to MSG_CURTIME.
 MSG_7AM:
   DEFM " 7:00a"
-
-; 'Enter Code at grid location     '
-;
-; Used by the routine at ENTERCODES.
-MSG_CODE1:
-  DEFM "Enter Code at grid location     "
-
-; 'Sorry, try code at location     '
-;
-; Used by the routine at ENTERCODES.
-MSG_CODE2:
-  DEFM "Sorry, try code at location     "
 
 ; Minute counter
 ;
@@ -826,203 +781,17 @@ GAMETUNE:
   DEFB $40,$40,$40,$40,$44,$44,$4C,$4C,$56,$60,$66,$60,$56,$56,$66,$66
   DEFB $51,$56,$60,$56,$51,$51,$60,$60,$40,$40,$40,$40,$40,$40,$40,$40
 
-; Give two chances to enter a correct code
+; The game has just loaded
 ;
-; Used by the routine at BEGIN.
-ENTERCODES:
-  LD HL,$4000             ; Clear the display file and attribute file
-  LD DE,$4001
-  LD BC,$1AFF
-  LD (HL),$00
-  LDIR
-  LD IX,MSG_CODE1         ; Point IX at the message at MSG_CODE1 ("Enter Code
-                          ; at grid location     ")
-  CALL CODESCREEN         ; Display the code entry screen and collect a
-                          ; four-digit code from the user
-  JP Z,TITLESCREEN        ; Start the game if the code is correct
-  LD IX,MSG_CODE2         ; Point IX at the message at MSG_CODE2 ("Sorry, try
-                          ; code at location     ")
-  CALL CODESCREEN         ; Display the code entry screen and collect another
-                          ; four-digit code from the user
-  JP Z,TITLESCREEN        ; Start the game if the code is correct
-  JP $0000                ; Otherwise reset the machine
-
-; Display the code entry screen
-;
-; Used by the routine at ENTERCODES. Displays the code entry screen and waits
-; for a code to be entered. Returns with the zero flag set if the code entered
-; is correct.
-;
-; IX Address of the message to print (MSG_CODE1 or MSG_CODE2)
-CODESCREEN:
-  LD DE,$4800             ; Print the message pointed to by IX at (8,0)
-  LD C,$20
-  CALL PRINTMSG
-  LD HL,$4842             ; Print the graphic for the '1' key at (10,2)
-  LD DE,NUMBERKEYS
-  LD C,$00
-  CALL DRAWSPRITE
-  LD HL,$4845             ; Print the graphic for the '2' key at (10,5)
-  CALL DRAWSPRITE
-  LD HL,$4848             ; Print the graphic for the '3' key at (10,8)
-  CALL DRAWSPRITE
-  LD HL,$484B             ; Print the graphic for the '4' key at (10,11)
-  CALL DRAWSPRITE
-  LD HL,CODEATTRS         ; Copy the 128 attribute bytes from CODEATTRS to the
-  LD DE,$5900             ; screen (lines 8, 9, 10 and 11)
-  LD BC,$0080
-  LDIR
-  LD A,($5C78)            ; Collect the LSB of the system variable FRAMES
-  ADD A,$25               ; Add 37 to this value and replace it; this ensures
-  LD ($5C78),A            ; that the value collected on the second pass through
-                          ; this routine is different from the value collected
-                          ; on the first pass
-  CP $B3                  ; Is the value between 0 and 178?
-  JR C,CODESCREEN_0       ; Jump if so
-  SUB $B4                 ; Otherwise subtract 180; note that if the original
-                          ; value of the LSB of the system variable FRAMES was
-                          ; 142, this leaves A holding 255, which is a bug
-CODESCREEN_0:
-  LD L,A                  ; Now L holds either 255 or some number between 0 and
-                          ; 178
-  LD H,CODES/256          ; Point HL at one of the entries in the table at
-                          ; CODES (or at 9EFF if L=255)
-  LD A,(HL)               ; Pick up the table entry
-  ADD A,L                 ; Add L to obtain the actual code
-  LD (TEMPVAR),A          ; Store the code at TEMPVAR
-  LD C,L                  ; Copy the code index to C; this will be used to
-                          ; compute the grid location
-  LD E,$2F                ; Calculate the ASCII code of the grid location
-CODESCREEN_1:
-  INC E                   ; number (0-9) in E
-  LD A,C
-  CP $12
-  JR C,CODESCREEN_2
-  SUB $12
-  LD C,A
-  JR CODESCREEN_1
-CODESCREEN_2:
-  LD A,E                  ; Print the grid location number at (8,30)
-  LD DE,$481E
-  CALL PRINTCHAR
-  LD A,C                  ; Calculate the ASCII code of the grid location
-  ADD A,$41               ; letter (A-R) in A
-  LD DE,$481D             ; Print the grid location letter at (8,29)
-  CALL PRINTCHAR
-; Here we enter a loop that prints a 2x2 coloured block at (10,16), (10,19),
-; (10,22) or (10,25) whenever '1', '2', '3' or '4' is pressed, or returns to
-; the calling routine at ENTERCODES if ENTER is pressed.
-CODESCREEN_3:
-  LD IX,$5950             ; Point IX at the attribute file location of the
-                          ; first coloured block at (10,16)
-CODESCREEN_4:
-  CALL READCODE           ; Print a coloured block when '1', '2', '3' or '4' is
-                          ; pressed, or return to ENTERCODES if ENTER is
-                          ; pressed
-  INC IX                  ; Move IX along to the location of the next coloured
-  INC IX                  ; block
-  INC IX
-  LD A,IXl                ; Have we just printed the fourth coloured block at
-  CP $5C                  ; (10,25)?
-  JR NZ,CODESCREEN_4      ; If not, jump back to print the next one
-  JR CODESCREEN_3         ; Otherwise rewind IX to the location of the first
-                          ; coloured block
-
-; Read the keyboard during code entry
-;
-; Used by the routine at CODESCREEN. Waits for '1', '2', '3', '4' or ENTER to
-; be pressed and either prints a coloured block or validates the entered code.
-; Returns to the routine at ENTERCODES if ENTER is being pressed, with the zero
-; flag reset if the entered code is correct.
-;
-; IX Attribute file address of the flashing 2x2 block
-READCODE:
-  LD BC,$F7FE             ; Read keys 1-2-3-4-5
-  IN A,(C)
-  AND $0F                 ; Is '1', '2', '3' or '4' (still) being pressed?
-  CP $0F
-  JR NZ,READCODE          ; Jump back if so
-READCODE_0:
-  LD B,$BF                ; Read keys H-J-K-L-ENTER
-  IN A,(C)
-  BIT 0,A                 ; Is ENTER being pressed?
-  JR NZ,READCODE_1        ; Jump if not
-  LD A,($5959)            ; Pick up the attribute byte of the fourth 2x2 block
-                          ; at (10,25)
-  AND $7F                 ; Has the fourth digit been entered yet?
-  CP $07
-  JR Z,READCODE_1         ; Jump if not
-; We have four coloured blocks, and ENTER is being pressed. Time to validate
-; the entered code.
-  SUB $08                 ; Compute bits 0 and 1 of the entered code from the
-  AND $18                 ; attribute byte of the fourth coloured block at
-  RRCA                    ; (10,25) and store them in C
-  RRCA
-  RRCA
-  LD C,A
-  LD A,($5953)            ; Compute bits 4 and 5 of the entered code from the
-  SUB $08                 ; attribute byte of the second coloured block at
-  AND $18                 ; (10,19) and store them in C (alongside bits 0 and
-  RLCA                    ; 1)
-  OR C
-  LD C,A
-  LD A,($5956)            ; Compute bits 2 and 3 of the entered code from the
-  SUB $08                 ; attribute byte of the third coloured block at
-  AND $18                 ; (10,22) and store them in C (alongside bits 0, 1, 4
-  RRCA                    ; and 5)
-  OR C
-  LD C,A
-  LD A,($5950)            ; Compute bits 6 and 7 of the entered code from the
-  SUB $08                 ; attribute byte of the first coloured block at
-  AND $18                 ; (10,16) in A
-  RLCA
-  RLCA
-  RLCA
-  POP HL                  ; Drop the return address from the stack
-  OR C                    ; Merge bits 0-5 of the entered code into A; now A
-                          ; holds all 8 bits of the entered code
-  LD HL,TEMPVAR           ; Point HL at TEMPVAR (where the correct entry code
-                          ; is stored)
-  CP (HL)                 ; Set the zero flag if the entered code matches
-  RET                     ; Return to the routine at ENTERCODES
-; Here we check whether '1', '2', '3' or '4' is being pressed.
-READCODE_1:
-  SET 7,(IX+$00)          ; Make sure the current 2x2 block is flashing
-  SET 7,(IX+$01)
-  SET 7,(IX+$20)
-  SET 7,(IX+$21)
-  LD BC,$F7FE             ; Read keys 1-2-3-4-5
-  IN A,(C)
-  AND $0F                 ; Keep only bits 0-3 (keys 1-2-3-4)
-  LD E,$08                ; E=8 (INK 0: PAPER 1)
-  CP $0E                  ; Is '1' alone being pressed?
-  JR Z,READCODE_2         ; Jump if so
-  LD E,$10                ; E=16 (INK 0: PAPER 2)
-  CP $0D                  ; Is '2' alone being pressed?
-  JR Z,READCODE_2         ; Jump if so
-  LD E,$18                ; E=24 (INK 0: PAPER 3)
-  CP $0B                  ; Is '3' alone being pressed?
-  JR Z,READCODE_2         ; Jump if so
-  LD E,$20                ; E=32 (INK 0: PAPER 4)
-  CP $07                  ; Is '4' alone being pressed?
-  JP NZ,READCODE_0        ; If not, jump back to check the ENTER key
-; Exactly one of the number keys '1', '2', '3' or '4' is being pressed. E holds
-; the corresponding attribute byte to use for the coloured block.
-READCODE_2:
-  LD (IX+$00),E           ; Set the colour of the 2x2 block (no longer
-  LD (IX+$01),E           ; flashing)
-  LD (IX+$20),E
-  LD (IX+$21),E
-  LD BC,$0018             ; Pause for about 0.02s
-READCODE_3:
-  DJNZ READCODE_3
-  DEC C
-  JR NZ,READCODE_3
-  RET
+; After the game has loaded, this is where it all starts.
+BEGIN:
+  DI                      ; Disable interrupts
+  LD SP,$5C00             ; Place stack in printer buffer
+                          ; Drop through to TITLESCREEN
 
 ; Display the title screen and play the theme tune
 ;
-; Used by the routines at ENTERCODES, MAINLOOP and GAMEOVER.
+; Used by the routines at BEGIN, MAINLOOP and GAMEOVER.
 ;
 ; The first thing this routine does is initialise some game status buffer
 ; variables in preparation for the next game.
@@ -3047,35 +2816,6 @@ DRAWTHINGS_22:
   ADD IX,DE               ; buffer
   JP DRAWTHINGS_0         ; Jump back to deal with it
 
-; Unused routine
-;
-; This routine is not used, but if it were, it would set the INK colour for a
-; 3x2 block of cells, maintaining the PAPER, BRIGHT and FLASH attributes of the
-; current room background. It is identical to the code at 8E5F in Manic Miner
-; that is used to set the attributes for a vertical guardian.
-;
-; A INK colour (0-7)
-; HL Attribute buffer address
-U_SETATTRS:
-  LD (HL),A               ; Store the INK colour (bits 0-2)
-  LD A,(BACKGROUND)       ; Collect the current room's background tile
-                          ; attribute from BACKGROUND
-  AND $F8                 ; Keep only bits 3-7 (PAPER, BRIGHT, FLASH)
-  OR (HL)                 ; Merge the INK bits
-  LD (HL),A               ; Store the resultant attribute byte
-  LD DE,$001F             ; Prepare DE for later addition
-  INC HL                  ; Move right one cell and store the attribute byte
-  LD (HL),A               ; there
-  ADD HL,DE               ; Move left one cell and down a row and store the
-  LD (HL),A               ; attribute byte there
-  INC HL                  ; Move right one cell and store the attribute byte
-  LD (HL),A               ; there
-  ADD HL,DE               ; Move left one cell and down a row and store the
-  LD (HL),A               ; attribute byte there
-  INC HL                  ; Move right one cell and store the attribute byte
-  LD (HL),A               ; there
-  RET
-
 ; Draw the items in the current room and collect any that Willy is touching
 ;
 ; Used by the routine at MAINLOOP.
@@ -3777,28 +3517,8 @@ INTROSOUND_2:
   JR NZ,INTROSOUND_0      ; Jump back if not
   RET
 
-; Unused routine
-;
-; This routine copies the attribute bytes for an empty room to the screen, so
-; perhaps it was used during development of the game to check that the layout
-; of a room had been defined correctly.
-  LD HL,$5E00             ; Copy the attribute buffer at 24064 to the top
-  LD DE,$5800             ; two-thirds of the screen
-  LD BC,$0200
-  LDIR
-  LD HL,$4000             ; Fill the top two-thirds of the display file with
-  LD DE,$4001             ; the byte value 24 (00011000)
-  LD BC,$0FFF
-  LD (HL),$18
-  LDIR
-  LD BC,$FEFE             ; Prepare BC for reading keys SHIFT-Z-X-C-V
-  IN A,(C)                ; Read these keys
-  BIT 2,A                 ; Is 'X' being pressed?
-  JP Z,$0000              ; Jump if so to reset the machine
-  JR $970F                ; Otherwise jump back to read the keyboard again
-
-; Unused
-  DEFS $E8
+SPARE:
+  DEFS $9D00-$
 
 ; Attributes for the top two-thirds of the title screen
 ;
@@ -3857,258 +3577,6 @@ ATTRSLOWER:
   DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
   DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
   DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-
-; Number key graphics
-;
-; Used by the routine at CODESCREEN.
-NUMBERKEYS:
-  DEFB $7F,$FE,$C3,$03,$BF,$FD,$BF,$FD,$FF,$FD,$FF,$FD,$FF,$FD,$F9,$FD
-  DEFB $F1,$FF,$F9,$FF,$F9,$FF,$F9,$FF,$F9,$FD,$F9,$FD,$FF,$FB,$7F,$FE
-  DEFB $7F,$FE,$C7,$03,$BF,$FD,$BF,$FD,$FF,$FD,$FF,$FD,$FF,$FD,$F1,$FF
-  DEFB $EC,$FF,$FC,$FF,$F9,$FF,$F3,$FF,$E7,$FF,$E0,$FD,$FF,$F3,$7F,$FE
-  DEFB $7F,$FE,$C6,$03,$BF,$FD,$BF,$FD,$BF,$FD,$FF,$FD,$FF,$FF,$F1,$FF
-  DEFB $EC,$FF,$FC,$FF,$F1,$FF,$FC,$FF,$EC,$FF,$F1,$FD,$FF,$E7,$7F,$FE
-  DEFB $7F,$FE,$C6,$03,$BF,$FD,$BF,$FD,$BF,$FD,$BF,$FF,$FF,$FF,$FD,$FF
-  DEFB $F9,$FF,$F1,$FF,$E9,$FF,$E0,$FF,$F9,$FF,$F9,$FD,$FF,$9B,$7F,$FE
-
-; Attributes for the code entry screen
-;
-; Used by the routine at CODESCREEN.
-CODEATTRS:
-  DEFB $45,$45,$45,$45,$45,$45,$45,$45,$45,$45,$45,$45,$45,$45,$45,$45
-  DEFB $45,$45,$45,$45,$45,$45,$45,$45,$45,$45,$45,$45,$47,$47,$47,$47
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$41,$79,$00,$42,$7A,$00,$03,$3B,$00,$04,$3C,$00,$00,$00
-  DEFB $07,$07,$00,$07,$07,$00,$07,$07,$00,$07,$07,$00,$00,$00,$00,$00
-  DEFB $00,$00,$41,$41,$00,$42,$42,$00,$03,$03,$00,$04,$04,$00,$00,$00
-  DEFB $07,$07,$00,$07,$07,$00,$07,$07,$00,$07,$07,$00,$00,$00,$00,$00
-
-; Source code remnants
-;
-; The source code here corresponds to the code at SEE39936.
-  DEFM "NZ,ENDPAUSE"      ; [JR ]NZ,ENDPAUSE
-  DEFW $4A82              ; INC E
-  DEFB $06
-  DEFM $09,"INC",$09,"E"
-  DEFW $4AA3              ; JR NZ,PAUSE
-  DEFB $0C
-  DEFM $09,"JR",$09,"NZ,PAUSE"
-  DEFW $4AC4              ; INC D
-  DEFB $06
-  DEFM $09,"INC",$09,"D"
-  DEFW $4AE5              ; JR NZ,PAUSE
-  DEFB $0C
-  DEFM $09,"JR",$09,"NZ,PAUSE"
-  DEFW $4B06              ; C[P 10]
-  DEFB $0C
-  DEFM $09,"C"
-
-; Foot/barrel graphic data
-;
-; Used by the routine at GAMEOVER to display the game over sequence.
-;
-; The foot also appears as a guardian in The Nightmare Room.
-FOOT:
-  DEFB $10,$80,$10,$80,$10,$80,$10,$80,$10,$80,$10,$80,$10,$80,$20,$80
-  DEFB $20,$80,$48,$42,$88,$35,$84,$09,$80,$01,$80,$02,$43,$8D,$3C,$76
-; The barrel also appears as a guardian in Ballroom East and Top Landing.
-BARREL:
-  DEFB $37,$EC,$77,$EE,$00,$00,$6F,$F6,$EF,$F7,$EF,$F7,$D5,$5B,$DB,$BB
-  DEFB $D5,$5B,$DF,$FB,$ED,$77,$EE,$F7,$6D,$76,$00,$00,$77,$EE,$37,$EC
-
-; Maria sprite graphic data
-;
-; Used by the routine at BEDANDBATH to draw Maria in Master Bedroom.
-;
-; Maria also appears as a guardian in The Nightmare Room.
-MARIA0:
-  DEFB $03,$00,$03,$C0,$01,$E0,$01,$40,$01,$E0,$07,$80,$1F,$F8,$3F,$FC
-  DEFB $37,$6C,$14,$98,$0F,$F0,$0F,$F0,$0F,$F0,$02,$40,$02,$40,$06,$60
-MARIA1:
-  DEFB $03,$00,$03,$C0,$01,$E0,$01,$40,$01,$E0,$07,$80,$1F,$F8,$3F,$FC
-  DEFB $37,$6C,$14,$98,$0F,$F0,$0F,$F0,$0F,$F0,$02,$40,$06,$40,$02,$60
-MARIA2:
-  DEFB $03,$00,$03,$C0,$01,$E0,$01,$40,$01,$E0,$07,$80,$1F,$FC,$3F,$FE
-  DEFB $37,$66,$14,$92,$0F,$F0,$0F,$F0,$0F,$F0,$02,$40,$02,$40,$06,$60
-MARIA3:
-  DEFB $03,$00,$03,$C0,$01,$E0,$01,$40,$01,$E0,$07,$80,$1F,$FF,$3F,$FE
-  DEFB $37,$60,$14,$90,$0F,$F0,$0F,$F0,$0F,$F0,$02,$40,$02,$40,$06,$60
-
-; Willy sprite graphic data
-;
-; Used by the routines at DRAWLIVES, GAMEOVER and DRAWWILLY.
-MANDAT:
-  DEFB $3C,$00,$3C,$00,$7E,$00,$34,$00,$3E,$00,$3C,$00,$18,$00,$3C,$00
-  DEFB $7E,$00,$7E,$00,$F7,$00,$FB,$00,$3C,$00,$76,$00,$6E,$00,$77,$00
-  DEFB $0F,$00,$0F,$00,$1F,$80,$0D,$00,$0F,$80,$0F,$00,$06,$00,$0F,$00
-  DEFB $1B,$80,$1B,$80,$1B,$80,$1D,$80,$0F,$00,$06,$00,$06,$00,$07,$00
-WILLYR2:
-  DEFB $03,$C0,$03,$C0,$07,$E0,$03,$40,$03,$E0,$03,$C0,$01,$80,$03,$C0
-  DEFB $07,$E0,$07,$E0,$0F,$70,$0F,$B0,$03,$C0,$07,$60,$06,$E0,$07,$70
-  DEFB $00,$F0,$00,$F0,$01,$F8,$00,$D0,$00,$F8,$00,$F0,$00,$60,$00,$F0
-  DEFB $01,$F8,$03,$FC,$07,$FE,$06,$F6,$00,$F8,$01,$DA,$03,$0E,$03,$8C
-  DEFB $0F,$00,$0F,$00,$1F,$80,$0B,$00,$1F,$00,$0F,$00,$06,$00,$0F,$00
-  DEFB $1F,$80,$3F,$C0,$7F,$E0,$6F,$60,$1F,$00,$5B,$80,$70,$C0,$31,$C0
-  DEFB $03,$C0,$03,$C0,$07,$E0,$02,$C0,$07,$C0,$03,$C0,$01,$80,$03,$C0
-  DEFB $07,$E0,$07,$E0,$0E,$F0,$0D,$F0,$03,$C0,$06,$E0,$07,$60,$0E,$E0
-  DEFB $00,$F0,$00,$F0,$01,$F8,$00,$B0,$01,$F0,$00,$F0,$00,$60,$00,$F0
-  DEFB $01,$D8,$01,$D8,$01,$D8,$01,$B8,$00,$F0,$00,$60,$00,$60,$00,$E0
-  DEFB $00,$3C,$00,$3C,$00,$7E,$00,$2C,$00,$7C,$00,$3C,$00,$18,$00,$3C
-  DEFB $00,$7E,$00,$7E,$00,$EF,$00,$DF,$00,$3C,$00,$6E,$00,$76,$00,$EE
-
-; Codes
-;
-; Used by the routine at CODESCREEN. These code remnants define the codes for
-; grid locations A0-Q9.
-CODES:
-  DEC HL
-  LD C,E
-CODES_0:
-  DEC C
-  LD A,B
-  JP Z,$1D60
-  CALL $1E5B
-  CP $2C
-  RET NZ
-  JR CODES_0
-  LD DE,$40F2
-  LD A,(DE)
-  OR A
-  JP Z,$19A0
-  INC A
-  LD ($409A),A
-  LD (DE),A
-  LD A,(HL)
-  CP $87
-  JR Z,CODES_1
-  CALL $1E5A
-  RET NZ
-  LD A,D
-  OR E
-  JP NZ,$1EC5
-  INC A
-  JR CODES_2
-CODES_1:
-  RST $10
-  RET NZ
-CODES_2:
-  LD HL,($40EE)
-  EX DE,HL
-  LD HL,($40EA)
-  LD ($40A2),HL
-  EX DE,HL
-  RET NZ
-  LD A,(HL)
-  OR A
-  JR NZ,CODES_3
-  INC HL
-  INC HL
-  INC HL
-  INC HL
-CODES_3:
-  INC HL
-  LD A,D
-  AND E
-  INC A
-  JP NZ,$1F05
-  LD A,($40DD)
-  DEC A
-  JP Z,$1DBE
-  JP $1F05
-  CALL $2B1C
-  RET NZ
-  OR A
-  JP Z,$1E4A
-  DEC A
-  ADD A,A
-  LD E,A
-  CP $2D
-  JR C,CODES_4
-  LD E,$26
-CODES_4:
-  JP $19A2
-  LD DE,$000A
-  PUSH DE
-  JR Z,CODES_5
-  CALL $1E4F
-  EX DE,HL
-  EX (SP),HL
-  JR Z,CODES_6
-  EX DE,HL
-  RST $08
-  INC L
-  EX DE,HL
-  LD HL,($40E4)
-  EX DE,HL
-  JR Z,CODES_5
-  CALL $1E5A
-  JP NZ,$1997
-CODES_5:
-  EX DE,HL
-CODES_6:
-  LD A,H
-  OR L
-  JP Z,$1E4A
-  LD ($40E4),HL
-  LD ($40E1),A
-  POP HL
-  LD ($40E2),HL
-  POP BC
-  JP $1A33
-  CALL $2337
-  LD A,(HL)
-  CP $2C
-  CALL Z,$1D78
-  CP $CA
-  CALL Z,$1D78
-  DEC HL
-  PUSH HL
-  CALL $0994
-  POP HL
-  JR Z,$9EB6
-CODES_7:
-  RST $10
-  JP C,$1EC2
-
-; Unused
-  JP $1D5F
-  LD D,$01
-  CALL $1F05
-  OR A
-  RET Z
-  RST $10
-  CP $95
-  JR NZ,$9EB8
-  DEC D
-  JR NZ,$9EB8
-  JR CODES_7
-  LD A,$01
-  LD ($409C),A
-  JP $207C
-  CALL $41CA
-  CP $23
-  JR NZ,$9EDC
-  CALL $0284
-  LD ($409C),A
-  DEC HL
-  RST $10
-  CALL Z,$20FE
-  JP Z,$2169
-  OR $20
-  CP $60
-  JR NZ,$9F05
-  CALL $2B01
-  CP $04
-  JP NC,$1E4A
-  PUSH HL
-  LD HL,$3C00
-  ADD HL,DE
-  LD ($4020),HL
-  LD A,E
-  AND $3F
-  LD ($40A6),A
-  DEFS $0100
 
 ; Entity definitions
 ;
@@ -4427,7 +3895,7 @@ ENTITY19:
   DEFB $20                ; Initial pixel y-coordinate: 16
   DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
                           ; down)
-  DEFB $9C                ; Page containing the sprite graphic data: 9C
+  DEFB BARREL/$100        ; Page containing the sprite graphic data: 9C
   DEFB $20                ; Minimum pixel y-coordinate: 16
   DEFB $60                ; Maximum pixel y-coordinate: 48
 ; The following entity definition (0x14) is used in The Bridge and West  Wing.
@@ -5218,7 +4686,7 @@ ENTITY70:
   DEFB $40                ; Initial pixel y-coordinate: 32
   DEFB $FC                ; Initial pixel y-coordinate increment: -2 (moving
                           ; up)
-  DEFB $9C                ; Page containing the sprite graphic data: 9C
+  DEFB MARIA0/$100        ; Page containing the sprite graphic data: 9C
   DEFB $00                ; Minimum pixel y-coordinate: 0
   DEFB $A0                ; Maximum pixel y-coordinate: 80
 ; The following entity definition (0x47) is used in The Nightmare Room.
@@ -5234,7 +4702,7 @@ ENTITY71:
   DEFB $20                ; Initial pixel y-coordinate: 16
   DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
                           ; down)
-  DEFB $9C                ; Page containing the sprite graphic data: 9C
+  DEFB MARIA0/$100        ; Page containing the sprite graphic data: 9C
   DEFB $00                ; Minimum pixel y-coordinate: 0
   DEFB $D0                ; Maximum pixel y-coordinate: 104
 ; The following entity definition (0x48) is used in The Nightmare Room.
@@ -5249,7 +4717,7 @@ ENTITY72:
   DEFB $90                ; Initial pixel y-coordinate: 72
   DEFB $06                ; Initial pixel y-coordinate increment: 3 (moving
                           ; down)
-  DEFB $9C                ; Page containing the sprite graphic data: 9C
+  DEFB MARIA0/$100        ; Page containing the sprite graphic data: 9C
   DEFB $00                ; Minimum pixel y-coordinate: 0
   DEFB $C0                ; Maximum pixel y-coordinate: 96
 ; The following entity definition (0x49) is used in The Nightmare Room.
@@ -5265,7 +4733,7 @@ ENTITY73:
   DEFB $80                ; Initial pixel y-coordinate: 64
   DEFB $F8                ; Initial pixel y-coordinate increment: -4 (moving
                           ; up)
-  DEFB $9C                ; Page containing the sprite graphic data: 9C
+  DEFB MARIA0/$100        ; Page containing the sprite graphic data: 9C
   DEFB $10                ; Minimum pixel y-coordinate: 8
   DEFB $D0                ; Maximum pixel y-coordinate: 104
 ; The following entity definition (0x4A) is used in The Forgotten Abbey.
@@ -6087,6 +5555,8 @@ ITEMTABLE2:
   DEFB $C8                ; Item 254 at (14,8) in The Banyan Tree
   DEFB $B7                ; Item 255 at (13,23) in The Bathroom
 
+  DEFS $0200
+
 ; Toilet graphics
 ;
 ; Used by the routine at DRAWTOILET.
@@ -6103,16 +5573,60 @@ TOILET3:
   DEFB $00,$0F,$04,$3F,$1E,$2F,$3B,$2F,$5D,$8F,$0E,$8F,$07,$CF,$0F,$CF
   DEFB $00,$08,$3F,$F8,$3F,$F0,$3F,$EE,$1F,$DF,$1F,$DB,$0F,$FB,$0F,$FB
 
-; Unused
-  DEFB $80,$80,$80,$80,$8C,$8F,$8F,$8F,$8F,$8F,$80,$80,$BF,$8F,$8F,$8F
-  DEFB $85,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80
-  DEFB $80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80
-  DEFB $80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80
-  DEFB $80,$80,$BF,$BF,$BF,$BF,$BF,$BF,$BF,$BF,$BF,$8F,$B3,$B0,$B0,$80
-  DEFB $85,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80
-  DEFB $80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80
-  DEFB $80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80
-  DEFS $0400
+  DEFS $C0
+
+; Foot/barrel graphic data
+;
+; Used by the routine at GAMEOVER to display the game over sequence.
+;
+; The foot also appears as a guardian in The Nightmare Room.
+FOOT:
+  DEFB $10,$80,$10,$80,$10,$80,$10,$80,$10,$80,$10,$80,$10,$80,$20,$80
+  DEFB $20,$80,$48,$42,$88,$35,$84,$09,$80,$01,$80,$02,$43,$8D,$3C,$76
+; The barrel also appears as a guardian in Ballroom East and Top Landing.
+BARREL:
+  DEFB $37,$EC,$77,$EE,$00,$00,$6F,$F6,$EF,$F7,$EF,$F7,$D5,$5B,$DB,$BB
+  DEFB $D5,$5B,$DF,$FB,$ED,$77,$EE,$F7,$6D,$76,$00,$00,$77,$EE,$37,$EC
+
+; Maria sprite graphic data
+;
+; Used by the routine at BEDANDBATH to draw Maria in Master Bedroom.
+;
+; Maria also appears as a guardian in The Nightmare Room.
+MARIA0:
+  DEFB $03,$00,$03,$C0,$01,$E0,$01,$40,$01,$E0,$07,$80,$1F,$F8,$3F,$FC
+  DEFB $37,$6C,$14,$98,$0F,$F0,$0F,$F0,$0F,$F0,$02,$40,$02,$40,$06,$60
+MARIA1:
+  DEFB $03,$00,$03,$C0,$01,$E0,$01,$40,$01,$E0,$07,$80,$1F,$F8,$3F,$FC
+  DEFB $37,$6C,$14,$98,$0F,$F0,$0F,$F0,$0F,$F0,$02,$40,$06,$40,$02,$60
+MARIA2:
+  DEFB $03,$00,$03,$C0,$01,$E0,$01,$40,$01,$E0,$07,$80,$1F,$FC,$3F,$FE
+  DEFB $37,$66,$14,$92,$0F,$F0,$0F,$F0,$0F,$F0,$02,$40,$02,$40,$06,$60
+MARIA3:
+  DEFB $03,$00,$03,$C0,$01,$E0,$01,$40,$01,$E0,$07,$80,$1F,$FF,$3F,$FE
+  DEFB $37,$60,$14,$90,$0F,$F0,$0F,$F0,$0F,$F0,$02,$40,$02,$40,$06,$60
+
+; Willy sprite graphic data
+;
+; Used by the routines at DRAWLIVES, GAMEOVER and DRAWWILLY.
+MANDAT:
+  DEFB $3C,$00,$3C,$00,$7E,$00,$34,$00,$3E,$00,$3C,$00,$18,$00,$3C,$00
+  DEFB $7E,$00,$7E,$00,$F7,$00,$FB,$00,$3C,$00,$76,$00,$6E,$00,$77,$00
+  DEFB $0F,$00,$0F,$00,$1F,$80,$0D,$00,$0F,$80,$0F,$00,$06,$00,$0F,$00
+  DEFB $1B,$80,$1B,$80,$1B,$80,$1D,$80,$0F,$00,$06,$00,$06,$00,$07,$00
+WILLYR2:
+  DEFB $03,$C0,$03,$C0,$07,$E0,$03,$40,$03,$E0,$03,$C0,$01,$80,$03,$C0
+  DEFB $07,$E0,$07,$E0,$0F,$70,$0F,$B0,$03,$C0,$07,$60,$06,$E0,$07,$70
+  DEFB $00,$F0,$00,$F0,$01,$F8,$00,$D0,$00,$F8,$00,$F0,$00,$60,$00,$F0
+  DEFB $01,$F8,$03,$FC,$07,$FE,$06,$F6,$00,$F8,$01,$DA,$03,$0E,$03,$8C
+  DEFB $0F,$00,$0F,$00,$1F,$80,$0B,$00,$1F,$00,$0F,$00,$06,$00,$0F,$00
+  DEFB $1F,$80,$3F,$C0,$7F,$E0,$6F,$60,$1F,$00,$5B,$80,$70,$C0,$31,$C0
+  DEFB $03,$C0,$03,$C0,$07,$E0,$02,$C0,$07,$C0,$03,$C0,$01,$80,$03,$C0
+  DEFB $07,$E0,$07,$E0,$0E,$F0,$0D,$F0,$03,$C0,$06,$E0,$07,$60,$0E,$E0
+  DEFB $00,$F0,$00,$F0,$01,$F8,$00,$B0,$01,$F0,$00,$F0,$00,$60,$00,$F0
+  DEFB $01,$D8,$01,$D8,$01,$D8,$01,$B8,$00,$F0,$00,$60,$00,$60,$00,$E0
+  DEFB $00,$3C,$00,$3C,$00,$7E,$00,$2C,$00,$7C,$00,$3C,$00,$18,$00,$3C
+  DEFB $00,$7E,$00,$7E,$00,$EF,$00,$DF,$00,$3C,$00,$6E,$00,$76,$00,$EE
 
 ; Guardian graphics
 ;
