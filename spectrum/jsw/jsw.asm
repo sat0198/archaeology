@@ -4,6 +4,11 @@
 ; Copyright 1984 Software Projects Ltd (Jet Set Willy)
 ; Copyright 2012-2016 Richard Dymond (this disassembly)
 
+FATTR:  EQU $5C00
+RATTR:  EQU $5E00
+FPIXL:  EQU $6000
+RPIXL:  EQU $7000
+
   ORG $8000
 
 ; Room layout
@@ -50,7 +55,7 @@ CONVDIR:
                           ; MOVEWILLY2 and MVCONVEYOR)
 CONVLOC:
   DEFW $0000              ; Address of the conveyor's location in the attribute
-                          ; buffer at 24064 (used by the routines at ROOMATTRS
+                          ; buffer at RATTR (used by the routines at ROOMATTRS
                           ; and MVCONVEYOR)
 CONVLEN:
   DEFB $00                ; Length (used by the routines at ROOMATTRS and
@@ -65,7 +70,7 @@ RAMPDIR:
                           ; WILLYATTRS)
 RAMPLOC:
   DEFW $0000              ; Address of the location of the bottom of the ramp
-                          ; in the attribute buffer at 24064 (used by the
+                          ; in the attribute buffer at RATTR (used by the
                           ; routine at ROOMATTRS)
 RAMPLEN:
   DEFB $00                ; Length (used by the routine at ROOMATTRS)
@@ -250,134 +255,134 @@ EBOVERFLOW:
 ; the point with pixel coordinates (x,y)=(0,N), with the origin (0,0) at the
 ; top-left corner.
 SBUFADDRS:
-  DEFW $6000              ; y=0
-  DEFW $6100              ; y=1
-  DEFW $6200              ; y=2
-  DEFW $6300              ; y=3
-  DEFW $6400              ; y=4
-  DEFW $6500              ; y=5
-  DEFW $6600              ; y=6
-  DEFW $6700              ; y=7
-  DEFW $6020              ; y=8
-  DEFW $6120              ; y=9
-  DEFW $6220              ; y=10
-  DEFW $6320              ; y=11
-  DEFW $6420              ; y=12
-  DEFW $6520              ; y=13
-  DEFW $6620              ; y=14
-  DEFW $6720              ; y=15
-  DEFW $6040              ; y=16
-  DEFW $6140              ; y=17
-  DEFW $6240              ; y=18
-  DEFW $6340              ; y=19
-  DEFW $6440              ; y=20
-  DEFW $6540              ; y=21
-  DEFW $6640              ; y=22
-  DEFW $6740              ; y=23
-  DEFW $6060              ; y=24
-  DEFW $6160              ; y=25
-  DEFW $6260              ; y=26
-  DEFW $6360              ; y=27
-  DEFW $6460              ; y=28
-  DEFW $6560              ; y=29
-  DEFW $6660              ; y=30
-  DEFW $6760              ; y=31
-  DEFW $6080              ; y=32
-  DEFW $6180              ; y=33
-  DEFW $6280              ; y=34
-  DEFW $6380              ; y=35
-  DEFW $6480              ; y=36
-  DEFW $6580              ; y=37
-  DEFW $6680              ; y=38
-  DEFW $6780              ; y=39
-  DEFW $60A0              ; y=40
-  DEFW $61A0              ; y=41
-  DEFW $62A0              ; y=42
-  DEFW $63A0              ; y=43
-  DEFW $64A0              ; y=44
-  DEFW $65A0              ; y=45
-  DEFW $66A0              ; y=46
-  DEFW $67A0              ; y=47
-  DEFW $60C0              ; y=48
-  DEFW $61C0              ; y=49
-  DEFW $62C0              ; y=50
-  DEFW $63C0              ; y=51
-  DEFW $64C0              ; y=52
-  DEFW $65C0              ; y=53
-  DEFW $66C0              ; y=54
-  DEFW $67C0              ; y=55
-  DEFW $60E0              ; y=56
-  DEFW $61E0              ; y=57
-  DEFW $62E0              ; y=58
-  DEFW $63E0              ; y=59
-  DEFW $64E0              ; y=60
-  DEFW $65E0              ; y=61
-  DEFW $66E0              ; y=62
-  DEFW $67E0              ; y=63
-  DEFW $6800              ; y=64
-  DEFW $6900              ; y=65
-  DEFW $6A00              ; y=66
-  DEFW $6B00              ; y=67
-  DEFW $6C00              ; y=68
-  DEFW $6D00              ; y=69
-  DEFW $6E00              ; y=70
-  DEFW $6F00              ; y=71
-  DEFW $6820              ; y=72
-  DEFW $6920              ; y=73
-  DEFW $6A20              ; y=74
-  DEFW $6B20              ; y=75
-  DEFW $6C20              ; y=76
-  DEFW $6D20              ; y=77
-  DEFW $6E20              ; y=78
-  DEFW $6F20              ; y=79
-  DEFW $6840              ; y=80
-  DEFW $6940              ; y=81
-  DEFW $6A40              ; y=82
-  DEFW $6B40              ; y=83
-  DEFW $6C40              ; y=84
-  DEFW $6D40              ; y=85
-  DEFW $6E40              ; y=86
-  DEFW $6F40              ; y=87
-  DEFW $6860              ; y=88
-  DEFW $6960              ; y=89
-  DEFW $6A60              ; y=90
-  DEFW $6B60              ; y=91
-  DEFW $6C60              ; y=92
-  DEFW $6D60              ; y=93
-  DEFW $6E60              ; y=94
-  DEFW $6F60              ; y=95
-  DEFW $6880              ; y=96
-  DEFW $6980              ; y=97
-  DEFW $6A80              ; y=98
-  DEFW $6B80              ; y=99
-  DEFW $6C80              ; y=100
-  DEFW $6D80              ; y=101
-  DEFW $6E80              ; y=102
-  DEFW $6F80              ; y=103
-  DEFW $68A0              ; y=104
-  DEFW $69A0              ; y=105
-  DEFW $6AA0              ; y=106
-  DEFW $6BA0              ; y=107
-  DEFW $6CA0              ; y=108
-  DEFW $6DA0              ; y=109
-  DEFW $6EA0              ; y=110
-  DEFW $6FA0              ; y=111
-  DEFW $68C0              ; y=112
-  DEFW $69C0              ; y=113
-  DEFW $6AC0              ; y=114
-  DEFW $6BC0              ; y=115
-  DEFW $6CC0              ; y=116
-  DEFW $6DC0              ; y=117
-  DEFW $6EC0              ; y=118
-  DEFW $6FC0              ; y=119
-  DEFW $68E0              ; y=120
-  DEFW $69E0              ; y=121
-  DEFW $6AE0              ; y=122
-  DEFW $6BE0              ; y=123
-  DEFW $6CE0              ; y=124
-  DEFW $6DE0              ; y=125
-  DEFW $6EE0              ; y=126
-  DEFW $6FE0              ; y=127
+  DEFW FPIXL+$0000        ; y=0
+  DEFW FPIXL+$0100        ; y=1
+  DEFW FPIXL+$0200        ; y=2
+  DEFW FPIXL+$0300        ; y=3
+  DEFW FPIXL+$0400        ; y=4
+  DEFW FPIXL+$0500        ; y=5
+  DEFW FPIXL+$0600        ; y=6
+  DEFW FPIXL+$0700        ; y=7
+  DEFW FPIXL+$0020        ; y=8
+  DEFW FPIXL+$0120        ; y=9
+  DEFW FPIXL+$0220        ; y=10
+  DEFW FPIXL+$0320        ; y=11
+  DEFW FPIXL+$0420        ; y=12
+  DEFW FPIXL+$0520        ; y=13
+  DEFW FPIXL+$0620        ; y=14
+  DEFW FPIXL+$0720        ; y=15
+  DEFW FPIXL+$0040        ; y=16
+  DEFW FPIXL+$0140        ; y=17
+  DEFW FPIXL+$0240        ; y=18
+  DEFW FPIXL+$0340        ; y=19
+  DEFW FPIXL+$0440        ; y=20
+  DEFW FPIXL+$0540        ; y=21
+  DEFW FPIXL+$0640        ; y=22
+  DEFW FPIXL+$0740        ; y=23
+  DEFW FPIXL+$0060        ; y=24
+  DEFW FPIXL+$0160        ; y=25
+  DEFW FPIXL+$0260        ; y=26
+  DEFW FPIXL+$0360        ; y=27
+  DEFW FPIXL+$0460        ; y=28
+  DEFW FPIXL+$0560        ; y=29
+  DEFW FPIXL+$0660        ; y=30
+  DEFW FPIXL+$0760        ; y=31
+  DEFW FPIXL+$0080        ; y=32
+  DEFW FPIXL+$0180        ; y=33
+  DEFW FPIXL+$0280        ; y=34
+  DEFW FPIXL+$0380        ; y=35
+  DEFW FPIXL+$0480        ; y=36
+  DEFW FPIXL+$0580        ; y=37
+  DEFW FPIXL+$0680        ; y=38
+  DEFW FPIXL+$0780        ; y=39
+  DEFW FPIXL+$00A0        ; y=40
+  DEFW FPIXL+$01A0        ; y=41
+  DEFW FPIXL+$02A0        ; y=42
+  DEFW FPIXL+$03A0        ; y=43
+  DEFW FPIXL+$04A0        ; y=44
+  DEFW FPIXL+$05A0        ; y=45
+  DEFW FPIXL+$06A0        ; y=46
+  DEFW FPIXL+$07A0        ; y=47
+  DEFW FPIXL+$00C0        ; y=48
+  DEFW FPIXL+$01C0        ; y=49
+  DEFW FPIXL+$02C0        ; y=50
+  DEFW FPIXL+$03C0        ; y=51
+  DEFW FPIXL+$04C0        ; y=52
+  DEFW FPIXL+$05C0        ; y=53
+  DEFW FPIXL+$06C0        ; y=54
+  DEFW FPIXL+$07C0        ; y=55
+  DEFW FPIXL+$00E0        ; y=56
+  DEFW FPIXL+$01E0        ; y=57
+  DEFW FPIXL+$02E0        ; y=58
+  DEFW FPIXL+$03E0        ; y=59
+  DEFW FPIXL+$04E0        ; y=60
+  DEFW FPIXL+$05E0        ; y=61
+  DEFW FPIXL+$06E0        ; y=62
+  DEFW FPIXL+$07E0        ; y=63
+  DEFW FPIXL+$0800        ; y=64
+  DEFW FPIXL+$0900        ; y=65
+  DEFW FPIXL+$0A00        ; y=66
+  DEFW FPIXL+$0B00        ; y=67
+  DEFW FPIXL+$0C00        ; y=68
+  DEFW FPIXL+$0D00        ; y=69
+  DEFW FPIXL+$0E00        ; y=70
+  DEFW FPIXL+$0F00        ; y=71
+  DEFW FPIXL+$0820        ; y=72
+  DEFW FPIXL+$0920        ; y=73
+  DEFW FPIXL+$0A20        ; y=74
+  DEFW FPIXL+$0B20        ; y=75
+  DEFW FPIXL+$0C20        ; y=76
+  DEFW FPIXL+$0D20        ; y=77
+  DEFW FPIXL+$0E20        ; y=78
+  DEFW FPIXL+$0F20        ; y=79
+  DEFW FPIXL+$0840        ; y=80
+  DEFW FPIXL+$0940        ; y=81
+  DEFW FPIXL+$0A40        ; y=82
+  DEFW FPIXL+$0B40        ; y=83
+  DEFW FPIXL+$0C40        ; y=84
+  DEFW FPIXL+$0D40        ; y=85
+  DEFW FPIXL+$0E40        ; y=86
+  DEFW FPIXL+$0F40        ; y=87
+  DEFW FPIXL+$0860        ; y=88
+  DEFW FPIXL+$0960        ; y=89
+  DEFW FPIXL+$0A60        ; y=90
+  DEFW FPIXL+$0B60        ; y=91
+  DEFW FPIXL+$0C60        ; y=92
+  DEFW FPIXL+$0D60        ; y=93
+  DEFW FPIXL+$0E60        ; y=94
+  DEFW FPIXL+$0F60        ; y=95
+  DEFW FPIXL+$0880        ; y=96
+  DEFW FPIXL+$0980        ; y=97
+  DEFW FPIXL+$0A80        ; y=98
+  DEFW FPIXL+$0B80        ; y=99
+  DEFW FPIXL+$0C80        ; y=100
+  DEFW FPIXL+$0D80        ; y=101
+  DEFW FPIXL+$0E80        ; y=102
+  DEFW FPIXL+$0F80        ; y=103
+  DEFW FPIXL+$08A0        ; y=104
+  DEFW FPIXL+$09A0        ; y=105
+  DEFW FPIXL+$0AA0        ; y=106
+  DEFW FPIXL+$0BA0        ; y=107
+  DEFW FPIXL+$0CA0        ; y=108
+  DEFW FPIXL+$0DA0        ; y=109
+  DEFW FPIXL+$0EA0        ; y=110
+  DEFW FPIXL+$0FA0        ; y=111
+  DEFW FPIXL+$08C0        ; y=112
+  DEFW FPIXL+$09C0        ; y=113
+  DEFW FPIXL+$0AC0        ; y=114
+  DEFW FPIXL+$0BC0        ; y=115
+  DEFW FPIXL+$0CC0        ; y=116
+  DEFW FPIXL+$0DC0        ; y=117
+  DEFW FPIXL+$0EC0        ; y=118
+  DEFW FPIXL+$0FC0        ; y=119
+  DEFW FPIXL+$08E0        ; y=120
+  DEFW FPIXL+$09E0        ; y=121
+  DEFW FPIXL+$0AE0        ; y=122
+  DEFW FPIXL+$0BE0        ; y=123
+  DEFW FPIXL+$0CE0        ; y=124
+  DEFW FPIXL+$0DE0        ; y=125
+  DEFW FPIXL+$0EE0        ; y=126
+  DEFW FPIXL+$0FE0        ; y=127
 
 ; Rope animation table
 ;
@@ -669,7 +674,7 @@ INITSTATE:
   DEFB $00                ; Airborne status indicator (copied from AIRBORNE)
   DEFB $00                ; Willy's animation frame (copied from FRAME)
   DEFW $0000              ; Address of Willy's location in the attribute buffer
-                          ; at 23552 (copied from LOCATION)
+                          ; at FATTR (copied from LOCATION)
   DEFB $00                ; Jumping animation counter (copied from JUMPING)
 
 ; 256 minus the number of items remaining
@@ -814,7 +819,7 @@ TITLESCREEN:
   LD (PIXEL_Y),A
   LD A,$21                ; Initialise the current room number at ROOM to 33
   LD (ROOM),A             ; (The Bathroom)
-  LD HL,$5DB4             ; Initialise Willy's coordinates at LOCATION to
+  LD HL,FATTR+$01B4       ; Initialise Willy's coordinates at LOCATION to
   LD (LOCATION),HL        ; (13,20)
   LD HL,MSG_ITEMS         ; Initialise the number of items collected at
   LD (HL),$30             ; MSG_ITEMS to "000"
@@ -1010,7 +1015,7 @@ INITROOM:
 INITROOM_0:
   LD L,(IX+$00)           ; Pick up the first byte of the entity specification
   RES 7,L                 ; Point HL at the corresponding entry in the table of
-  LD H,$14                ; entity definitions at ENTITYDEFS
+  LD H,ENTITYDEFS/$800    ; entity definitions at ENTITYDEFS
   ADD HL,HL
   ADD HL,HL
   ADD HL,HL
@@ -1029,8 +1034,6 @@ INITROOM_0:
   LD DE,INITSTATE         ; (position, animation frame etc.) on entry to this
   LD BC,$0007             ; room from 85CF-85D5 to INITSTATE
   LDIR
-  CALL DRAWROOM           ; Draw the current room to the screen buffer at 28672
-                          ; and the attribute buffer at 24064
   LD HL,$5000             ; Clear the bottom third of the display file
   LD DE,$5001
   LD BC,$07FF
@@ -1050,6 +1053,8 @@ INITROOM_0:
   OUT (C),A
   XOR A                   ; Initialise the rope status indicator at ROPE to 0
   LD (ROPE),A
+  CALL DRAWROOM           ; Draw the current room to the screen buffer at RPIXL
+                          ; and the attribute buffer at RATTR
   JP MAINLOOP             ; Enter the main loop
 
 ; Draw the remaining lives
@@ -1090,13 +1095,13 @@ DRAWLIVES_0:
 ; Used by the routines at STARTGAME and ENDPAUSE.
 MAINLOOP:
   CALL DRAWLIVES          ; Draw the remaining lives
-  LD HL,$5E00             ; Copy the contents of the attribute buffer at 24064
-  LD DE,$5C00             ; (the attributes for the empty room) into the
-  LD BC,$0200             ; attribute buffer at 23552
+  LD HL,RATTR             ; Copy the contents of the attribute buffer at RATTR
+  LD DE,FATTR             ; (the attributes for the empty room) into the
+  LD BC,$0200             ; attribute buffer at FATTR
   LDIR
-  LD HL,$7000             ; Copy the contents of the screen buffer at 28672
-  LD DE,$6000             ; (the tiles for the empty room) into the screen
-  LD BC,$1000             ; buffer at 24576
+  LD HL,RPIXL             ; Copy the contents of the screen buffer at RPIXL
+  LD DE,FPIXL             ; (the tiles for the empty room) into the screen
+  LD BC,$1000             ; buffer at FPIXL
   LDIR
   CALL MOVETHINGS         ; Move the rope and guardians in the current room
   LD A,(MODE)             ; Pick up the game mode indicator from MODE
@@ -1111,8 +1116,8 @@ AFTERMOVE2:
   LD A,(MODE)             ; Pick up the game mode indicator from MODE
   CP $03                  ; Is Willy's head down the toilet?
   CALL NZ,WILLYATTRS      ; If not, check and set the attribute bytes for
-                          ; Willy's sprite in the buffer at 23552, and draw
-                          ; Willy to the screen buffer at 24576
+                          ; Willy's sprite in the buffer at FATTR, and draw
+                          ; Willy to the screen buffer at FPIXL
   LD A,(MODE)             ; Pick up the game mode indicator from MODE
   CP $02                  ; Is Willy on his way to the toilet?
   CALL Z,CHKTOILET        ; If so, check whether he's reached it yet
@@ -1126,7 +1131,7 @@ AFTERMOVE2:
                           ; any) and collect any that Willy is touching
 ; This entry point is used by the routine at KILLWILLY.
 MAINLOOP_0:
-  LD HL,$6000             ; Copy the contents of the screen buffer at 24576 to
+  LD HL,FPIXL             ; Copy the contents of the screen buffer at FPIXL to
   LD DE,$4000             ; the display file
   LD BC,$1000
   LDIR
@@ -1150,14 +1155,14 @@ SCRFLASH:
   RLCA                    ; bits
   RLCA
   AND $38
-  LD HL,$5C00             ; Set every attribute byte in the buffer at 23552 to
-  LD DE,$5C01             ; this value
+  LD HL,FATTR             ; Set every attribute byte in the buffer at FATTR to
+  LD DE,FATTR+$01         ; this value
   LD BC,$01FF
   LD (HL),A
   LDIR
 ; Normal service resumes here.
 MAINLOOP_1:
-  LD HL,$5C00             ; Copy the contents of the attribute buffer at 23552
+  LD HL,FATTR             ; Copy the contents of the attribute buffer at FATTR
   LD DE,$5800             ; to the attribute file
   LD BC,$0200
   LDIR
@@ -1511,7 +1516,7 @@ GAMEOVER_0:
   LD L,A
   INC BC
   LD A,(BC)
-  SUB $20
+  SUB FPIXL/$100-$40
   LD H,A
   LD DE,FOOT              ; Draw the foot at this location, without erasing the
   LD C,$00                ; foot at the previous location; this leaves the
@@ -1612,27 +1617,23 @@ GAMEOVER_3:
 ;
 ; Used by the routine at STARTGAME.
 DRAWROOM:
-  CALL ROOMATTRS          ; Fill the buffer at 24064 with attribute bytes for
+  CALL ROOMATTRS          ; Fill the buffer at RATTR with attribute bytes for
                           ; the current room
-  LD IX,$5E00             ; Point IX at the first byte of the attribute buffer
-                          ; at 24064
-  LD A,$70                ; Set the operand of the 'LD D,n' instruction at
+  LD IX,RATTR             ; Point IX at the first byte of the attribute buffer
+                          ; at RATTR
+  LD A,RPIXL/$100         ; Set the operand of the 'LD D,n' instruction at
   LD (BUFMSB+1),A         ; BUFMSB (below) to $70
   CALL DRAWROOM_0         ; Draw the tiles for the top half of the room to the
-                          ; screen buffer at 28672
-  LD IX,$5F00             ; Point IX at the 256th byte of the attribute buffer
-                          ; at 24064 in preparation for drawing the bottom half
-                          ; of the room; this instruction is redundant, since
-                          ; IX already holds 5F00
-  LD A,$78                ; Set the operand of the 'LD D,n' instruction at
+                          ; screen buffer at RPIXL
+  LD A,RPIXL/$100+$08     ; Set the operand of the 'LD D,n' instruction at
   LD (BUFMSB+1),A         ; BUFMSB (below) to $78
 DRAWROOM_0:
   LD C,$00                ; C will count 256 tiles
 ; The following loop draws 256 tiles (for either the top half or the bottom
-; half of the room) to the screen buffer at 28672.
+; half of the room) to the screen buffer at RPIXL.
 DRAWROOM_1:
   LD E,C                  ; E holds the LSB of the screen buffer address
-  LD A,(IX+$00)           ; Pick up an attribute byte from the buffer at 24064;
+  LD A,(IX+$00)           ; Pick up an attribute byte from the buffer at RATTR;
                           ; this identifies the type of tile (background,
                           ; floor, wall, nasty, ramp or conveyor) to be drawn
   LD HL,BACKGROUND        ; Move HL through the attribute bytes and graphic
@@ -1647,10 +1648,10 @@ DRAWROOM_1:
 BUFMSB:
   LD D,$00                ; This instruction is set to either 'LD D,$70' or 'LD
                           ; D,$78' above; now DE holds the appropriate address
-                          ; in the screen buffer at 28672
+                          ; in the screen buffer at RPIXL
 DRAWROOM_2:
   LD A,(HL)               ; Copy the tile graphic data to the screen buffer at
-  LD (DE),A               ; 28672
+  LD (DE),A               ; RPIXL
   INC HL
   INC D
   DJNZ DRAWROOM_2
@@ -1662,38 +1663,38 @@ DRAWROOM_2:
 
 ; Fill the buffer at 5E00 with attribute bytes for the current room
 ;
-; Used by the routine at DRAWROOM. Fills the buffer at 24064 with attribute
+; Used by the routine at DRAWROOM. Fills the buffer at RATTR with attribute
 ; bytes for the background, floor, wall, nasty, conveyor and ramp tiles in the
 ; current room.
 ROOMATTRS:
   LD HL,ROOMLAYOUT        ; Point HL at the first room layout byte at
                           ; ROOMLAYOUT
-  LD IX,$5E00             ; Point IX at the first byte of the attribute buffer
-                          ; at 24064
+  LD IX,RATTR             ; Point IX at the first byte of the attribute buffer
+                          ; at RATTR
 ; The following loop copies the attribute bytes for the background, floor, wall
-; and nasty tiles into the buffer at 24064.
+; and nasty tiles into the buffer at RATTR.
 ROOMATTRS_0:
   LD A,(HL)               ; Pick up a room layout byte
   RLCA                    ; Move bits 6 and 7 into bits 0 and 1
   RLCA
   CALL ROOMATTR           ; Copy the attribute byte for this tile into the
-                          ; buffer at 24064
+                          ; buffer at RATTR
   LD A,(HL)               ; Pick up the room layout byte again
   RRCA                    ; Move bits 4 and 5 into bits 0 and 1
   RRCA
   RRCA
   RRCA
   CALL ROOMATTR           ; Copy the attribute byte for this tile into the
-                          ; buffer at 24064
+                          ; buffer at RATTR
   LD A,(HL)               ; Pick up the room layout byte again
   RRCA                    ; Move bits 2 and 3 into bits 0 and 1
   RRCA
   CALL ROOMATTR           ; Copy the attribute byte for this tile into the
-                          ; buffer at 24064
+                          ; buffer at RATTR
   LD A,(HL)               ; Pick up the room layout byte again; this time the
                           ; required bit-pair is already in bits 0 and 1
   CALL ROOMATTR           ; Copy the attribute byte for this tile into the
-                          ; buffer at 24064
+                          ; buffer at RATTR
   INC HL                  ; Point HL at the next room layout byte
   LD A,L                  ; Have we processed all 128 room layout bytes yet?
   AND $80
@@ -1703,13 +1704,13 @@ ROOMATTRS_0:
   OR A                    ; Is there a conveyor in the room?
   JR Z,ROOMATTRS_2        ; Jump if not
   LD HL,(CONVLOC)         ; Pick up the address of the conveyor's location in
-                          ; the attribute buffer at 24064 from CONVLOC
+                          ; the attribute buffer at RATTR from CONVLOC
   LD B,A                  ; B will count the conveyor tiles
   LD A,(CONVEYOR)         ; Pick up the attribute byte for the conveyor tile
                           ; from CONVEYOR
 ROOMATTRS_1:
   LD (HL),A               ; Copy the attribute bytes for the conveyor tiles
-  INC HL                  ; into the buffer at 24064
+  INC HL                  ; into the buffer at RATTR
   DJNZ ROOMATTRS_1
 ; And finally consider the ramp tiles (if any).
 ROOMATTRS_2:
@@ -1717,7 +1718,7 @@ ROOMATTRS_2:
   OR A                    ; Is there a ramp in the room?
   RET Z                   ; Return if not
   LD HL,(RAMPLOC)         ; Pick up the address of the ramp's location in the
-                          ; attribute buffer at 24064 from RAMPLOC
+                          ; attribute buffer at RATTR from RAMPLOC
   LD A,(RAMPDIR)          ; Pick up the ramp direction from RAMPDIR; A=0 (ramp
   AND $01                 ; goes up to the left) or 1 (ramp goes up to the
                           ; right)
@@ -1731,7 +1732,7 @@ ROOMATTRS_2:
                           ; RAMP
 ROOMATTRS_3:
   LD (HL),A               ; Copy the attribute bytes for the ramp tiles into
-  ADD HL,DE               ; the buffer at 24064
+  ADD HL,DE               ; the buffer at RATTR
   DJNZ ROOMATTRS_3
   RET
 
@@ -1754,7 +1755,7 @@ ROOMATTR:
   ADD A,$A0
   LD E,A                  ; Point DE at the attribute byte for the background,
   LD D,ROOMLAYOUT/256     ; floor, wall or nasty tile (see BACKGROUND)
-  LD A,(DE)               ; Copy the attribute byte into the buffer at 24064
+  LD A,(DE)               ; Copy the attribute byte into the buffer at RATTR
   LD (IX+$00),A
   INC IX                  ; Move IX along to the next byte in the attribute
                           ; buffer
@@ -1842,9 +1843,10 @@ MOVEWILLY_3:
                           ; LOCATION
   LD DE,$0040             ; Point HL at the left-hand cell below Willy's sprite
   ADD HL,DE
-  BIT 1,H                 ; Is this location below the floor of the current
+  LD A,FATTR/$100+$02     ; Is this location below the floor of the current
                           ; room?
-  JP NZ,ROOMBELOW         ; If so, move Willy into the room below
+  CP H
+  JP Z,ROOMBELOW          ; If so, move Willy into the room below
   LD A,(NASTY)            ; Pick up the attribute byte of the nasty tile for
                           ; the current room from NASTY
   CP (HL)                 ; Does the left-hand cell below Willy's sprite
@@ -1912,7 +1914,7 @@ MOVEWILLY_8:
   XOR A                   ; Clear A and the carry flag
   RL L                    ; Now L=32*(Y-8*INT(Y/8)), and the carry flag is set
                           ; if Willy is in the lower half of the room (Y>=8)
-  ADC A,$5C               ; H=92 or 93 (MSB of the address of Willy's location
+  ADC A,FATTR/$100        ; H=92 or 93 (MSB of the address of Willy's location
   LD H,A                  ; in the attribute buffer)
   LD A,(LOCATION)         ; Pick up Willy's screen x-coordinate (0-30) from
   AND $1F                 ; bits 0-4 at LOCATION
@@ -2491,7 +2493,7 @@ MOVETHINGS_13:
 ; Draw the rope, arrows and guardians in the current room
 ;
 ; Used by the routine at MAINLOOP. Draws the rope, arrows and guardians in the
-; current room to the screen buffer at 24576.
+; current room to the screen buffer at FPIXL.
 DRAWTHINGS:
   LD IX,ENTITYBUF         ; Point IX at the first byte of the first entity
                           ; buffer at ENTITYBUF
@@ -2522,7 +2524,7 @@ DRAWTHINGS_0:
   LD A,E                  ; Copy the fourth byte of the guardian's buffer to A
   RLCA                    ; H=92 or 93; now HL holds the address of the
   AND $01                 ; guardian's current location in the attribute buffer
-  OR $5C                  ; at 23552
+  OR FATTR/$100           ; at FATTR
   LD H,A
   LD DE,$001F             ; Prepare DE for later addition
   LD A,(IX+$01)           ; Pick up the second byte of the guardian's buffer
@@ -2533,11 +2535,11 @@ DRAWTHINGS_0:
                           ; value)
   LD C,A                  ; Save this value in C temporarily
   LD A,(HL)               ; Pick up the room attribute byte at the guardian's
-                          ; location from the buffer at 23552
+                          ; location from the buffer at FATTR
   AND $38                 ; Keep only bits 3-5 (PAPER colour)
   XOR C                   ; Merge the INK colour and BRIGHT value from C
   LD C,A                  ; Copy this attribute value to C
-  LD (HL),C               ; Set the attribute bytes in the buffer at 23552 for
+  LD (HL),C               ; Set the attribute bytes in the buffer at FATTR for
   INC HL                  ; the top two rows of cells occupied by the
   LD (HL),C               ; guardian's sprite
   ADD HL,DE
@@ -2548,7 +2550,7 @@ DRAWTHINGS_0:
   AND $0E                 ; Does the guardian's sprite occupy only two rows of
                           ; cells at the moment?
   JR Z,DRAWTHINGS_1       ; Jump if so
-  ADD HL,DE               ; Set the attribute bytes in the buffer at 23552 for
+  ADD HL,DE               ; Set the attribute bytes in the buffer at FATTR for
   LD (HL),C               ; the third row of cells occupied by the guardian's
   INC HL                  ; sprite
   LD (HL),C
@@ -2561,7 +2563,7 @@ DRAWTHINGS_1:
   LD E,A                  ; Point DE at the graphic data for the guardian's
   LD D,(IX+$05)           ; current animation frame (see GUARDIANS)
   LD H,SBUFADDRS/256      ; Point HL at the guardian's current location in the
-  LD L,(IX+$03)           ; screen buffer at 24576
+  LD L,(IX+$03)           ; screen buffer at FPIXL
   LD A,(IX+$02)
   AND $1F
   OR (HL)
@@ -2610,10 +2612,10 @@ DRAWTHINGS_7:
   LD A,(DE)               ; Pick up the LSB of the screen buffer address
   ADD A,(IX+$04)          ; Adjust it for the arrow's x-coordinate
   LD L,A                  ; Point HL at the arrow's current location in the
-  LD A,E                  ; attribute buffer at 23552
+  LD A,E                  ; attribute buffer at FATTR
   AND $80
   RLCA
-  OR $5C
+  OR FATTR/$100
   LD H,A
   LD (IX+$05),$00         ; Initialise the collision detection byte (0=off,
                           ; 255=on)
@@ -2630,18 +2632,18 @@ DRAWTHINGS_8:
   INC DE                  ; Pick up the MSB of the screen buffer address for
   LD A,(DE)               ; the arrow's location
   LD H,A                  ; Point HL at the top pixel row of the arrow's
-  DEC H                   ; location in the screen buffer at 24576
+  DEC H                   ; location in the screen buffer at FPIXL
   LD A,(IX+$06)           ; Draw the top pixel row of the arrow
   LD (HL),A
   INC H                   ; Point HL at the middle pixel row of the arrow's
-                          ; location in the screen buffer at 24576
+                          ; location in the screen buffer at FPIXL
   LD A,(HL)               ; Pick up the graphic byte that's already here
   AND (IX+$05)            ; Has the arrow hit anything that has white INK (e.g.
                           ; Willy)?
   JP NZ,KILLWILLY_0       ; If so, kill Willy
   LD (HL),$FF             ; Draw the shaft of the arrow
   INC H                   ; Point HL at the bottom pixel row of the arrow's
-                          ; location in the screen buffer at 24576
+                          ; location in the screen buffer at FPIXL
   LD A,(IX+$06)           ; Draw the bottom pixel row of the arrow
   LD (HL),A
   JP DRAWTHINGS_22        ; Jump to consider the next entity
@@ -2662,7 +2664,7 @@ DRAWTHINGS_9:
 ; The following loop draws each segment of the rope from top to bottom.
 DRAWTHINGS_10:
   LD A,(IY+$00)           ; Point HL at the location of the segment of rope
-  ADD A,(IX+$03)          ; under consideration in the screen buffer at 24576
+  ADD A,(IX+$03)          ; under consideration in the screen buffer at FPIXL
   LD L,A
   LD H,(IY+$01)
   LD A,(ROPE)             ; Pick up the rope status indicator at ROPE
@@ -2714,7 +2716,7 @@ DRAWTHINGS_12:
   JR DRAWTHINGS_13        ; Make a redundant jump to the next instruction
 DRAWTHINGS_13:
   LD A,(IX+$05)           ; Draw a pixel of the rope to the screen buffer at
-  OR (HL)                 ; 24576
+  OR (HL)                 ; FPIXL
   LD (HL),A
   LD A,(IX+$09)           ; Point HL at the relevant entry in the second half
   ADD A,(IX+$01)          ; of the rope animation table at ROPEANIM
@@ -2841,8 +2843,8 @@ DRAWITEMS_0:
   LD A,(HL)               ; Pick up the first byte of the current entry in the
                           ; item table
   RLCA                    ; Point DE at the location of the item in the
-  AND $01                 ; attribute buffer at 23552
-  ADD A,$5C
+  AND $01                 ; attribute buffer at FATTR
+  ADD A,FATTR/$100
   LD D,A
   INC H
   LD E,(HL)
@@ -2900,22 +2902,22 @@ DRAWITEMS_6:
   ADD A,$03
   LD C,A
   LD A,(DE)               ; Change the INK colour of the item in the attribute
-  AND $F8                 ; buffer at 23552
+  AND $F8                 ; buffer at FATTR
   OR C
   LD (DE),A
   LD A,(HL)               ; Point DE at the location of the item in the screen
-  RLCA                    ; buffer at 24576
+  RLCA                    ; buffer at FPIXL
   RLCA
   RLCA
   RLCA
   AND $08
-  ADD A,$60
+  ADD A,FPIXL/$100
   LD D,A
   PUSH HL                 ; Save HL briefly
   LD HL,ITEM              ; Point HL at the item graphic for the current room
                           ; (at ITEM)
   LD B,$08                ; There are eight pixel rows to copy
-  CALL PRINTCHAR_0        ; Draw the item to the screen buffer at 24576
+  CALL PRINTCHAR_0        ; Draw the item to the screen buffer at FPIXL
   POP HL                  ; Restore the item table pointer to HL
 ; The current item has been dealt with (skipped, collected or drawn) as
 ; appropriate. Time to consider the next one.
@@ -3028,7 +3030,7 @@ ROOMABOVE:
   AND $1F                 ; room, so adjust his attribute buffer coordinates
   ADD A,$A0               ; (at LOCATION) accordingly
   LD (LOCATION),A
-  LD A,$5D
+  LD A,FATTR/$100+$01
   LD (LOCATION+1),A
   LD A,$D0                ; Adjust Willy's pixel y-coordinate (at PIXEL_Y) as
   LD (PIXEL_Y),A          ; well
@@ -3058,7 +3060,7 @@ ROOMBELOW_0:
   LD A,(LOCATION)         ; Willy should now appear at the top of the room, so
   AND $1F                 ; adjust his attribute buffer coordinates (at
   LD (LOCATION),A         ; LOCATION) accordingly
-  LD A,$5C
+  LD A,FATTR/$100
   LD (LOCATION+1),A
   POP HL                  ; Drop the return address (AFTERMOVE1, in the main
                           ; loop) from the stack
@@ -3069,13 +3071,13 @@ ROOMBELOW_0:
 ; Used by the routine at MAINLOOP.
 MVCONVEYOR:
   LD HL,(CONVLOC)         ; Pick up the address of the conveyor's location in
-                          ; the attribute buffer at 24064 from CONVLOC
+                          ; the attribute buffer at RATTR from CONVLOC
   LD A,H                  ; Point DE and HL at the location of the left end of
-  AND $01                 ; the conveyor in the screen buffer at 28672
+  AND $01                 ; the conveyor in the screen buffer at RPIXL
   RLCA
   RLCA
   RLCA
-  ADD A,$70
+  ADD A,RPIXL/$100
   LD H,A
   LD E,L
   LD D,H
@@ -3098,7 +3100,7 @@ MVCONVEYOR:
   RRC C
 MVCONVEYOR_0:
   LD (DE),A               ; Update the first and third pixel rows of every
-  LD (HL),C               ; conveyor tile in the screen buffer at 28672
+  LD (HL),C               ; conveyor tile in the screen buffer at RPIXL
   INC L
   INC E
   DJNZ MVCONVEYOR_0
@@ -3146,16 +3148,16 @@ BEDANDBATH:
 BEDANDBATH_0:
   LD D,MARIA0/256         ; Point DE at the sprite graphic data for Maria
                           ; (MARIA0, MARIA1, MARIA2 or MARIA3)
-  LD HL,$686E             ; Draw Maria at (11,14) in the screen buffer at 24576
+  LD HL,FPIXL+$086E       ; Draw Maria at (11,14) in the screen buffer at FPIXL
   LD C,$01
   CALL DRAWSPRITE
   JP NZ,KILLWILLY_0       ; Kill Willy if Maria collided with him
   LD HL,$4545             ; H=L=69 (INK 5: PAPER 0: BRIGHT 1)
-  LD ($5D6E),HL           ; Set the attribute bytes for the top half of Maria's
-                          ; sprite in the buffer at 23552
+  LD (FATTR+$016E),HL     ; Set the attribute bytes for the top half of Maria's
+                          ; sprite in the buffer at FATTR
   LD HL,$0707             ; H=L=7 (INK 7: PAPER 0: BRIGHT 0)
-  LD ($5D8E),HL           ; Set the attribute bytes for the bottom half of
-                          ; Maria's sprite in the buffer at 23552
+  LD (FATTR+$018E),HL     ; Set the attribute bytes for the bottom half of
+                          ; Maria's sprite in the buffer at FATTR
   RET
 ; Willy has collected all the items, so Maria is gone.
 BEDANDBATH_1:
@@ -3209,17 +3211,17 @@ DRAWTOILET_0:
   LD D,TOILET0/256        ; Point DE at the toilet sprite to use (TOILET0,
                           ; TOILET1, TOILET2 or TOILET3)
   LD IX,SBUFADDRS+208     ; Draw the toilet at (13,28) in the screen buffer at
-  LD BC,$101C             ; 24576
+  LD BC,$101C             ; FPIXL
   CALL DRAWWILLY_1
   LD HL,$0707             ; H=L=7 (INK 7: PAPER 0)
-  LD ($5DBC),HL           ; Set the attribute bytes for the toilet in the
-  LD ($5DDC),HL           ; buffer at 23552
+  LD (FATTR+$01BC),HL     ; Set the attribute bytes for the toilet in the
+  LD (FATTR+$01DC),HL     ; buffer at FATTR
   RET
 
 ; Check and set the attribute bytes for Willy's sprite in the buffer at 5C00
 ;
 ; Used by the routine at MAINLOOP. Sets the attribute bytes in the buffer at
-; 23552 for the six cells (in three rows of two) occupied by or under Willy's
+; FATTR for the six cells (in three rows of two) occupied by or under Willy's
 ; sprite, or kills Willy if any of the cells contains a nasty.
 WILLYATTRS:
   LD HL,(LOCATION)        ; Pick up Willy's attribute buffer coordinates from
@@ -3280,25 +3282,25 @@ WILLYATTRS_0:
                           ; standing on a ramp) and transfer the result to C
   ADD HL,DE               ; Move HL down a row and back one cell to the left;
                           ; at this point HL may be pointing at one of the
-                          ; cells in the top row of the buffer at 24064, which
+                          ; cells in the top row of the buffer at RATTR, which
                           ; is a bug
   CALL WILLYATTR          ; Check and set the attribute byte for the
                           ; bottom-left cell
   INC HL                  ; Move HL to the next cell to the right
   CALL WILLYATTR          ; Check and set the attribute byte for the
                           ; bottom-right cell
-  JR DRAWWILLY            ; Draw Willy to the screen buffer at 24576
+  JR DRAWWILLY            ; Draw Willy to the screen buffer at FPIXL
 
 ; Check and set the attribute byte for a cell occupied by Willy's sprite
 ;
 ; Used by the routine at WILLYATTRS. Sets the attribute byte in the buffer at
-; 23552 for one of the six cells (in three rows of two) occupied by or under
+; FATTR for one of the six cells (in three rows of two) occupied by or under
 ; Willy's sprite, or kills Willy if the cell contains a nasty. On entry, C
 ; holds either 15 if the cell is in the top two rows, or Willy's pixel
 ; y-coordinate if the cell is in the bottom row.
 ;
 ; C 15 or Willy's pixel y-coordinate
-; HL Address of the attribute byte in the buffer at 23552
+; HL Address of the attribute byte in the buffer at FATTR
 WILLYATTR:
   LD A,(BACKGROUND)       ; Pick up the attribute byte of the background tile
                           ; in the current room from BACKGROUND
@@ -3314,7 +3316,7 @@ WILLYATTR:
                           ; in the current room from BACKGROUND
   OR $07                  ; Set bits 0-2, making the INK white
   LD (HL),A               ; Set the attribute byte for this cell in the buffer
-                          ; at 23552
+                          ; at FATTR
 WILLYATTR_0:
   LD A,(NASTY)            ; Pick up the attribute byte of the nasty tile in the
                           ; current room from NASTY
@@ -3362,7 +3364,7 @@ DRAWWILLY_0:
 ; This entry point is used by the routine at DRAWTOILET to draw the toilet in
 ; The Bathroom.
 DRAWWILLY_1:
-  LD A,(IX+$00)           ; Set HL to the address in the screen buffer at 24576
+  LD A,(IX+$00)           ; Set HL to the address in the screen buffer at FPIXL
   LD H,(IX+$01)           ; that corresponds to where we are going to draw the
   OR C                    ; next pixel row of the sprite graphic
   LD L,A
@@ -6064,12 +6066,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $5F33              ; Location in the attribute buffer at 24064: (9,19)
+  DEFW RATTR+$0133        ; Location in the attribute buffer at RATTR: (9,19)
   DEFB $0C                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5FD7              ; Location in the attribute buffer at 24064: (14,23)
+  DEFW RATTR+$01D7        ; Location in the attribute buffer at RATTR: (14,23)
   DEFB $04                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $05                ; Border colour
@@ -6136,12 +6138,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $01                ; Direction (right)
-  DEFW $5FEC              ; Location in the attribute buffer at 24064: (15,12)
+  DEFW RATTR+$01EC        ; Location in the attribute buffer at RATTR: (15,12)
   DEFB $05                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5FC7              ; Location in the attribute buffer at 24064: (14,7)
+  DEFW RATTR+$01C7        ; Location in the attribute buffer at RATTR: (14,7)
   DEFB $03                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $04                ; Border colour
@@ -6208,12 +6210,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no ramp in this room)
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $06                ; Border colour
@@ -6280,12 +6282,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5F8F              ; Location in the attribute buffer at 24064: (12,15)
+  DEFW RATTR+$018F        ; Location in the attribute buffer at RATTR: (12,15)
   DEFB $03                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -6353,12 +6355,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $01                ; Direction (right)
-  DEFW $5FA0              ; Location in the attribute buffer at 24064: (13,0)
+  DEFW RATTR+$01A0        ; Location in the attribute buffer at RATTR: (13,0)
   DEFB $02                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5FC9              ; Location in the attribute buffer at 24064: (14,9)
+  DEFW RATTR+$01C9        ; Location in the attribute buffer at RATTR: (14,9)
   DEFB $07                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $03                ; Border colour
@@ -6427,12 +6429,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $01                ; Direction (right)
-  DEFW $5FBD              ; Location in the attribute buffer at 24064: (13,29)
+  DEFW RATTR+$01BD        ; Location in the attribute buffer at RATTR: (13,29)
   DEFB $03                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5EE8              ; Location in the attribute buffer at 24064: (7,8)
+  DEFW RATTR+$00E8        ; Location in the attribute buffer at RATTR: (7,8)
   DEFB $08                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $01                ; Border colour
@@ -6500,12 +6502,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5FC7              ; Location in the attribute buffer at 24064: (14,7)
+  DEFW RATTR+$01C7        ; Location in the attribute buffer at RATTR: (14,7)
   DEFB $00                ; Length: 0 (there is no ramp in this room)
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -6572,12 +6574,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5F8D              ; Location in the attribute buffer at 24064: (12,13)
+  DEFW RATTR+$018D        ; Location in the attribute buffer at RATTR: (12,13)
   DEFB $02                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $01                ; Border colour
@@ -6644,12 +6646,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5EFB              ; Location in the attribute buffer at 24064: (7,27)
+  DEFW RATTR+$00FB        ; Location in the attribute buffer at RATTR: (7,27)
   DEFB $03                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $04                ; Border colour
@@ -6720,12 +6722,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5F4E              ; Location in the attribute buffer at 24064: (10,14)
+  DEFW RATTR+$014E        ; Location in the attribute buffer at RATTR: (10,14)
   DEFB $04                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -6794,12 +6796,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5FE2              ; Location in the attribute buffer at 24064: (15,2)
+  DEFW RATTR+$01E2        ; Location in the attribute buffer at RATTR: (15,2)
   DEFB $02                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -6863,12 +6865,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5FA5              ; Location in the attribute buffer at 24064: (13,5)
+  DEFW RATTR+$01A5        ; Location in the attribute buffer at RATTR: (13,5)
   DEFB $06                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $04                ; Border colour
@@ -6938,12 +6940,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5FCF              ; Location in the attribute buffer at 24064: (14,15)
+  DEFW RATTR+$01CF        ; Location in the attribute buffer at RATTR: (14,15)
   DEFB $02                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $06                ; Border colour
@@ -7011,12 +7013,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no ramp in this room)
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $05                ; Border colour
@@ -7083,12 +7085,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $01                ; Direction (right)
-  DEFW $5E98              ; Location in the attribute buffer at 24064: (4,24)
+  DEFW RATTR+$0098        ; Location in the attribute buffer at RATTR: (4,24)
   DEFB $04                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no ramp in this room)
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $01                ; Border colour
@@ -7156,12 +7158,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no ramp in this room)
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $03                ; Border colour
@@ -7232,12 +7234,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5F24              ; Location in the attribute buffer at 24064: (9,4)
+  DEFW RATTR+$0124        ; Location in the attribute buffer at RATTR: (9,4)
   DEFB $01                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -7304,12 +7306,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $5F2D              ; Location in the attribute buffer at 24064: (9,13)
+  DEFW RATTR+$012D        ; Location in the attribute buffer at RATTR: (9,13)
   DEFB $05                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no ramp in this room)
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $01                ; Border colour
@@ -7378,12 +7380,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $01                ; Direction (right)
-  DEFW $5FEE              ; Location in the attribute buffer at 24064: (15,14)
+  DEFW RATTR+$01EE        ; Location in the attribute buffer at RATTR: (15,14)
   DEFB $08                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no ramp in this room)
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -7448,12 +7450,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $5EE4              ; Location in the attribute buffer at 24064: (7,4)
+  DEFW RATTR+$00E4        ; Location in the attribute buffer at RATTR: (7,4)
   DEFB $1A                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5FC4              ; Location in the attribute buffer at 24064: (14,4)
+  DEFW RATTR+$01C4        ; Location in the attribute buffer at RATTR: (14,4)
   DEFB $02                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $01                ; Border colour
@@ -7525,12 +7527,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no ramp in this room)
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -7599,12 +7601,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $01                ; Direction (right)
-  DEFW $5FB0              ; Location in the attribute buffer at 24064: (13,16)
+  DEFW RATTR+$01B0        ; Location in the attribute buffer at RATTR: (13,16)
   DEFB $0C                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5FA3              ; Location in the attribute buffer at 24064: (13,3)
+  DEFW RATTR+$01A3        ; Location in the attribute buffer at RATTR: (13,3)
   DEFB $04                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $01                ; Border colour
@@ -7671,12 +7673,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $5F0E              ; Location in the attribute buffer at 24064: (8,14)
+  DEFW RATTR+$010E        ; Location in the attribute buffer at RATTR: (8,14)
   DEFB $02                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5F7F              ; Location in the attribute buffer at 24064: (11,31)
+  DEFW RATTR+$017F        ; Location in the attribute buffer at RATTR: (11,31)
   DEFB $0C                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $04                ; Border colour
@@ -7746,12 +7748,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5FD6              ; Location in the attribute buffer at 24064: (14,22)
+  DEFW RATTR+$01D6        ; Location in the attribute buffer at RATTR: (14,22)
   DEFB $07                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $04                ; Border colour
@@ -7822,12 +7824,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $5F96              ; Location in the attribute buffer at 24064: (12,22)
+  DEFW RATTR+$0196        ; Location in the attribute buffer at RATTR: (12,22)
   DEFB $05                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5FC8              ; Location in the attribute buffer at 24064: (14,8)
+  DEFW RATTR+$01C8        ; Location in the attribute buffer at RATTR: (14,8)
   DEFB $07                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $01                ; Border colour
@@ -7895,12 +7897,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no ramp in this room)
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $01                ; Border colour
@@ -7968,12 +7970,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no ramp in this room)
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $05                ; Border colour
@@ -8039,12 +8041,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5FB1              ; Location in the attribute buffer at 24064: (13,17)
+  DEFW RATTR+$01B1        ; Location in the attribute buffer at RATTR: (13,17)
   DEFB $07                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -8114,12 +8116,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5FC9              ; Location in the attribute buffer at 24064: (14,9)
+  DEFW RATTR+$01C9        ; Location in the attribute buffer at RATTR: (14,9)
   DEFB $0F                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $03                ; Border colour
@@ -8186,12 +8188,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $5EFB              ; Location in the attribute buffer at 24064: (7,27)
+  DEFW RATTR+$00FB        ; Location in the attribute buffer at RATTR: (7,27)
   DEFB $01                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5FC9              ; Location in the attribute buffer at 24064: (14,9)
+  DEFW RATTR+$01C9        ; Location in the attribute buffer at RATTR: (14,9)
   DEFB $03                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -8262,12 +8264,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5F64              ; Location in the attribute buffer at 24064: (11,4)
+  DEFW RATTR+$0164        ; Location in the attribute buffer at RATTR: (11,4)
   DEFB $08                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -8335,12 +8337,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5FD9              ; Location in the attribute buffer at 24064: (14,25)
+  DEFW RATTR+$01D9        ; Location in the attribute buffer at RATTR: (14,25)
   DEFB $03                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -8405,12 +8407,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $01                ; Direction (right)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5EEB              ; Location in the attribute buffer at 24064: (7,11)
+  DEFW RATTR+$00EB        ; Location in the attribute buffer at RATTR: (7,11)
   DEFB $06                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -8475,12 +8477,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $5FD4              ; Location in the attribute buffer at 24064: (14,20)
+  DEFW RATTR+$01D4        ; Location in the attribute buffer at RATTR: (14,20)
   DEFB $04                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5F89              ; Location in the attribute buffer at 24064: (12,9)
+  DEFW RATTR+$0189        ; Location in the attribute buffer at RATTR: (12,9)
   DEFB $08                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -8545,12 +8547,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5F71              ; Location in the attribute buffer at 24064: (11,17)
+  DEFW RATTR+$0171        ; Location in the attribute buffer at RATTR: (11,17)
   DEFB $07                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $01                ; Border colour
@@ -8617,12 +8619,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $01                ; Direction (right)
-  DEFW $5F82              ; Location in the attribute buffer at 24064: (12,2)
+  DEFW RATTR+$0182        ; Location in the attribute buffer at RATTR: (12,2)
   DEFB $04                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5FD2              ; Location in the attribute buffer at 24064: (14,18)
+  DEFW RATTR+$01D2        ; Location in the attribute buffer at RATTR: (14,18)
   DEFB $02                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $01                ; Border colour
@@ -8686,12 +8688,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5F34              ; Location in the attribute buffer at 24064: (9,20)
+  DEFW RATTR+$0134        ; Location in the attribute buffer at RATTR: (9,20)
   DEFB $02                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $05                ; Border colour
@@ -8758,12 +8760,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $5F5C              ; Location in the attribute buffer at 24064: (10,28)
+  DEFW RATTR+$015C        ; Location in the attribute buffer at RATTR: (10,28)
   DEFB $04                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5FA0              ; Location in the attribute buffer at 24064: (13,0)
+  DEFW RATTR+$01A0        ; Location in the attribute buffer at RATTR: (13,0)
   DEFB $0E                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $06                ; Border colour
@@ -8830,12 +8832,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no ramp in this room)
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -8903,12 +8905,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $5F69              ; Location in the attribute buffer at 24064: (11,9)
+  DEFW RATTR+$0169        ; Location in the attribute buffer at RATTR: (11,9)
   DEFB $0E                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5F52              ; Location in the attribute buffer at 24064: (10,18)
+  DEFW RATTR+$0152        ; Location in the attribute buffer at RATTR: (10,18)
   DEFB $06                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -8973,12 +8975,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $5FE0              ; Location in the attribute buffer at 24064: (15,0)
+  DEFW RATTR+$01E0        ; Location in the attribute buffer at RATTR: (15,0)
   DEFB $20                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5F58              ; Location in the attribute buffer at 24064: (10,24)
+  DEFW RATTR+$0158        ; Location in the attribute buffer at RATTR: (10,24)
   DEFB $05                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $01                ; Border colour
@@ -9044,12 +9046,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $01                ; Direction (right)
-  DEFW $5F18              ; Location in the attribute buffer at 24064: (8,24)
+  DEFW RATTR+$0118        ; Location in the attribute buffer at RATTR: (8,24)
   DEFB $04                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no ramp in this room)
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $01                ; Border colour
@@ -9122,12 +9124,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $01                ; Direction (right)
-  DEFW $5ECC              ; Location in the attribute buffer at 24064: (6,12)
+  DEFW RATTR+$00CC        ; Location in the attribute buffer at RATTR: (6,12)
   DEFB $14                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5EC4              ; Location in the attribute buffer at 24064: (6,4)
+  DEFW RATTR+$00C4        ; Location in the attribute buffer at RATTR: (6,4)
   DEFB $07                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -9194,12 +9196,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $01                ; Direction (right)
-  DEFW $5FBA              ; Location in the attribute buffer at 24064: (13,26)
+  DEFW RATTR+$01BA        ; Location in the attribute buffer at RATTR: (13,26)
   DEFB $06                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5FEC              ; Location in the attribute buffer at 24064: (15,12)
+  DEFW RATTR+$01EC        ; Location in the attribute buffer at RATTR: (15,12)
   DEFB $09                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $05                ; Border colour
@@ -9265,12 +9267,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5F4C              ; Location in the attribute buffer at 24064: (10,12)
+  DEFW RATTR+$014C        ; Location in the attribute buffer at RATTR: (10,12)
   DEFB $06                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $03                ; Border colour
@@ -9335,12 +9337,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $5F52              ; Location in the attribute buffer at 24064: (10,18)
+  DEFW RATTR+$0152        ; Location in the attribute buffer at RATTR: (10,18)
   DEFB $0E                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5FCD              ; Location in the attribute buffer at 24064: (14,13)
+  DEFW RATTR+$01CD        ; Location in the attribute buffer at RATTR: (14,13)
   DEFB $0C                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $04                ; Border colour
@@ -9407,12 +9409,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $5F40              ; Location in the attribute buffer at 24064: (10,0)
+  DEFW RATTR+$0140        ; Location in the attribute buffer at RATTR: (10,0)
   DEFB $0D                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5FD8              ; Location in the attribute buffer at 24064: (14,24)
+  DEFW RATTR+$01D8        ; Location in the attribute buffer at RATTR: (14,24)
   DEFB $06                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $01                ; Border colour
@@ -9561,12 +9563,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5FE9              ; Location in the attribute buffer at 24064: (15,9)
+  DEFW RATTR+$01E9        ; Location in the attribute buffer at RATTR: (15,9)
   DEFB $05                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -9636,12 +9638,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $01                ; Direction (right)
-  DEFW $5F9B              ; Location in the attribute buffer at 24064: (12,27)
+  DEFW RATTR+$019B        ; Location in the attribute buffer at RATTR: (12,27)
   DEFB $05                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5FD8              ; Location in the attribute buffer at 24064: (14,24)
+  DEFW RATTR+$01D8        ; Location in the attribute buffer at RATTR: (14,24)
   DEFB $03                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $04                ; Border colour
@@ -9709,12 +9711,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $01                ; Direction (right)
-  DEFW $5E8C              ; Location in the attribute buffer at 24064: (4,12)
+  DEFW RATTR+$008C        ; Location in the attribute buffer at RATTR: (4,12)
   DEFB $08                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5F07              ; Location in the attribute buffer at 24064: (8,7)
+  DEFW RATTR+$0107        ; Location in the attribute buffer at RATTR: (8,7)
   DEFB $05                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $05                ; Border colour
@@ -9782,12 +9784,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $01                ; Direction (right)
-  DEFW $5FE7              ; Location in the attribute buffer at 24064: (15,7)
+  DEFW RATTR+$01E7        ; Location in the attribute buffer at RATTR: (15,7)
   DEFB $12                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5EE3              ; Location in the attribute buffer at 24064: (7,3)
+  DEFW RATTR+$00E3        ; Location in the attribute buffer at RATTR: (7,3)
   DEFB $08                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $05                ; Border colour
@@ -9854,12 +9856,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5FE2              ; Location in the attribute buffer at 24064: (15,2)
+  DEFW RATTR+$01E2        ; Location in the attribute buffer at RATTR: (15,2)
   DEFB $10                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -9926,12 +9928,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $01                ; Direction (right)
-  DEFW $5FF2              ; Location in the attribute buffer at 24064: (15,18)
+  DEFW RATTR+$01F2        ; Location in the attribute buffer at RATTR: (15,18)
   DEFB $0E                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5FE9              ; Location in the attribute buffer at 24064: (15,9)
+  DEFW RATTR+$01E9        ; Location in the attribute buffer at RATTR: (15,9)
   DEFB $05                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $01                ; Border colour
@@ -9995,12 +9997,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5FF0              ; Location in the attribute buffer at 24064: (15,16)
+  DEFW RATTR+$01F0        ; Location in the attribute buffer at RATTR: (15,16)
   DEFB $10                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -10067,12 +10069,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $5E7A              ; Location in the attribute buffer at 24064: (3,26)
+  DEFW RATTR+$007A        ; Location in the attribute buffer at RATTR: (3,26)
   DEFB $03                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no ramp in this room)
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $05                ; Border colour
@@ -10138,12 +10140,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5FFC              ; Location in the attribute buffer at 24064: (15,28)
+  DEFW RATTR+$01FC        ; Location in the attribute buffer at RATTR: (15,28)
   DEFB $04                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $01                ; Border colour
@@ -10210,12 +10212,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $0000              ; Location in the attribute buffer at 24064 (unused)
+  DEFW RATTR+$0000        ; Location in the attribute buffer at RATTR (unused)
   DEFB $00                ; Length: 0 (there is no conveyor in this room)
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5FB1              ; Location in the attribute buffer at 24064: (13,17)
+  DEFW RATTR+$01B1        ; Location in the attribute buffer at RATTR: (13,17)
   DEFB $08                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -10281,12 +10283,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $5FE0              ; Location in the attribute buffer at 24064: (15,0)
+  DEFW RATTR+$01E0        ; Location in the attribute buffer at RATTR: (15,0)
   DEFB $05                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $01                ; Direction (up to the right)
-  DEFW $5FC5              ; Location in the attribute buffer at 24064: (14,5)
+  DEFW RATTR+$01C5        ; Location in the attribute buffer at RATTR: (14,5)
   DEFB $01                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $02                ; Border colour
@@ -10351,12 +10353,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $00                ; Direction (left)
-  DEFW $5FF5              ; Location in the attribute buffer at 24064: (15,21)
+  DEFW RATTR+$01F5        ; Location in the attribute buffer at RATTR: (15,21)
   DEFB $0B                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5F2A              ; Location in the attribute buffer at 24064: (9,10)
+  DEFW RATTR+$012A        ; Location in the attribute buffer at RATTR: (9,10)
   DEFB $05                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $05                ; Border colour
@@ -10422,12 +10424,12 @@ FLYINGPIG0:
 ; The next four bytes are copied to CONVDIR and specify the direction, location
 ; and length of the conveyor.
   DEFB $01                ; Direction (right)
-  DEFW $5FF1              ; Location in the attribute buffer at 24064: (15,17)
+  DEFW RATTR+$01F1        ; Location in the attribute buffer at RATTR: (15,17)
   DEFB $0F                ; Length
 ; The next four bytes are copied to RAMPDIR and specify the direction, location
 ; and length of the ramp.
   DEFB $00                ; Direction (up to the left)
-  DEFW $5FD0              ; Location in the attribute buffer at 24064: (14,16)
+  DEFW RATTR+$01D0        ; Location in the attribute buffer at RATTR: (14,16)
   DEFB $06                ; Length
 ; The next byte is copied to BORDER and specifies the border colour.
   DEFB $05                ; Border colour
