@@ -564,14 +564,6 @@ TICKS:
 LIVES:
   DEFB $00
 
-; Screen flash counter
-;
-; Initialised to zero by the routine at TITLESCREEN, but never used; the code
-; at SCRFLASH makes the screen flash in Manic Miner fashion if this address
-; holds a non-zero value.
-FLASH:
-  DEFB $00
-
 ; Kempston joystick indicator
 ;
 ; Initialised by the routine at TITLESCREEN, and checked by the routines at
@@ -806,8 +798,6 @@ TITLESCREEN:
                           ; JOYSTICK
   LD (NOTEINDEX),A        ; Initialise the in-game music note index at
                           ; NOTEINDEX
-  LD (FLASH),A            ; Initialise the (unused) screen flash counter at
-                          ; FLASH
   LD (AIRBORNE),A         ; Initialise the airborne status indicator at
                           ; AIRBORNE
   LD (TICKS),A            ; Initialise the minute counter at TICKS
@@ -923,7 +913,6 @@ TITLESCREEN_6:
   JP NZ,TITLESCREEN_2     ; If not, jump back to examine the next byte
 ; Now check whether there is a joystick connected.
   LD BC,$001F             ; B=0, C=31 (joystick port)
-  DI                      ; Disable interrupts (which are already disabled)
   XOR A                   ; A=0
 TITLESCREEN_7:
   IN E,(C)                ; Combine 256 readings of the joystick port in A; if
@@ -1135,6 +1124,10 @@ MAINLOOP_0:
   LD DE,$4000             ; the display file
   LD BC,$1000
   LDIR
+  LD HL,FATTR             ; Copy the contents of the attribute buffer at FATTR
+  LD DE,$5800             ; to the attribute file
+  LD BC,$0200
+  LDIR
   LD A,(MODE)             ; Pick up the game mode indicator from MODE
   AND $02                 ; Now A=1 if Willy is running to the toilet or
   RRCA                    ; already has his head down it, 0 otherwise
@@ -1143,29 +1136,6 @@ MAINLOOP_0:
   LD (HL),A               ; head down it; this has the effect of moving Willy
                           ; at twice his normal speed as he makes his way to
                           ; the toilet (using animation frames 2 and 0)
-SCRFLASH:
-  LD A,(FLASH)            ; Pick up the screen flash counter (unused and always
-                          ; 0) from FLASH
-  OR A                    ; Is it zero?
-  JR Z,MAINLOOP_1         ; Jump if so (this jump is always made)
-; The next section of code is never executed.
-  DEC A                   ; Decrement the screen flash counter at FLASH
-  LD (FLASH),A
-  RLCA                    ; Move bits 0-2 into bits 3-5 and clear all the other
-  RLCA                    ; bits
-  RLCA
-  AND $38
-  LD HL,FATTR             ; Set every attribute byte in the buffer at FATTR to
-  LD DE,FATTR+$01         ; this value
-  LD BC,$01FF
-  LD (HL),A
-  LDIR
-; Normal service resumes here.
-MAINLOOP_1:
-  LD HL,FATTR             ; Copy the contents of the attribute buffer at FATTR
-  LD DE,$5800             ; to the attribute file
-  LD BC,$0200
-  LDIR
   LD IX,MSG_CURTIME       ; Print the current time (see MSG_CURTIME) at (19,25)
   LD DE,$5079
   LD C,$06
