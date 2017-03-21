@@ -1766,12 +1766,7 @@ heir10at(lval)
 	int lval[];
 {
 	char *ptr;
-
-
-	immed();
-	outstr("OFFSET ");
-	outname(ptr=lval[0]);
-	nl();
+	getloc(ptr=lval[0]);
 	lval[1]=ptr[type];
 }
 heir10id(lval)
@@ -1858,60 +1853,54 @@ heir11(lval)
 			}
 		else return k;
 		}
-	if(ptr==0)return k;
-	if(ptr[ident]==function)
-		{immed();
-		outstr("OFFSET ");
-		outname(ptr);
-		nl();
-		return 0;
+	if (ptr) {
+		if (ptr[ident]==function) {
+			getloc(ptr);
+			return 0;
 		}
+	}
 	return k;
 }
-/* ### cpcn-37 */
 primary(lval)
 	int *lval;
 {	char *ptr,sname[namesize];int num[1];
 	int k;
-	if(match("("))
-		{k=heir1(lval);
+	if (match("(")) {
+		k=heir1(lval);
 		needbrack(")");
 		return k;
+	}
+	else if (symname(sname)) {
+		ptr=findloc(sname);
+		if (ptr==0) {
+			ptr=findglb(sname);
+			if (ptr==0) {
+				ptr=addglb(sname,function,cint,0);
+			}
 		}
-	if(symname(sname))
-		{if(ptr=findloc(sname))
-			{getloc(ptr);
-			lval[0]=ptr;
-			lval[1]=ptr[type];
-			if(ptr[ident]==pointer)lval[1]=cint;
-			if(ptr[ident]==array)return 0;
-				else return 1;
-			}
-		if(ptr=findglb(sname))
-			if(ptr[ident]!=function)
-			{lval[0]=ptr;
-			lval[1]=0;
-			if(ptr[ident]!=array)return 1;
-			immed();
-			outstr("OFFSET ");
-			outname(ptr);nl();
-			lval[1]=ptr[type];
-			return 0;
-			}
-		ptr=addglb(sname,function,cint,0);
 		lval[0]=ptr;
 		lval[1]=0;
-		return 0;
+		if (ptr[ident]==function) {
+			return 0;
 		}
-	if(constant(num))
-		return(lval[0]=lval[1]=0);
-	else
-		{error("invalid expression");
-		immed();outdec(0);nl();
-		junk();
-		return 0;
+		else if (ptr[ident]==array) {
+			getloc(ptr);
+			lval[1]=ptr[type];
+			return 0;
+		}
+		else {
+			return 1;
 		}
 	}
+	else if (constant(num)) {
+		return lval[0]=lval[1]=0;
+	}
+	else {
+		error("invalid expression");
+		junk();
+		return 0;
+	}
+}
 /* ### cpcn-38 */
 store(lval)
 	int *lval;
@@ -2023,41 +2012,73 @@ outname(sname)
 /* Fetch a static memory cell into the primary register */
 getmem(sym)
 	char *sym;
-{	if((sym[ident]!=pointer)&(sym[type]==cchar))
-		{ ot("MOV AL,SS:");
+{
+	if (sym[storage]==stkloc) {
+		ol("MOV BP,SP");
+	}
+	if ((sym[ident]!=pointer)&(sym[type]==cchar)) {
+		ot("MOV AL,");
+	}
+	else {
+		ot("MOV BX,");
+	}
+	if (sym[storage]==stkloc) {
+		outdec((sym[offset]&255)+(sym[offset+1]<<8)-Zsp);
+		outstr("[BP]");
+	}
+	else {
+		outstr("SS:");
 		outname(sym+name);
-		nl();
+	}
+	nl();
+	if ((sym[ident]!=pointer)&(sym[type]==cchar)) {
 		ol("CBW");
 		ol("MOV BX,AX");
-		}
-	else
-		{ot("MOV BX,SS:");
-		outname(sym+name);
-		nl();
-		}
 	}
+}
 /* Fetch the address of the specified symbol */
 /*	into the primary register */
 getloc(sym)
 	char *sym;
-{	immed();
-	outdec((sym[offset]&255)+
-		(sym[offset+1]<<8)-
-		Zsp);
-	nl();
-	ol("ADD BX,SP");
+{
+	int off;
+	if (sym[storage]==stkloc) {
+		ol("MOV BX,SP");
+		off=(sym[offset]&255)+(sym[offset+1]<<8)-Zsp;
+		if (off) {
+			ot("ADD BX,");
+			outdec(off);
+			nl();
+		}
 	}
+	else {
+		ot("MOV BX,OFFSET ");
+		outname(sym+name);
+		nl();
+	}
+}
 /* Store the primary register into the specified */
 /*	static memory cell */
 putmem(sym)
 	char *sym;
 {
-	ot("MOV SS:");outname(sym+name);
-	outstr(",");
-	if((sym[ident]!=pointer)&(sym[type]==cchar)) outstr("BL");
-	else outstr("BX");
-	nl();
+	if (sym[storage]==stkloc) {
+		ol("MOV BP,SP");
+		ot("MOV ");
+		outdec((sym[offset]&255)+(sym[offset+1]<<8)-Zsp);
+		outstr("[BP]");
 	}
+	else {
+		ot("MOV SS:");outname(sym+name);
+	}
+	if ((sym[ident]!=pointer)&(sym[type]==cchar)) {
+		outstr(",BL");
+	}
+	else {
+		outstr(",BX");
+	}
+	nl();
+}
 /* Store the specified object type in the primary register */
 /*	at the address on the top of the stack */
 putstk(typeobj)
