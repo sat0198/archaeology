@@ -1630,6 +1630,7 @@ heir9(lval)
 {
 	int k,lval2[2];
 	k=heir10(lval);
+	blanks();
 	if((ch()!='*')&(ch()!='/')&
 		(ch()!='%'))return k;
 	if(k)rvalue(lval);
