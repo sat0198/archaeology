@@ -4,6000 +4,12 @@
 ; Copyright 1984 Software Projects Ltd (Jet Set Willy)
 ; Copyright 2012-2016 Richard Dymond (this disassembly)
 
-FATTR:  EQU $5C00
-RATTR:  EQU $5E00
-FPIXL:  EQU $6000
-RPIXL:  EQU $7000
-
-  ORG $8000
-
-; Room layout
-;
-; Initialised upon entry to a room and then used by the routine at STARTGAME,
-; and also used by the routine at ROOMATTRS.
-ROOMLAYOUT:
-  DEFS $80
-
-; Room name
-;
-; Initialised upon entry to a room and then used by the routine at STARTGAME.
-ROOMNAME:
-  DEFS $20
-
-; Room tiles
-;
-; Initialised upon entry to a room by the routine at STARTGAME.
-BACKGROUND:
-  DEFS $09                ; Background tile (used by the routines at DRAWROOM,
-                          ; ROOMATTR, MOVEWILLY and WILLYATTR, and also by the
-                          ; unused routine at U_SETATTRS)
-FLOOR:
-  DEFS $09                ; Floor tile (used by the routines at DRAWROOM and
-                          ; ROOMATTR)
-WALL:
-  DEFS $09                ; Wall tile (used by the routines at DRAWROOM,
-                          ; ROOMATTR, MOVEWILLY and MOVEWILLY3)
-NASTY:
-  DEFS $09                ; Nasty tile (used by the routines at DRAWROOM,
-                          ; ROOMATTR, MOVEWILLY and WILLYATTR)
-RAMP:
-  DEFS $09                ; Ramp tile (used by the routines at DRAWROOM,
-                          ; ROOMATTRS, MOVEWILLY3 and WILLYATTRS)
-CONVEYOR:
-  DEFS $09                ; Conveyor tile (used by the routines at DRAWROOM,
-                          ; ROOMATTRS and MOVEWILLY2)
-
-; Conveyor definition
-;
-; Initialised upon entry to a room by the routine at STARTGAME.
-CONVDIR:
-  DEFB $00                ; Direction (0=left, 1=right; used by the routines at
-                          ; MOVEWILLY2 and MVCONVEYOR)
-CONVLOC:
-  DEFW $0000              ; Address of the conveyor's location in the attribute
-                          ; buffer at RATTR (used by the routines at ROOMATTRS
-                          ; and MVCONVEYOR)
-CONVLEN:
-  DEFB $00                ; Length (used by the routines at ROOMATTRS and
-                          ; MVCONVEYOR)
-
-; Ramp definition
-;
-; Initialised upon entry to a room by the routine at STARTGAME.
-RAMPDIR:
-  DEFB $00                ; Direction (0=up to the left, 1=up to the right;
-                          ; used by the routines at ROOMATTRS, MOVEWILLY3 and
-                          ; WILLYATTRS)
-RAMPLOC:
-  DEFW $0000              ; Address of the location of the bottom of the ramp
-                          ; in the attribute buffer at RATTR (used by the
-                          ; routine at ROOMATTRS)
-RAMPLEN:
-  DEFB $00                ; Length (used by the routine at ROOMATTRS)
-
-; Border colour
-;
-; Initialised upon entry to a room and then used by the routine at STARTGAME,
-; and also used by the routines at ENDPAUSE, MOVEWILLY, DRAWTHINGS and
-; DRAWITEMS.
-BORDER:
-  DEFB $00
-
-; Unused
-;
-; These bytes are overwritten upon entry to a room by the routine at STARTGAME,
-; but not used.
-XROOM223:
-  DEFS $02
-
-; Item graphic
-;
-; Initialised upon entry to a room by the routine at STARTGAME, and used by the
-; routine at DRAWITEMS.
-ITEM:
-  DEFS $08
-
-; Room exits
-;
-; Initialised upon entry to a room by the routine at STARTGAME.
-LEFT:
-  DEFB $00                ; Room to the left (used by the routine at ROOMLEFT)
-RIGHT:
-  DEFB $00                ; Room to the right (used by the routine at
-                          ; ROOMRIGHT)
-ABOVE:
-  DEFB $00                ; Room above (used by the routines at DRAWTHINGS and
-                          ; ROOMABOVE)
-BELOW:
-  DEFB $00                ; Room below (used by the routine at ROOMBELOW)
-
-; Unused
-;
-; These bytes are overwritten upon entry to a room by the routine at STARTGAME,
-; but not used.
-XROOM237:
-  DEFS $03
-
-; Entity specifications
-;
-; Initialised upon entry to a room and then used by the routine at STARTGAME.
-;
-; There are eight pairs of bytes here that hold the entity specifications for
-; the current room. The first byte in each pair identifies one of the entity
-; definitions at ENTITYDEFS. The meaning of the second byte depends on the
-; entity type: it determines the base sprite index and x-coordinate of a
-; guardian, the y-coordinate of an arrow, or the x-coordinate of the top of a
-; rope.
-ENTITIES:
-  DEFS $02                ; Entity 1
-  DEFS $02                ; Entity 2
-  DEFS $02                ; Entity 3
-  DEFS $02                ; Entity 4
-  DEFS $02                ; Entity 5
-  DEFS $02                ; Entity 6
-  DEFS $02                ; Entity 7
-  DEFS $02                ; Entity 8
-
-; Entity buffers
-;
-; Initialised by the routine at STARTGAME, and used by the routines at
-; MOVETHINGS and DRAWTHINGS. There are eight buffers here, each one eight bytes
-; long, used to hold the state of the entities (rope, arrows and guardians) in
-; the current room.
-;
-; For a horizontal guardian, the eight bytes are used as follows:
-;
-; +------+-----------------------------------------------------------+
-; | Byte | Contents                                                  |
-; +------+-----------------------------------------------------------+
-; | 0    | Bit 7: direction (0=left, 1=right)                        |
-; |      | Bits 5-6: animation frame index                           |
-; |      | Bits 3-4: unused                                          |
-; |      | Bits 0-2: entity type (001)                               |
-; | 1    | Bits 5-7: animation frame index mask                      |
-; |      | Bit 4: unused                                             |
-; |      | Bit 3: BRIGHT value                                       |
-; |      | Bits 0-2: INK colour                                      |
-; | 2    | Bits 5-7: base sprite index                               |
-; |      | Bits 0-4: x-coordinate                                    |
-; | 3    | Pixel y-coordinate x2 (index into the table at SBUFADDRS) |
-; | 4    | Unused                                                    |
-; | 5    | Page containing the sprite graphic data (see GUARDIANS)   |
-; | 6    | Minimum x-coordinate                                      |
-; | 7    | Maximum x-coordinate                                      |
-; +------+-----------------------------------------------------------+
-;
-; For a vertical guardian, the eight bytes are used as follows:
-;
-; +------+-----------------------------------------------------------+
-; | Byte | Contents                                                  |
-; +------+-----------------------------------------------------------+
-; | 0    | Bits 5-7: animation frame index                           |
-; |      | Bits 3-4: animation frame update flags (see MOVETHINGS_9) |
-; |      | Bits 0-2: entity type (010)                               |
-; | 1    | Bits 5-7: animation frame index mask                      |
-; |      | Bit 4: unused                                             |
-; |      | Bit 3: BRIGHT value                                       |
-; |      | Bits 0-2: INK colour                                      |
-; | 2    | Bits 5-7: base sprite index                               |
-; |      | Bits 0-4: x-coordinate                                    |
-; | 3    | Pixel y-coordinate x2 (index into the table at SBUFADDRS) |
-; | 4    | Pixel y-coordinate increment                              |
-; | 5    | Page containing the sprite graphic data (see GUARDIANS)   |
-; | 6    | Minimum y-coordinate                                      |
-; | 7    | Maximum y-coordinate                                      |
-; +------+-----------------------------------------------------------+
-;
-; For an arrow, the eight bytes are used as follows:
-;
-; +------+-----------------------------------------------------------+
-; | Byte | Contents                                                  |
-; +------+-----------------------------------------------------------+
-; | 0    | Bit 7: direction (0=left, 1=right)                        |
-; |      | Bits 3-6: unused                                          |
-; |      | Bits 0-2: entity type (100)                               |
-; | 1    | Unused                                                    |
-; | 2    | Pixel y-coordinate x2 (index into the table at SBUFADDRS) |
-; | 3    | Unused                                                    |
-; | 4    | x-coordinate                                              |
-; | 5    | Collision detection byte (0=off, 255=on)                  |
-; | 6    | Top/bottom pixel row (drawn either side of the shaft)     |
-; | 7    | Unused                                                    |
-; +------+-----------------------------------------------------------+
-;
-; The rope uses the second and fourth bytes of the following buffer in addition
-; to its own; these ten bytes are used as follows:
-;
-; +------+----------------------------------------------------------+
-; | Byte | Contents                                                 |
-; +------+----------------------------------------------------------+
-; | 0    | Bit 7: direction (0=left, 1=right)                       |
-; |      | Bits 3-6: unused                                         |
-; |      | Bits 0-2: entity type (011)                              |
-; | 1    | Animation frame index                                    |
-; | 2    | x-coordinate of the top of the rope                      |
-; | 3    | x-coordinate of the segment of rope being drawn          |
-; | 4    | Length (32)                                              |
-; | 5    | Segment drawing byte                                     |
-; | 6    | Unused                                                   |
-; | 7    | Animation frame at which the rope changes direction (54) |
-; | 9    | Index of the segment of rope being drawn (0-32)          |
-; | 11   | Bits 1-7: unused                                         |
-; |      | Bit 0: Willy is on the rope (set), or not (reset)        |
-; +------+----------------------------------------------------------+
-;
-; Note that if a rope were the eighth entity specified in a room, its buffer
-; would use the first and third bytes in the otherwise unused area at
-; EBOVERFLOW.
-ENTITYBUF:
-  DEFS $08                ; Entity 1
-  DEFS $08                ; Entity 2
-  DEFS $08                ; Entity 3
-  DEFS $08                ; Entity 4
-  DEFS $08                ; Entity 5
-  DEFS $08                ; Entity 6
-  DEFS $08                ; Entity 7
-  DEFS $08                ; Entity 8
-  DEFB $FF                ; Terminator
-
-; Unused
-;
-; This area is not used, but if a rope were the eighth entity specified in a
-; room, its buffer would spill over from the eighth slot at ENTITYBUF and use
-; the first and third bytes here.
-EBOVERFLOW:
-  DEFS $BF
-
-; Screen buffer address lookup table
-;
-; Used by the routines at GAMEOVER, DRAWTHINGS and DRAWWILLY. The value of the
-; Nth entry (0<=N<=127) in this lookup table is the screen buffer address for
-; the point with pixel coordinates (x,y)=(0,N), with the origin (0,0) at the
-; top-left corner.
-SBUFADDRS:
-  DEFW FPIXL+$0000        ; y=0
-  DEFW FPIXL+$0100        ; y=1
-  DEFW FPIXL+$0200        ; y=2
-  DEFW FPIXL+$0300        ; y=3
-  DEFW FPIXL+$0400        ; y=4
-  DEFW FPIXL+$0500        ; y=5
-  DEFW FPIXL+$0600        ; y=6
-  DEFW FPIXL+$0700        ; y=7
-  DEFW FPIXL+$0020        ; y=8
-  DEFW FPIXL+$0120        ; y=9
-  DEFW FPIXL+$0220        ; y=10
-  DEFW FPIXL+$0320        ; y=11
-  DEFW FPIXL+$0420        ; y=12
-  DEFW FPIXL+$0520        ; y=13
-  DEFW FPIXL+$0620        ; y=14
-  DEFW FPIXL+$0720        ; y=15
-  DEFW FPIXL+$0040        ; y=16
-  DEFW FPIXL+$0140        ; y=17
-  DEFW FPIXL+$0240        ; y=18
-  DEFW FPIXL+$0340        ; y=19
-  DEFW FPIXL+$0440        ; y=20
-  DEFW FPIXL+$0540        ; y=21
-  DEFW FPIXL+$0640        ; y=22
-  DEFW FPIXL+$0740        ; y=23
-  DEFW FPIXL+$0060        ; y=24
-  DEFW FPIXL+$0160        ; y=25
-  DEFW FPIXL+$0260        ; y=26
-  DEFW FPIXL+$0360        ; y=27
-  DEFW FPIXL+$0460        ; y=28
-  DEFW FPIXL+$0560        ; y=29
-  DEFW FPIXL+$0660        ; y=30
-  DEFW FPIXL+$0760        ; y=31
-  DEFW FPIXL+$0080        ; y=32
-  DEFW FPIXL+$0180        ; y=33
-  DEFW FPIXL+$0280        ; y=34
-  DEFW FPIXL+$0380        ; y=35
-  DEFW FPIXL+$0480        ; y=36
-  DEFW FPIXL+$0580        ; y=37
-  DEFW FPIXL+$0680        ; y=38
-  DEFW FPIXL+$0780        ; y=39
-  DEFW FPIXL+$00A0        ; y=40
-  DEFW FPIXL+$01A0        ; y=41
-  DEFW FPIXL+$02A0        ; y=42
-  DEFW FPIXL+$03A0        ; y=43
-  DEFW FPIXL+$04A0        ; y=44
-  DEFW FPIXL+$05A0        ; y=45
-  DEFW FPIXL+$06A0        ; y=46
-  DEFW FPIXL+$07A0        ; y=47
-  DEFW FPIXL+$00C0        ; y=48
-  DEFW FPIXL+$01C0        ; y=49
-  DEFW FPIXL+$02C0        ; y=50
-  DEFW FPIXL+$03C0        ; y=51
-  DEFW FPIXL+$04C0        ; y=52
-  DEFW FPIXL+$05C0        ; y=53
-  DEFW FPIXL+$06C0        ; y=54
-  DEFW FPIXL+$07C0        ; y=55
-  DEFW FPIXL+$00E0        ; y=56
-  DEFW FPIXL+$01E0        ; y=57
-  DEFW FPIXL+$02E0        ; y=58
-  DEFW FPIXL+$03E0        ; y=59
-  DEFW FPIXL+$04E0        ; y=60
-  DEFW FPIXL+$05E0        ; y=61
-  DEFW FPIXL+$06E0        ; y=62
-  DEFW FPIXL+$07E0        ; y=63
-  DEFW FPIXL+$0800        ; y=64
-  DEFW FPIXL+$0900        ; y=65
-  DEFW FPIXL+$0A00        ; y=66
-  DEFW FPIXL+$0B00        ; y=67
-  DEFW FPIXL+$0C00        ; y=68
-  DEFW FPIXL+$0D00        ; y=69
-  DEFW FPIXL+$0E00        ; y=70
-  DEFW FPIXL+$0F00        ; y=71
-  DEFW FPIXL+$0820        ; y=72
-  DEFW FPIXL+$0920        ; y=73
-  DEFW FPIXL+$0A20        ; y=74
-  DEFW FPIXL+$0B20        ; y=75
-  DEFW FPIXL+$0C20        ; y=76
-  DEFW FPIXL+$0D20        ; y=77
-  DEFW FPIXL+$0E20        ; y=78
-  DEFW FPIXL+$0F20        ; y=79
-  DEFW FPIXL+$0840        ; y=80
-  DEFW FPIXL+$0940        ; y=81
-  DEFW FPIXL+$0A40        ; y=82
-  DEFW FPIXL+$0B40        ; y=83
-  DEFW FPIXL+$0C40        ; y=84
-  DEFW FPIXL+$0D40        ; y=85
-  DEFW FPIXL+$0E40        ; y=86
-  DEFW FPIXL+$0F40        ; y=87
-  DEFW FPIXL+$0860        ; y=88
-  DEFW FPIXL+$0960        ; y=89
-  DEFW FPIXL+$0A60        ; y=90
-  DEFW FPIXL+$0B60        ; y=91
-  DEFW FPIXL+$0C60        ; y=92
-  DEFW FPIXL+$0D60        ; y=93
-  DEFW FPIXL+$0E60        ; y=94
-  DEFW FPIXL+$0F60        ; y=95
-  DEFW FPIXL+$0880        ; y=96
-  DEFW FPIXL+$0980        ; y=97
-  DEFW FPIXL+$0A80        ; y=98
-  DEFW FPIXL+$0B80        ; y=99
-  DEFW FPIXL+$0C80        ; y=100
-  DEFW FPIXL+$0D80        ; y=101
-  DEFW FPIXL+$0E80        ; y=102
-  DEFW FPIXL+$0F80        ; y=103
-  DEFW FPIXL+$08A0        ; y=104
-  DEFW FPIXL+$09A0        ; y=105
-  DEFW FPIXL+$0AA0        ; y=106
-  DEFW FPIXL+$0BA0        ; y=107
-  DEFW FPIXL+$0CA0        ; y=108
-  DEFW FPIXL+$0DA0        ; y=109
-  DEFW FPIXL+$0EA0        ; y=110
-  DEFW FPIXL+$0FA0        ; y=111
-  DEFW FPIXL+$08C0        ; y=112
-  DEFW FPIXL+$09C0        ; y=113
-  DEFW FPIXL+$0AC0        ; y=114
-  DEFW FPIXL+$0BC0        ; y=115
-  DEFW FPIXL+$0CC0        ; y=116
-  DEFW FPIXL+$0DC0        ; y=117
-  DEFW FPIXL+$0EC0        ; y=118
-  DEFW FPIXL+$0FC0        ; y=119
-  DEFW FPIXL+$08E0        ; y=120
-  DEFW FPIXL+$09E0        ; y=121
-  DEFW FPIXL+$0AE0        ; y=122
-  DEFW FPIXL+$0BE0        ; y=123
-  DEFW FPIXL+$0CE0        ; y=124
-  DEFW FPIXL+$0DE0        ; y=125
-  DEFW FPIXL+$0EE0        ; y=126
-  DEFW FPIXL+$0FE0        ; y=127
-
-; Rope animation table
-;
-; Used by the routine at DRAWTHINGS. The first half of this table controls the
-; x-coordinates at which the segments of rope are drawn, and the second half
-; controls the y-coordinates. For a given rope animation frame F (0<=F<=54),
-; the 32 entries from F to F+31 inclusive (one for each of the 32 segments of
-; rope below the topmost one) in each half of the table are used; thus the
-; batch of entries used 'slides' up and down the table as F increases and
-; decreases.
-ROPEANIM:
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00 ; These values determine how much to
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00 ; rotate the rope drawing byte (which in
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00 ; turn determines the x-coordinate at
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00 ; which each segment of rope is drawn)
-  DEFB $01,$01,$01,$01,$01,$01,$01,$01
-  DEFB $01,$01,$01,$01,$02,$02,$02,$02
-  DEFB $02,$02,$02,$02,$02,$02,$02,$02
-  DEFB $02,$02,$02,$02,$02,$02,$02,$02
-  DEFB $02,$02,$01,$02,$02,$01,$01,$02
-  DEFB $01,$01,$02,$02,$03,$02,$03,$02
-  DEFB $03,$03,$03,$03,$03,$03
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00 ; Unused
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00
-  DEFB $06,$06,$06,$06,$06,$06,$06,$06 ; These values determine the
-  DEFB $06,$06,$06,$06,$06,$06,$06,$06 ; y-coordinate of each segment of rope
-  DEFB $06,$06,$06,$06,$06,$06,$06,$06 ; relative to the one above it
-  DEFB $06,$06,$06,$06,$06,$06,$06,$06
-  DEFB $06,$06,$06,$06,$06,$06,$06,$06
-  DEFB $06,$06,$06,$06,$06,$06,$06,$06
-  DEFB $04,$06,$06,$04,$06,$04,$06,$04
-  DEFB $06,$04,$04,$04,$06,$04,$04,$04
-  DEFB $04,$04,$04,$04,$04,$04,$04,$04
-  DEFB $04,$04,$04,$04,$04,$04,$04,$04
-  DEFB $04,$04,$04,$04,$04,$04
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00 ; Unused
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00
-
-; Current room number
-;
-; Initialised to 33 (The Bathroom) by the routine at TITLESCREEN, checked by
-; the routines at STARTGAME, DRAWTHINGS, DRAWITEMS, BEDANDBATH, CHKTOILET,
-; DRAWTOILET and DRAWWILLY, and updated by the routines at ENDPAUSE, ROOMLEFT,
-; ROOMRIGHT, ROOMABOVE and ROOMBELOW.
-ROOM:
-  DEFB $00
-
-; Left-right movement table
-;
-; Used by the routine at MOVEWILLY2. The entries in this table are used to map
-; the existing value (V) of Willy's direction and movement flags at DMFLAGS to
-; a new value (V'), depending on the direction Willy is facing and how he is
-; moving or being moved (by 'left' and 'right' keypresses and joystick input,
-; or by a conveyor, or by an urge to visit the toilet).
-;
-; One of the first four entries is used when Willy is not moving.
-LRMOVEMENT:
-  DEFB $00                ; V=0 (facing right, no movement) + no movement: V'=0
-                          ; (no change)
-  DEFB $01                ; V=1 (facing left, no movement) + no movement: V'=1
-                          ; (no change)
-  DEFB $00                ; V=2 (facing right, moving) + no movement: V'=0
-                          ; (facing right, no movement) (i.e. stop)
-  DEFB $01                ; V=3 (facing left, moving) + no movement: V'=1
-                          ; (facing left, no movement) (i.e. stop)
-; One of the next four entries is used when Willy is moving left.
-  DEFB $01                ; V=0 (facing right, no movement) + move left: V'=1
-                          ; (facing left, no movement) (i.e. turn around)
-  DEFB $03                ; V=1 (facing left, no movement) + move left: V'=3
-                          ; (facing left, moving)
-  DEFB $01                ; V=2 (facing right, moving) + move left: V'=1
-                          ; (facing left, no movement) (i.e. turn around)
-  DEFB $03                ; V=3 (facing left, moving) + move left: V'=3 (no
-                          ; change)
-; One of the next four entries is used when Willy is moving right.
-  DEFB $02                ; V=0 (facing right, no movement) + move right: V'=2
-                          ; (facing right, moving)
-  DEFB $00                ; V=1 (facing left, no movement) + move right: V'=0
-                          ; (facing right, no movement) (i.e. turn around)
-  DEFB $02                ; V=2 (facing right, moving) + move right: V'=2 (no
-                          ; change)
-  DEFB $00                ; V=3 (facing left, moving) + move right: V'=0
-                          ; (facing right, no movement) (i.e. turn around)
-; One of the final four entries is used when Willy is being pulled both left
-; and right; each entry leaves the flags at DMFLAGS unchanged (so Willy carries
-; on moving in the direction he's already moving, or remains stationary).
-  DEFB $00                ; V=V'=0 (facing right, no movement)
-  DEFB $01                ; V=V'=1 (facing left, no movement)
-  DEFB $02                ; V=V'=2 (facing right, moving)
-  DEFB $03                ; V=V'=3 (facing left, moving)
-
-; Triangle UDGs
-;
-; Used by the routine at TITLESCREEN.
-TRIANGLE0:
-  DEFB $C0,$F0,$FC,$FF,$FF,$FF,$FF,$FF
-TRIANGLE1:
-  DEFB $00,$00,$00,$00,$C0,$F0,$FC,$FF
-TRIANGLE2:
-  DEFB $FF,$FF,$FF,$FF,$FC,$F0,$C0,$00
-TRIANGLE3:
-  DEFB $FC,$F0,$C0,$00,$00,$00,$00,$00
-
-; '+++++ Press ENTER to Start +++++...'
-;
-; Used by the routine at TITLESCREEN.
-MSG_INTRO:
-  DEFM "+++++ Press ENTER to Start +++++"
-  DEFM "  JET-SET WILLY by Matthew Smith  "
-  DEFM $7F," 1984 SOFTWARE PROJECTS Ltd . . . . ."
-  DEFM "Guide Willy to collect all the items around "
-  DEFM "the house before Midnight "
-  DEFM "so Maria will let you get to your bed. . . . . . ."
-  DEFM "+++++ Press ENTER to Start +++++"
-
-; 'Items collected 000 Time 00:00 m'
-;
-; Used by the routine at STARTGAME.
-MSG_STATUS:
-  DEFM "Items collected 000 Time 00:00 m"
-
-; 'Game'
-;
-; Used by the routine at GAMEOVER.
-MSG_GAME:
-  DEFM "Game"
-
-; 'Over'
-;
-; Used by the routine at GAMEOVER.
-MSG_OVER:
-  DEFM "Over"
-
-; Number of items collected
-;
-; Initialised by the routine at TITLESCREEN, printed by the routine at
-; MAINLOOP, and updated by the routine at DRAWITEMS.
-MSG_ITEMS:
-  DEFM "000"
-
-; Current time
-;
-; Initialised by the routine at STARTGAME, and printed and updated by the
-; routine at MAINLOOP.
-MSG_CURTIME:
-  DEFM " 7:00a"
-
-; ' 7:00a'
-;
-; Copied by the routine at STARTGAME to MSG_CURTIME.
-MSG_7AM:
-  DEFM " 7:00a"
-
-; Minute counter
-;
-; Initialised by the routine at TITLESCREEN; incremented on each pass through
-; the main loop by the routine at MAINLOOP (which moves the game clock forward
-; by a minute when the counter reaches 0); reset to zero by the routine at
-; CHKTOILET when Willy sticks his head down the toilet; and used by the
-; routines at DRAWITEMS (to cycle the colours of the items in the room),
-; BEDANDBATH (to determine Maria's animation frame in Master Bedroom) and
-; DRAWTOILET (to determine the animation frame for the toilet in The Bathroom).
-TICKS:
-  DEFB $00
-
-; Lives remaining
-;
-; Initialised to 7 by the routine at TITLESCREEN, decremented by the routine at
-; LOSELIFE, and used by the routines at DRAWLIVES (when drawing the remaining
-; lives) and ENDPAUSE (to adjust the speed and pitch of the in-game music).
-LIVES:
-  DEFB $00
-
-; Kempston joystick indicator
-;
-; Initialised by the routine at TITLESCREEN, and checked by the routines at
-; MOVEWILLY2 and CHECKENTER. Holds 1 if a joystick is present, 0 otherwise.
-JOYSTICK:
-  DEFB $00
-
-; Willy's pixel y-coordinate (x2)
-;
-; Initialised to 208 by the routine at TITLESCREEN, and used by the routines at
-; MAINLOOP, ENDPAUSE, MOVEWILLY, MOVEWILLY2, MOVEWILLY3, DRAWTHINGS, ROOMABOVE,
-; ROOMBELOW, BEDANDBATH, WILLYATTRS and DRAWWILLY. Holds the LSB of the address
-; of the entry in the screen buffer address lookup table at SBUFADDRS that
-; corresponds to Willy's pixel y-coordinate; in practice, this is twice Willy's
-; actual pixel y-coordinate. Note that when Willy is standing on a ramp, this
-; holds his pixel y-coordinate rounded down to the nearest value of 16 (8x2).
-PIXEL_Y:
-  DEFB $00
-
-; Willy's direction and movement flags
-;
-; +--------+---------------------------+------------------------------------+
-; | Bit(s) | Meaning                   | Used by                            |
-; +--------+---------------------------+------------------------------------+
-; | 0      | Direction Willy is facing | MOVEWILLY2, MOVEWILLY3, DRAWWILLY  |
-; |        | (reset=right, set=left)   |                                    |
-; | 1      | Willy's movement flag     | MOVEWILLY2, MOVEWILLY3, DRAWTHINGS |
-; |        | (set=moving)              |                                    |
-; | 2-7    | Unused (always reset)     |                                    |
-; +--------+---------------------------+------------------------------------+
-DMFLAGS:
-  DEFB $00
-
-; Airborne status indicator
-;
-; Initialised by the routine at TITLESCREEN, checked by the routines at
-; ENDPAUSE and WILLYATTRS, updated by the routines at KILLWILLY, DRAWTHINGS and
-; ROOMABOVE, and checked and updated by the routines at MOVEWILLY, MOVEWILLY2
-; and ROOMBELOW. Possible values are:
-;
-; +-------+-----------------------------------------------------------------+
-; | Value | Meaning                                                         |
-; +-------+-----------------------------------------------------------------+
-; | 0     | Willy is neither falling nor jumping                            |
-; | 1     | Willy is jumping                                                |
-; | 2-11  | Willy is falling, and can land safely                           |
-; | 12-15 | Willy is falling, and has fallen too far to land safely         |
-; | 255   | Willy has collided with a nasty, an arrow, a guardian, or Maria |
-; |       | (see KILLWILLY)                                                 |
-; +-------+-----------------------------------------------------------------+
-AIRBORNE:
-  DEFB $00
-
-; Willy's animation frame
-;
-; Used by the routines at WILLYATTRS and DRAWWILLY, and updated by the routines
-; at MAINLOOP, MOVEWILLY3 and DRAWTHINGS. Possible values are 0, 1, 2 and 3.
-FRAME:
-  DEFB $00
-
-; Address of Willy's location in the attribute buffer at 5C00
-;
-; Initialised by the routine at TITLESCREEN, and used by the routines at
-; MOVEWILLY, MOVEWILLY3, DRAWTHINGS, ROOMLEFT, ROOMRIGHT, ROOMABOVE, ROOMBELOW,
-; BEDANDBATH, CHKTOILET, WILLYATTRS and DRAWWILLY.
-LOCATION:
-  DEFW $0000
-
-; Jumping animation counter
-;
-; Used by the routines at MOVEWILLY and MOVEWILLY2.
-JUMPING:
-  DEFB $00
-
-; Rope status indicator
-;
-; Initialised by the routine at STARTGAME, checked by the routine at MOVEWILLY,
-; and checked and updated by the routines at MOVEWILLY2 and DRAWTHINGS.
-; Possible values are:
-;
-; +---------+-----------------------------------------------------------------+
-; | Value   | Meaning                                                         |
-; +---------+-----------------------------------------------------------------+
-; | 0       | Willy is not on the rope                                        |
-; | 2-32    | Willy is on the rope, with the centre of his sprite anchored at |
-; |         | this segment                                                    |
-; | 240-255 | Willy has just jumped or fallen off the rope                    |
-; +---------+-----------------------------------------------------------------+
-ROPE:
-  DEFB $00
-
-; Willy's state on entry to the room
-;
-; Initialised by the routine at STARTGAME, and copied back into 85CF-85D5 by
-; the routine at LOSELIFE.
-INITSTATE:
-  DEFB $00                ; Willy's pixel y-coordinate (copied from PIXEL_Y)
-  DEFB $00                ; Willy's direction and movement flags (copied from
-                          ; DMFLAGS)
-  DEFB $00                ; Airborne status indicator (copied from AIRBORNE)
-  DEFB $00                ; Willy's animation frame (copied from FRAME)
-  DEFW $0000              ; Address of Willy's location in the attribute buffer
-                          ; at FATTR (copied from LOCATION)
-  DEFB $00                ; Jumping animation counter (copied from JUMPING)
-
-; 256 minus the number of items remaining
-;
-; Initialised by the routine at TITLESCREEN, and updated by the routine at
-; DRAWITEMS when an item is collected.
-ITEMS:
-  DEFB $00
-
-; Game mode indicator
-;
-; Initialised by the routine at TITLESCREEN, checked by the routines at
-; MAINLOOP, MOVEWILLY2 and DRAWTOILET, and updated by the routines at
-; DRAWITEMS, BEDANDBATH and CHKTOILET.
-;
-; +-------+---------------------------------+
-; | Value | Meaning                         |
-; +-------+---------------------------------+
-; | 0     | Normal                          |
-; | 1     | All items collected             |
-; | 2     | Willy is running to the toilet  |
-; | 3     | Willy's head is down the toilet |
-; +-------+---------------------------------+
-MODE:
-  DEFB $00
-
-; Inactivity timer
-;
-; Initialised by the routine at TITLESCREEN, and updated by the routines at
-; MAINLOOP, ENDPAUSE and MOVEWILLY2.
-INACTIVE:
-  DEFB $00
-
-; In-game music note index
-;
-; Initialised by the routine at TITLESCREEN, used by the routine at DRAWLIVES,
-; and used and updated by the routine at ENDPAUSE.
-NOTEINDEX:
-  DEFB $00
-
-; Music flags
-;
-; The keypress flag in bit 0 is initialised by the routine at TITLESCREEN; bits
-; 0 and 1 are checked and updated by the routine at ENDPAUSE.
-;
-; +--------+-----------------------------------------------------------------+
-; | Bit(s) | Meaning                                                         |
-; +--------+-----------------------------------------------------------------+
-; | 0      | Keypress flag (set=H-ENTER being pressed, reset=no key pressed) |
-; | 1      | In-game music flag (set=music off, reset=music on)              |
-; | 2-7    | Unused                                                          |
-; +--------+-----------------------------------------------------------------+
-MUSICFLAGS:
-  DEFB $00
-
-; WRITETYPER key counter
-;
-; Checked by the routine at MAINLOOP, and updated by the routine at ENDPAUSE.
-TELEPORT:
-  DEFB $00
-
-; Temporary variable
-;
-; Used by the routines at CODESCREEN and READCODE to hold the entry code, by
-; the routine at TITLESCREEN to hold the index into the message scrolled across
-; the screen after the theme tune has finished playing, and by the routine at
-; GAMEOVER to hold the distance of the foot from the top of the screen as it
-; descends onto Willy.
-TEMPVAR:
-  DEFB $00
-
-; WRITETYPER
-;
-; Used by the routine at ENDPAUSE. In each pair of bytes here, bits 0-4 of the
-; first byte correspond to keys Q-W-E-R-T, and bits 0-4 of the second byte
-; correspond to keys P-O-I-U-Y; among those bits, a zero indicates a key being
-; pressed.
-  DEFB %00011111,%00011111 ; (no keys pressed)
-WRITETYPER:
-  DEFB %00011101,%00011111 ; W
-  DEFB %00010111,%00011111 ; R
-  DEFB %00011111,%00011011 ; I
-  DEFB %00001111,%00011111 ; T
-  DEFB %00011011,%00011111 ; E
-  DEFB %00001111,%00011111 ; T
-  DEFB %00011111,%00001111 ; Y
-  DEFB %00011111,%00011110 ; P
-  DEFB %00011011,%00011111 ; E
-  DEFB %00010111,%00011111 ; R
-
-; Title screen tune data (Moonlight Sonata)
-;
-; Used by the routine at PLAYTUNE.
-THEMETUNE:
-  DEFB $51,$3C,$33,$51,$3C,$33,$51,$3C,$33,$51,$3C,$33,$51,$3C,$33,$51
-  DEFB $3C,$33,$51,$3C,$33,$51,$3C,$33,$4C,$3C,$33,$4C,$3C,$33,$4C,$39
-  DEFB $2D,$4C,$39,$2D,$51,$40,$2D,$51,$3C,$33,$51,$3C,$36,$5B,$40,$36
-  DEFB $66,$51,$3C,$51,$3C,$33,$51,$3C,$33,$28,$3C,$28,$28,$36,$2D,$51
-  DEFB $36,$2D,$51,$36,$2D,$28,$36,$28,$28,$3C,$33,$51,$3C,$33,$26,$3C
-  DEFB $2D,$4C,$3C,$2D,$28,$40,$33,$51,$40,$33,$2D,$40,$36,$20,$40,$36
-  DEFB $3D,$79,$3D,$FF
-
-; In-game tune data (If I Were a Rich Man)
-;
-; Used by the routine at ENDPAUSE.
-GAMETUNE:
-  DEFB $56,$60,$56,$60,$66,$66,$80,$80,$80,$80,$66,$60,$56,$60,$56,$60
-  DEFB $66,$60,$56,$4C,$48,$4C,$48,$4C,$56,$56,$56,$56,$56,$56,$56,$56
-  DEFB $40,$40,$40,$40,$44,$44,$4C,$4C,$56,$60,$66,$60,$56,$56,$66,$66
-  DEFB $51,$56,$60,$56,$51,$51,$60,$60,$40,$40,$40,$40,$40,$40,$40,$40
-
-; The game has just loaded
-;
-; After the game has loaded, this is where it all starts.
-BEGIN:
-  DI                      ; Disable interrupts
-  LD SP,$5C00             ; Place stack in printer buffer
-                          ; Drop through to TITLESCREEN
-
-; Display the title screen and play the theme tune
-;
-; Used by the routines at BEGIN, MAINLOOP and GAMEOVER.
-;
-; The first thing this routine does is initialise some game status buffer
-; variables in preparation for the next game.
-TITLESCREEN:
-  XOR A                   ; A=0
-  LD (JOYSTICK),A         ; Initialise the Kempston joystick indicator at
-                          ; JOYSTICK
-  LD (NOTEINDEX),A        ; Initialise the in-game music note index at
-                          ; NOTEINDEX
-  LD (AIRBORNE),A         ; Initialise the airborne status indicator at
-                          ; AIRBORNE
-  LD (TICKS),A            ; Initialise the minute counter at TICKS
-  LD (INACTIVE),A         ; Initialise the inactivity timer at INACTIVE
-  LD (MODE),A             ; Initialise the game mode indicator at MODE
-  LD A,$07                ; Initialise the number of lives remaining at LIVES
-  LD (LIVES),A
-  LD A,$D0                ; Initialise Willy's pixel y-coordinate at PIXEL_Y
-  LD (PIXEL_Y),A
-  LD A,$21                ; Initialise the current room number at ROOM to 33
-  LD (ROOM),A             ; (The Bathroom)
-  LD HL,FATTR+$01B4       ; Initialise Willy's coordinates at LOCATION to
-  LD (LOCATION),HL        ; (13,20)
-  LD HL,MSG_ITEMS         ; Initialise the number of items collected at
-  LD (HL),$30             ; MSG_ITEMS to "000"
-  INC HL
-  LD (HL),$30
-  INC HL
-  LD (HL),$30
-  LD H,ITEMTABLE1/256     ; Page A4 holds the first byte of each entry in the
-                          ; item table
-  LD A,(FIRSTITEM)        ; Pick up the index of the first item from FIRSTITEM
-  LD L,A                  ; Point HL at the entry for the first item
-  LD (ITEMS),A            ; Initialise the counter of items remaining at ITEMS
-TITLESCREEN_0:
-  SET 6,(HL)              ; Set the collection flag for every item in the item
-  INC L                   ; table at ITEMTABLE1
-  JR NZ,TITLESCREEN_0
-  LD HL,MUSICFLAGS        ; Initialise the keypress flag in bit 0 at MUSICFLAGS
-  SET 0,(HL)
-; Next, prepare the screen.
-TITLESCREEN_1:
-  LD HL,$4000             ; Clear the entire display file
-  LD DE,$4001
-  LD BC,$17FF
-  LD (HL),$00
-  LDIR
-  LD HL,ATTRSUPPER        ; Copy the attribute bytes for the title screen from
-  LD BC,$0300             ; ATTRSUPPER and ATTRSLOWER to the attribute file
-  LDIR
-  LD HL,$5A60             ; Copy the attribute value 70 (INK 6: PAPER 0: BRIGHT
-  LD DE,$5A61             ; 1) into the row of 32 cells from (19,0) to (19,31)
-  LD BC,$001F             ; on the screen
-  LD (HL),$46
-  LDIR
-  LD IX,MSG_INTRO         ; Print "+++++ Press ENTER to Start +++++" (see
-  LD DE,$5060             ; MSG_INTRO) at (19,0)
-  LD C,$20
-  CALL PRINTMSG
-  LD DE,$5800             ; Point DE at the first byte of the attribute file
-; The following loop scans the top two-thirds of the attribute file, which
-; contains values 0, 4, 5, 8, 9, 36, 37, 40, 41, 44, 45 and 211 (copied from
-; ATTRSUPPER). Whenever a value other than 0, 9, 36, 45 or 211 is found, a
-; triangle UDG is drawn at the corresponding location in the display file.
-TITLESCREEN_2:
-  LD A,(DE)               ; Pick up a byte from the attribute file
-  OR A                    ; Is it 0 (INK 0: PAPER 0)?
-  JR Z,TITLESCREEN_6      ; If so, jump to consider the next byte in the
-                          ; attribute file
-  CP $D3                  ; Is it 211 (INK 3: PAPER 2: BRIGHT 1: FLASH 1)?
-  JR Z,TITLESCREEN_6      ; If so, jump to consider the next byte in the
-                          ; attribute file
-  CP $09                  ; Is it 9 (INK 1: PAPER 1)?
-  JR Z,TITLESCREEN_6      ; If so, jump to consider the next byte in the
-                          ; attribute file
-  CP $2D                  ; Is it 45 (INK 5: PAPER 5)?
-  JR Z,TITLESCREEN_6      ; If so, jump to consider the next byte in the
-                          ; attribute file
-  CP $24                  ; Is it 36 (INK 4: PAPER 4)?
-  JR Z,TITLESCREEN_6      ; If so, jump to consider the next byte in the
-                          ; attribute file
-  LD C,$00                ; C=0; this will be used as an offset from the
-                          ; triangle UDG base address (TRIANGLE0)
-  CP $08                  ; Is the attribute value 8 (INK 0: PAPER 1)?
-  JR Z,TITLESCREEN_4      ; Jump if so
-  CP $29                  ; Is it 41 (INK 1: PAPER 5)?
-  JR Z,TITLESCREEN_4      ; Jump if so
-  CP $2C                  ; Is it 44 (INK 4: PAPER 5)?
-  JR Z,TITLESCREEN_3      ; Jump if so
-  CP $05                  ; Is it 5 (INK 5: PAPER 0)?
-  JR Z,TITLESCREEN_4      ; Jump if so
-  LD C,$10                ; Set the triangle UDG offset to 16
-  JR TITLESCREEN_4
-TITLESCREEN_3:
-  LD A,$25                ; Change the attribute byte here from 44 (INK 4:
-  LD (DE),A               ; PAPER 5) to 37 (INK 5: PAPER 4)
-TITLESCREEN_4:
-  LD A,E                  ; Point HL at the triangle UDG to draw (TRIANGLE0,
-  AND $01                 ; TRIANGLE1, TRIANGLE2 or TRIANGLE3)
-  RLCA
-  RLCA
-  RLCA
-  OR C
-  LD C,A
-  LD B,$00
-  LD HL,TRIANGLE0
-  ADD HL,BC
-  PUSH DE                 ; Save the attribute file address briefly
-  BIT 0,D                 ; Set the zero flag if we're still in the top third
-                          ; of the attribute file
-  LD D,$40                ; Point DE at the top third of the display file
-  JR Z,TITLESCREEN_5      ; Jump if we're still in the top third of the
-                          ; attribute file
-  LD D,$48                ; Point DE at the middle third of the display file
-TITLESCREEN_5:
-  LD B,$08                ; There are eight pixel rows in a triangle UDG
-  CALL PRINTCHAR_0        ; Draw a triangle UDG on the screen
-  POP DE                  ; Restore the attribute file address to DE
-TITLESCREEN_6:
-  INC DE                  ; Point DE at the next byte in the attribute file
-  LD A,D                  ; Have we finished scanning the top two-thirds of the
-  CP $5A                  ; attribute file yet?
-  JP NZ,TITLESCREEN_2     ; If not, jump back to examine the next byte
-; Now check whether there is a joystick connected.
-  LD BC,$001F             ; B=0, C=31 (joystick port)
-  XOR A                   ; A=0
-TITLESCREEN_7:
-  IN E,(C)                ; Combine 256 readings of the joystick port in A; if
-  OR E                    ; no joystick is connected, some of these readings
-  DJNZ TITLESCREEN_7      ; will have bit 5 set
-  AND $20                 ; Is a joystick connected (bit 5 reset)?
-  JR NZ,TITLESCREEN_8     ; Jump if not
-  LD A,$01                ; Set the Kempston joystick indicator at JOYSTICK to
-  LD (JOYSTICK),A         ; 1
-; And finally, play the theme tune and check for keypresses.
-TITLESCREEN_8:
-  LD HL,THEMETUNE         ; Point HL at the theme tune data at THEMETUNE
-  CALL PLAYTUNE           ; Play the theme tune
-  JP NZ,STARTGAME         ; Start the game if ENTER, 0 or the fire button was
-                          ; pressed
-  XOR A                   ; Initialise the temporary game status buffer
-  LD (TEMPVAR),A          ; variable at TEMPVAR to 0; this will be used as an
-                          ; index for the message scrolled across the screen
-                          ; (see MSG_INTRO)
-TITLESCREEN_9:
-  CALL CYCLEATTRS         ; Cycle the INK and PAPER colours
-  LD HL,$5A60             ; Copy the attribute value 79 (INK 7: PAPER 1: BRIGHT
-  LD DE,$5A61             ; 1) into the row of 32 cells from (19,0) to (19,31)
-  LD BC,$001F             ; on the screen
-  LD (HL),$4F
-  LDIR
-  LD A,(TEMPVAR)          ; Pick up the message index from TEMPVAR
-  LD IX,MSG_INTRO         ; Point IX at the corresponding location in the
-  LD E,A                  ; message at MSG_INTRO
-  LD D,$00
-  ADD IX,DE
-  LD DE,$5060             ; Print 32 characters of the message at (19,0)
-  LD C,$20
-  CALL PRINTMSG
-  LD A,(TEMPVAR)          ; Prepare a value between 50 and 81 in A (for the
-  AND $1F                 ; routine at INTROSOUND)
-  ADD A,$32
-  CALL INTROSOUND         ; Make a sound effect
-  LD BC,$AFFE             ; Read keys H-J-K-L-ENTER and 6-7-8-9-0
-  IN A,(C)
-  AND $01                 ; Keep only bit 0 of the result (ENTER, 0)
-  CP $01                  ; Was ENTER or 0 pressed?
-  JR NZ,STARTGAME         ; Jump if so to start the game
-  LD A,(TEMPVAR)          ; Pick up the message index from TEMPVAR
-  INC A                   ; Increment it
-  CP $E0                  ; Set the zero flag if we've reached the end of the
-                          ; message
-  LD (TEMPVAR),A          ; Store the new message index at TEMPVAR
-  JR NZ,TITLESCREEN_9     ; Jump back unless we've finished scrolling the
-                          ; message across the screen
-  JP TITLESCREEN_1        ; Jump back to prepare the screen and play the theme
-                          ; tune again
-
-; Start the game
-;
-; Used by the routine at TITLESCREEN.
-STARTGAME:
-  LD HL,MSG_7AM           ; Initialise the time by copying the text at MSG_7AM
-  LD DE,MSG_CURTIME       ; (" 7:00a") to MSG_CURTIME
-  LD BC,$0006
-  LDIR
-  LD HL,ATTRSLOWER        ; Copy the attribute bytes from ATTRSLOWER to the
-  LD DE,$5A00             ; bottom third of the screen
-  LD BC,$0100
-  LDIR
-; This routine continues into the one at INITROOM.
-
-; Initialise the current room
-;
-; Used by the routines at ENDPAUSE (to teleport into a room), LOSELIFE (to
-; reinitialise the room after Willy has lost a life), ROOMLEFT (when Willy has
-; entered the room from the right), ROOMRIGHT (when Willy has entered the room
-; from the left), ROOMABOVE (when Willy has entered the room from below) and
-; ROOMBELOW (when Willy has entered the room from above). The routine at
-; STARTGAME also continues here.
-INITROOM:
-  LD A,(ROOM)             ; Pick up the current room number from ROOM
-  ADD A,ROOMS/$100        ; Point HL at the first byte of the room definition
-  LD H,A
-  LD L,$00
-  LD DE,ROOMLAYOUT        ; Copy the room definition into the game status
-  LD BC,$0100             ; buffer at 8000
-  LDIR
-  LD IX,ENTITIES          ; Point IX at the first byte of the first entity
-                          ; specification for the current room at ENTITIES
-  LD DE,ENTITYBUF         ; Point DE at the first byte of the first entity
-                          ; buffer at ENTITYBUF
-  LD A,$08                ; There are at most eight entities in a room
-INITROOM_0:
-  LD L,(IX+$00)           ; Pick up the first byte of the entity specification
-  RES 7,L                 ; Point HL at the corresponding entry in the table of
-  LD H,ENTITYDEFS/$800    ; entity definitions at ENTITYDEFS
-  ADD HL,HL
-  ADD HL,HL
-  ADD HL,HL
-  LD BC,$0002             ; Copy the first two bytes of the entity definition
-  LDIR                    ; into the entity buffer
-  LD C,(IX+$01)           ; Copy the second byte of the entity specification
-  LD (HL),C               ; into the third byte of the entity definition
-  LD BC,$0006             ; Copy the remaining six bytes of the entity
-  LDIR                    ; definition into the entity buffer
-  INC IX                  ; Point IX at the first byte of the next entity
-  INC IX                  ; specification
-  DEC A                   ; Have we copied all eight entity definitions into
-                          ; the entity buffers yet?
-  JR NZ,INITROOM_0        ; If not, jump back to copy the next one
-  LD HL,PIXEL_Y           ; Copy the seven bytes that define Willy's state
-  LD DE,INITSTATE         ; (position, animation frame etc.) on entry to this
-  LD BC,$0007             ; room from 85CF-85D5 to INITSTATE
-  LDIR
-  LD HL,$5000             ; Clear the bottom third of the display file
-  LD DE,$5001
-  LD BC,$07FF
-  LD (HL),$00
-  LDIR
-  LD IX,ROOMNAME          ; Print the room name (see ROOMNAME) at (16,0)
-  LD C,$20
-  LD DE,$5000
-  CALL PRINTMSG
-  LD IX,MSG_STATUS        ; Print "Items collected 000 Time 00:00 m" (see
-  LD DE,$5060             ; MSG_STATUS) at (19,0)
-  LD C,$20
-  CALL PRINTMSG
-  LD A,(BORDER)           ; Pick up the border colour for the current room from
-                          ; BORDER
-  LD C,$FE                ; Set the border colour
-  OUT (C),A
-  XOR A                   ; Initialise the rope status indicator at ROPE to 0
-  LD (ROPE),A
-  CALL DRAWROOM           ; Draw the current room to the screen buffer at RPIXL
-                          ; and the attribute buffer at RATTR
-  JP MAINLOOP             ; Enter the main loop
-
-; Draw the remaining lives
-;
-; Used by the routine at MAINLOOP.
-DRAWLIVES:
-  LD A,(LIVES)            ; Pick up the number of lives remaining from LIVES
-  LD HL,$50A0             ; Set HL to the display file address at which to draw
-                          ; the first Willy sprite
-  OR A                    ; Are there any lives remaining?
-  RET Z                   ; Return if not
-  LD B,A                  ; Initialise B to the number of lives remaining
-; The sprite-drawing loop begins.
-DRAWLIVES_0:
-  LD C,$00                ; C=0; this tells the sprite-drawing routine at
-                          ; DRAWSPRITE to overwrite any existing graphics
-  PUSH HL                 ; Save HL and BC briefly
-  PUSH BC
-  LD A,(NOTEINDEX)        ; Pick up the in-game music note index from
-                          ; NOTEINDEX; this will determine the animation frame
-                          ; for the Willy sprites
-  RLCA                    ; Now A=0 (frame 0), 32 (frame 1), 64 (frame 2) or 96
-  RLCA                    ; (frame 3)
-  RLCA
-  AND $60
-  LD E,A                  ; Point DE at the corresponding Willy sprite (at
-  LD D,MANDAT/256         ; MANDAT+A)
-  CALL DRAWSPRITE         ; Draw the Willy sprite on the screen
-  POP BC                  ; Restore HL and BC
-  POP HL
-  INC HL                  ; Move HL along to the location at which to draw the
-  INC HL                  ; next Willy sprite
-  DJNZ DRAWLIVES_0        ; Jump back to draw any remaining sprites
-  RET
-
-; Main loop (1)
-;
-; Used by the routines at STARTGAME and ENDPAUSE.
-MAINLOOP:
-  CALL DRAWLIVES          ; Draw the remaining lives
-  LD HL,RATTR             ; Copy the contents of the attribute buffer at RATTR
-  LD DE,FATTR             ; (the attributes for the empty room) into the
-  LD BC,$0200             ; attribute buffer at FATTR
-  LDIR
-  LD HL,RPIXL             ; Copy the contents of the screen buffer at RPIXL
-  LD DE,FPIXL             ; (the tiles for the empty room) into the screen
-  LD BC,$1000             ; buffer at FPIXL
-  LDIR
-  CALL MOVETHINGS         ; Move the rope and guardians in the current room
-  LD A,(MODE)             ; Pick up the game mode indicator from MODE
-  CP $03                  ; Is Willy's head down the toilet?
-  CALL NZ,MOVEWILLY       ; If not, move Willy
-AFTERMOVE1:
-  LD A,(PIXEL_Y)          ; Pick up Willy's pixel y-coordinate from PIXEL_Y
-  CP $E1                  ; Has Willy just moved up a ramp or a rope past the
-                          ; top of the screen?
-  CALL NC,ROOMABOVE       ; If so, move Willy into the room above
-AFTERMOVE2:
-  LD A,(MODE)             ; Pick up the game mode indicator from MODE
-  CP $03                  ; Is Willy's head down the toilet?
-  CALL NZ,WILLYATTRS      ; If not, check and set the attribute bytes for
-                          ; Willy's sprite in the buffer at FATTR, and draw
-                          ; Willy to the screen buffer at FPIXL
-  LD A,(MODE)             ; Pick up the game mode indicator from MODE
-  CP $02                  ; Is Willy on his way to the toilet?
-  CALL Z,CHKTOILET        ; If so, check whether he's reached it yet
-  CALL BEDANDBATH         ; Deal with special rooms (Master Bedroom, The
-                          ; Bathroom)
-  CALL DRAWTHINGS         ; Draw the rope, arrows and guardians in the current
-                          ; room
-  CALL MVCONVEYOR         ; Move the conveyor in the current room (if there is
-                          ; one)
-  CALL DRAWITEMS          ; Draw the items in the current room (if there are
-                          ; any) and collect any that Willy is touching
-; This entry point is used by the routine at KILLWILLY.
-MAINLOOP_0:
-  LD HL,FPIXL             ; Copy the contents of the screen buffer at FPIXL to
-  LD DE,$4000             ; the display file
-  LD BC,$1000
-  LDIR
-  LD HL,FATTR             ; Copy the contents of the attribute buffer at FATTR
-  LD DE,$5800             ; to the attribute file
-  LD BC,$0200
-  LDIR
-  LD A,(MODE)             ; Pick up the game mode indicator from MODE
-  AND $02                 ; Now A=1 if Willy is running to the toilet or
-  RRCA                    ; already has his head down it, 0 otherwise
-  LD HL,FRAME             ; Set Willy's animation frame at FRAME to 1 or 3 if
-  OR (HL)                 ; Willy is running to the toilet or already has his
-  LD (HL),A               ; head down it; this has the effect of moving Willy
-                          ; at twice his normal speed as he makes his way to
-                          ; the toilet (using animation frames 2 and 0)
-  LD IX,MSG_CURTIME       ; Print the current time (see MSG_CURTIME) at (19,25)
-  LD DE,$5079
-  LD C,$06
-  CALL PRINTMSG
-  LD IX,MSG_ITEMS         ; Print the number of items collected (see MSG_ITEMS)
-  LD DE,$5070             ; at (19,16)
-  LD C,$03
-  CALL PRINTMSG
-  LD A,(TICKS)            ; Increment the minute counter at TICKS
-  INC A
-  LD (TICKS),A
-  JR NZ,MAINLOOP_3        ; Jump unless the minute counter has ticked over to 0
-; A minute of game time has passed. Update the game clock accordingly.
-  LD IX,MSG_CURTIME       ; Point IX at the current time at MSG_CURTIME
-  INC (IX+$04)            ; Increment the units digit of the minute
-  LD A,(IX+$04)           ; Pick up the new units digit
-  CP $3A                  ; Was it '9' before?
-  JR NZ,MAINLOOP_3        ; Jump if not
-  LD (IX+$04),$30         ; Set the units digit of the minute to '0'
-  INC (IX+$03)            ; Increment the tens digit of the minute
-  LD A,(IX+$03)           ; Pick up the new tens digit
-  CP $36                  ; Was it '5' before?
-  JR NZ,MAINLOOP_3        ; Jump if not
-  LD (IX+$03),$30         ; Set the tens digit of the minute to '0'
-  LD A,(IX+$00)           ; Pick up the tens digit of the hour
-  CP $31                  ; Is it currently '1'?
-  JR NZ,MAINLOOP_2        ; Jump if not
-  INC (IX+$01)            ; Increment the units digit of the hour
-  LD A,(IX+$01)           ; Pick up the new units digit
-  CP $33                  ; Was it '2' before?
-  JR NZ,MAINLOOP_3        ; Jump if not
-  LD A,(IX+$05)           ; Pick up the 'a' or 'p' of 'am/pm'
-  CP $70                  ; Is it 'p'?
-  JP Z,TITLESCREEN        ; If so, quit the game (it's 1am)
-  LD (IX+$00),$20         ; Set the tens digit of the hour to ' ' (space)
-  LD (IX+$01),$31         ; Set the units digit of the hour to '1'
-  LD (IX+$05),$70         ; Change the 'a' of 'am' to 'p'
-  JR MAINLOOP_3
-MAINLOOP_2:
-  INC (IX+$01)            ; Increment the units digit of the hour
-  LD A,(IX+$01)           ; Pick up the new units digit
-  CP $3A                  ; Was it '9' before?
-  JR NZ,MAINLOOP_3        ; Jump if not
-  LD (IX+$01),$30         ; Set the units digit of the hour to '0'
-  LD (IX+$00),$31         ; Set the tens digit of the hour to '1'
-; Now check whether any non-movement keys are being pressed.
-MAINLOOP_3:
-  LD BC,$FEFE             ; Read keys SHIFT-Z-X-C-V
-  IN A,(C)
-  LD E,A                  ; Save the result in E
-  LD B,$7F                ; Read keys B-N-M-SS-SPACE
-  IN A,(C)
-  OR E                    ; Combine the results
-  AND $01                 ; Are SHIFT and SPACE being pressed?
-  JP Z,TITLESCREEN        ; If so, quit the game
-  LD A,(INACTIVE)         ; Increment the inactivity timer at INACTIVE
-  INC A
-  LD (INACTIVE),A
-  JR Z,PAUSE              ; Jump if the inactivity timer is now 0 (no keys have
-                          ; been pressed for a while)
-  LD B,$FD                ; Read keys A-S-D-F-G
-  IN A,(C)
-  AND $1F                 ; Are any of these keys being pressed?
-  CP $1F
-  JR Z,ENDPAUSE_0         ; Jump if not
-  LD DE,$0000             ; Prepare the delay counters in D and E for the pause
-                          ; loop that follows
-; The following loop pauses the game until any key except A, S, D, F or G is
-; pressed.
-PAUSE:
-  LD B,$02                ; Read every half-row of keys except A-S-D-F-G
-  IN A,(C)
-  AND $1F                 ; Are any of these keys being pressed?
-  CP $1F
-SEE39936:
-  JR NZ,ENDPAUSE          ; If so, resume the game
-  INC E                   ; Increment the delay counter in E
-  JR NZ,PAUSE             ; Jump back unless it's zero
-  INC D                   ; Increment the delay counter in D
-  JR NZ,PAUSE             ; Jump back unless it's zero
-  LD A,(TELEPORT)         ; Pick up the WRITETYPER key counter from TELEPORT
-  CP $0A                  ; Has WRITETYPER been keyed in yet?
-  CALL NZ,CYCLEATTRS      ; If not, cycle the INK and PAPER colours
-  JR PAUSE                ; Jump back to the beginning of the pause loop
-
-; Cycle the INK and PAPER colours
-;
-; Used by the routines at TITLESCREEN (while scrolling the instructions across
-; the screen) and MAINLOOP (while the game is paused).
-CYCLEATTRS:
-  LD HL,$5800             ; Point HL at the first byte of the attribute file
-  LD A,(HL)               ; Pick up this byte
-  AND $07                 ; Keep only bits 0-2 (the INK colour)
-  OUT ($FE),A             ; Set the border colour to match
-; Now we loop over every byte in the attribute file.
-CYCLEATTRS_0:
-  LD A,(HL)               ; Pick up an attribute file byte
-  ADD A,$03               ; Cycle the INK colour forward by three
-  AND $07
-  LD D,A                  ; Save the new INK colour in D
-  LD A,(HL)               ; Pick up the attribute file byte again
-  ADD A,$18               ; Cycle the PAPER colour forward by three (and turn
-  AND $B8                 ; off any BRIGHT colours)
-  OR D                    ; Merge in the new INK colour
-  LD (HL),A               ; Save the new attribute byte
-  INC HL                  ; Point HL at the next byte in the attribute file
-  LD A,H                  ; Have we reached the end of the attribute file yet?
-  CP $5B
-  JR NZ,CYCLEATTRS_0      ; If not, jump back to modify the next byte
-  RET
-
-; Main loop (2)
-;
-; Used by the routine at MAINLOOP. The main entry point is used when resuming
-; the game after it has been paused.
-ENDPAUSE:
-  LD HL,ATTRSLOWER        ; Copy the attribute bytes from ATTRSLOWER to the
-  LD DE,$5A00             ; bottom third of the screen
-  LD BC,$0100
-  LDIR
-  LD A,(BORDER)           ; Pick up the border colour for the current room from
-                          ; BORDER
-  OUT ($FE),A             ; Restore the border colour
-; This entry point is used by the routine at MAINLOOP.
-ENDPAUSE_0:
-  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
-  CP $FF                  ; Has Willy landed after falling from too great a
-                          ; height, or collided with a nasty, an arrow, a
-                          ; guardian, or Maria?
-  JP Z,LOSELIFE           ; If so, lose a life
-; Now read the keys H, J, K, L and ENTER (which toggle the in-game music).
-  LD B,$BF                ; Prepare B for reading keys H-J-K-L-ENTER
-  LD HL,MUSICFLAGS        ; Point HL at the music flags at MUSICFLAGS
-  IN A,(C)                ; Read keys H-J-K-L-ENTER; note that if the game has
-                          ; just resumed after being paused, C holds 0 instead
-                          ; of 254, which is a bug
-  AND $1F                 ; Are any of these keys being pressed?
-  CP $1F
-  JR Z,ENDPAUSE_1         ; Jump if not
-  BIT 0,(HL)              ; Were any of these keys being pressed the last time
-                          ; we checked?
-  JR NZ,ENDPAUSE_2        ; Jump if so
-  LD A,(HL)               ; Set bit 0 (the keypress flag) and flip bit 1 (the
-  XOR $03                 ; in-game music flag) at MUSICFLAGS
-  LD (HL),A
-  JR ENDPAUSE_2
-ENDPAUSE_1:
-  RES 0,(HL)              ; Reset bit 0 (the keypress flag) at MUSICFLAGS
-ENDPAUSE_2:
-  BIT 1,(HL)              ; Has the in-game music been switched off?
-  JR NZ,ENDPAUSE_5        ; Jump if so
-; The next section of code plays a note of the in-game music.
-  XOR A                   ; Reset the inactivity timer at INACTIVE (the game
-  LD (INACTIVE),A         ; does not automatically pause after a period of
-                          ; inactivity if the in-game music is playing)
-  LD A,(NOTEINDEX)        ; Increment the in-game music note index at NOTEINDEX
-  INC A
-  LD (NOTEINDEX),A
-  AND $7E                 ; Point HL at the appropriate entry in the tune data
-  RRCA                    ; table at GAMETUNE
-  LD E,A
-  LD D,$00
-  LD HL,GAMETUNE
-  ADD HL,DE
-  LD A,(LIVES)            ; Pick up the number of lives remaining (0-7) from
-                          ; LIVES
-  RLCA                    ; A=28-4A; this value adjusts the pitch of the note
-  RLCA                    ; that is played depending on how many lives are
-  SUB $1C                 ; remaining (the more lives remaining, the higher the
-  NEG                     ; pitch)
-  ADD A,(HL)              ; Add the entry from the tune data table for the
-                          ; current note
-  LD D,A                  ; Copy this value to D (which determines the pitch of
-                          ; the note)
-  LD A,(BORDER)           ; Pick up the border colour for the current room from
-                          ; BORDER
-  LD E,D                  ; Initialise the pitch delay counter in E
-  LD BC,$0003             ; Initialise the duration delay counters in B (0) and
-                          ; C (3)
-ENDPAUSE_3:
-  OUT ($FE),A             ; Produce a note of the in-game music
-  DEC E
-  JR NZ,ENDPAUSE_4
-  LD E,D
-  XOR $18
-ENDPAUSE_4:
-  DJNZ ENDPAUSE_3
-  DEC C
-  JR NZ,ENDPAUSE_3
-; Here we check the teleport keys.
-ENDPAUSE_5:
-  LD BC,$EFFE             ; Read keys 6-7-8-9-0
-  IN A,(C)
-  BIT 1,A                 ; Is '9' (the activator key) being pressed?
-  JP NZ,ENDPAUSE_6        ; Jump if not
-  AND $10                 ; Keep only bit 4 (corresponding to the '6' key),
-  XOR $10                 ; flip it, and move it into bit 5
-  RLCA
-  LD D,A                  ; Now bit 5 of D is set if '6' is being pressed
-  LD A,(TELEPORT)         ; Pick up the WRITETYPER key counter from TELEPORT
-  CP $0A                  ; Has WRITETYPER been keyed in yet?
-  JP NZ,ENDPAUSE_6        ; Jump if not
-  LD BC,$F7FE             ; Read keys 1-2-3-4-5
-  IN A,(C)
-  CPL                     ; Keep only bits 0-4 and flip them
-  AND $1F
-  OR D                    ; Copy bit 5 of D into A; now A holds the number of
-                          ; the room to teleport to
-  LD (ROOM),A             ; Store the room number at ROOM
-  JP INITROOM             ; Teleport into the room
-; Finally, check the WRITETYPER keys.
-ENDPAUSE_6:
-  LD A,(TELEPORT)         ; Pick up the WRITETYPER key counter from TELEPORT
-  CP $0A                  ; Has WRITETYPER been keyed in yet?
-  JP Z,MAINLOOP           ; If so, jump back to the start of the main loop
-  LD A,(ROOM)             ; Pick up the current room number from ROOM
-  CP $1C                  ; Are we in First Landing?
-  JP NZ,MAINLOOP          ; If not, jump back to the start of the main loop
-  LD A,(PIXEL_Y)          ; Pick up Willy's pixel y-coordinate from PIXEL_Y
-  CP $D0                  ; Is Willy on the floor at the bottom of the
-                          ; staircase?
-  JP NZ,MAINLOOP          ; If not, jump back to the start of the main loop
-  LD A,(TELEPORT)         ; Pick up the WRITETYPER key counter (0-9) from
-                          ; TELEPORT
-  RLCA                    ; Point IX at the corresponding entry in the
-  LD E,A                  ; WRITETYPER table at WRITETYPER
-  LD D,$00
-  LD IX,WRITETYPER
-  ADD IX,DE
-  LD BC,$FBFE             ; Read keys Q-W-E-R-T
-  IN A,(C)
-  AND $1F                 ; Keep only bits 0-4
-  CP (IX+$00)             ; Does this match the first byte of the entry in the
-                          ; WRITETYPER table?
-  JR Z,ENDPAUSE_7         ; Jump if so
-  CP $1F                  ; Are any of the keys Q-W-E-R-T being pressed?
-  JP Z,MAINLOOP           ; If not, jump back to the start of the main loop
-  CP (IX-$02)             ; Does the keyboard reading match the first byte of
-                          ; the previous entry in the WRITETYPER table?
-  JP Z,MAINLOOP           ; If so, jump back to the start of the main loop
-  XOR A                   ; Reset the WRITETYPER key counter at TELEPORT to 0
-  LD (TELEPORT),A         ; (an incorrect key was pressed)
-  JP MAINLOOP             ; Jump back to the start of the main loop
-ENDPAUSE_7:
-  LD B,$DF                ; Read keys Y-U-I-O-P
-  IN A,(C)
-  AND $1F                 ; Keep only bits 0-4
-  CP (IX+$01)             ; Does this match the second byte of the entry in the
-                          ; WRITETYPER table?
-  JR Z,ENDPAUSE_8         ; If so, jump to increment the WRITETYPER key counter
-  CP $1F                  ; Are any of the keys Y-U-I-O-P being pressed?
-  JP Z,MAINLOOP           ; If not, jump back to the start of the main loop
-  CP (IX-$01)             ; Does the keyboard reading match the second byte of
-                          ; the previous entry in the WRITETYPER table?
-  JP Z,MAINLOOP           ; If so, jump back to the start of the main loop
-  XOR A                   ; Reset the WRITETYPER key counter at TELEPORT to 0
-  LD (TELEPORT),A         ; (an incorrect key was pressed)
-  JP MAINLOOP             ; Jump back to the start of the main loop
-ENDPAUSE_8:
-  LD A,(TELEPORT)         ; Increment the WRITETYPER key counter at TELEPORT
-  INC A
-  LD (TELEPORT),A
-  JP MAINLOOP             ; Jump back to the start of the main loop
-
-; Lose a life
-;
-; Used by the routine at ENDPAUSE.
-LOSELIFE:
-  LD A,$47                ; A=71 (INK 7: PAPER 0: BRIGHT 1)
-; The following loop fills the top two thirds of the attribute file with a
-; single value (71 TO 64 STEP -1) and makes a sound effect.
-LOSELIFE_0:
-  LD HL,$5800             ; Fill the top two thirds of the attribute file with
-  LD DE,$5801             ; the value in A
-  LD BC,$01FF
-  LD (HL),A
-  LDIR
-  LD E,A                  ; Save the attribute byte (64-71) in E for later
-                          ; retrieval
-  CPL                     ; D=63-8*(E AND 7); this value determines the pitch
-  AND $07                 ; of the short note that will be played
-  RLCA
-  RLCA
-  RLCA
-  OR $07
-  LD D,A
-  LD C,E                  ; C=8+32*(E AND 7); this value determines the
-  RRC C                   ; duration of the short note that will be played
-  RRC C
-  RRC C
-  OR $10                  ; Set bit 4 of A (for no apparent reason)
-  XOR A                   ; Set A=0 (this will make the border black)
-LOSELIFE_1:
-  OUT ($FE),A             ; Produce a short note whose pitch is determined by D
-  XOR $18                 ; and whose duration is determined by C
-  LD B,D
-LOSELIFE_2:
-  DJNZ LOSELIFE_2
-  DEC C
-  JR NZ,LOSELIFE_1
-  LD A,E                  ; Restore the attribute byte (originally 71) to A
-  DEC A                   ; Decrement it (effectively decrementing the INK
-                          ; colour)
-  CP $3F                  ; Have we used attribute value 64 (INK 0) yet?
-  JR NZ,LOSELIFE_0        ; If not, jump back to update the INK colour in the
-                          ; top two thirds of the screen and make another sound
-                          ; effect
-; Now check whether any lives remain.
-  LD HL,LIVES             ; Pick up the number of lives remaining from LIVES
-  LD A,(HL)
-  OR A                    ; Are there any lives remaining?
-  JP Z,GAMEOVER           ; If not, display the game over sequence
-  DEC (HL)                ; Decrease the number of lives remaining by one
-  LD HL,INITSTATE         ; Restore Willy's state upon entry to the room by
-  LD DE,PIXEL_Y           ; copying the seven bytes at INITSTATE back into
-  LD BC,$0007             ; 85CF-85D5
-  LDIR
-  JP INITROOM             ; Reinitialise the room and resume the game
-
-; Display the game over sequence
-;
-; Used by the routine at LOSELIFE.
-GAMEOVER:
-  LD HL,$4000             ; Clear the top two-thirds of the display file
-  LD DE,$4001
-  LD BC,$0FFF
-  LD (HL),$00
-  LDIR
-  XOR A                   ; Initialise the temporary game status buffer
-  LD (TEMPVAR),A          ; variable at TEMPVAR; this variable will determine
-                          ; the distance of the foot from the top of the screen
-  LD DE,WILLYR2           ; Draw Willy at (12,15)
-  LD HL,$488F
-  LD C,$00
-  CALL DRAWSPRITE
-  LD DE,BARREL            ; Draw the barrel underneath Willy at (14,15)
-  LD HL,$48CF
-  LD C,$00
-  CALL DRAWSPRITE
-; The following loop draws the foot's descent onto the barrel that supports
-; Willy.
-GAMEOVER_0:
-  LD A,(TEMPVAR)          ; Pick up the distance variable from TEMPVAR
-  LD C,A                  ; Point BC at the corresponding entry in the screen
-  LD B,SBUFADDRS/256      ; buffer address lookup table at SBUFADDRS
-  LD A,(BC)               ; Point HL at the corresponding location in the
-  OR $0F                  ; display file
-  LD L,A
-  INC BC
-  LD A,(BC)
-  SUB FPIXL/$100-$40
-  LD H,A
-  LD DE,FOOT              ; Draw the foot at this location, without erasing the
-  LD C,$00                ; foot at the previous location; this leaves the
-  CALL DRAWSPRITE         ; portion of the foot sprite that's above the ankle
-                          ; in place, and makes the foot appear as if it's at
-                          ; the end of a long, extending leg
-  LD A,(TEMPVAR)          ; Pick up the distance variable from TEMPVAR
-  CPL                     ; A=255-A
-  LD E,A                  ; Store this value (63-255) in E; it determines the
-                          ; (rising) pitch of the sound effect that will be
-                          ; made
-  XOR A                   ; A=0 (black border)
-  LD BC,$0040             ; C=64; this value determines the duration of the
-                          ; sound effect
-GAMEOVER_1:
-  OUT ($FE),A             ; Produce a short note whose pitch is determined by E
-  XOR $18
-  LD B,E
-GAMEOVER_2:
-  DJNZ GAMEOVER_2
-  DEC C
-  JR NZ,GAMEOVER_1
-  LD HL,$5800             ; Prepare BC, DE and HL for setting the attribute
-  LD DE,$5801             ; bytes in the top two-thirds of the screen
-  LD BC,$01FF
-  LD A,(TEMPVAR)          ; Pick up the distance variable from TEMPVAR
-  AND $0C                 ; Keep only bits 2 and 3
-  RLCA                    ; Shift bits 2 and 3 into bits 3 and 4; these bits
-                          ; determine the PAPER colour: 0, 1, 2 or 3
-  OR $47                  ; Set bits 0-2 (INK 7) and 6 (BRIGHT 1)
-  LD (HL),A               ; Copy this attribute value into the top two-thirds
-  LDIR                    ; of the screen
-  AND $FA                 ; Reset bits 0 and 2, and retain all other bits
-  OR $02                  ; Set bit 1 (INK 2)
-  LD ($59CF),A            ; Copy this attribute value to the cells at (14,15),
-  LD ($59D0),A            ; (14,16), (15, 15) and (15, 16) (where the barrel
-  LD ($59EF),A            ; is, so that it remains red)
-  LD ($59F0),A
-  LD A,(TEMPVAR)          ; Add 4 to the distance variable at TEMPVAR; this
-  ADD A,$04               ; will move the foot sprite down two pixel rows
-  LD (TEMPVAR),A
-  CP $C4                  ; Has the foot met the barrel yet?
-  JR NZ,GAMEOVER_0        ; Jump back if not
-; Now print the "Game Over" message, just to drive the point home.
-  LD IX,MSG_GAME          ; Print "Game" (see MSG_GAME) at (6,10)
-  LD C,$04
-  LD DE,$40CA
-  CALL PRINTMSG
-  LD IX,MSG_OVER          ; Print "Over" (see MSG_OVER) at (6,18)
-  LD C,$04
-  LD DE,$40D2
-  CALL PRINTMSG
-  LD BC,$0000             ; Prepare the delay counters for the following loop;
-  LD D,$06                ; the counter in C will also determine the INK
-                          ; colours to use for the "Game Over" message
-; The following loop makes the "Game Over" message glisten for about 1.57s.
-GAMEOVER_3:
-  DJNZ GAMEOVER_3         ; Delay for about a millisecond
-  LD A,C                  ; Change the INK colour of the "G" in "Game" at
-  AND $07                 ; (6,10)
-  OR $40
-  LD ($58CA),A
-  INC A                   ; Change the INK colour of the "a" in "Game" at
-  AND $07                 ; (6,11)
-  OR $40
-  LD ($58CB),A
-  INC A                   ; Change the INK colour of the "m" in "Game" at
-  AND $07                 ; (6,12)
-  OR $40
-  LD ($58CC),A
-  INC A                   ; Change the INK colour of the "e" in "Game" at
-  AND $07                 ; (6,13)
-  OR $40
-  LD ($58CD),A
-  INC A                   ; Change the INK colour of the "O" in "Over" at
-  AND $07                 ; (6,18)
-  OR $40
-  LD ($58D2),A
-  INC A                   ; Change the INK colour of the "v" in "Over" at
-  AND $07                 ; (6,19)
-  OR $40
-  LD ($58D3),A
-  INC A                   ; Change the INK colour of the "e" in "Over" at
-  AND $07                 ; (6,20)
-  OR $40
-  LD ($58D4),A
-  INC A                   ; Change the INK colour of the "r" in "Over" at
-  AND $07                 ; (6,21)
-  OR $40
-  LD ($58D5),A
-  DEC C                   ; Decrement the counter in C
-  JR NZ,GAMEOVER_3        ; Jump back unless it's zero
-  DEC D                   ; Decrement the counter in D (initially 6)
-  JR NZ,GAMEOVER_3        ; Jump back unless it's zero
-  JP TITLESCREEN          ; Display the title screen and play the theme tune
-
-; Draw the current room to the screen buffer at 7000
-;
-; Used by the routine at STARTGAME.
-DRAWROOM:
-  CALL ROOMATTRS          ; Fill the buffer at RATTR with attribute bytes for
-                          ; the current room
-  LD IX,RATTR             ; Point IX at the first byte of the attribute buffer
-                          ; at RATTR
-  LD A,RPIXL/$100         ; Set the operand of the 'LD D,n' instruction at
-  LD (BUFMSB+1),A         ; BUFMSB (below) to $70
-  CALL DRAWROOM_0         ; Draw the tiles for the top half of the room to the
-                          ; screen buffer at RPIXL
-  LD A,RPIXL/$100+$08     ; Set the operand of the 'LD D,n' instruction at
-  LD (BUFMSB+1),A         ; BUFMSB (below) to $78
-DRAWROOM_0:
-  LD C,$00                ; C will count 256 tiles
-; The following loop draws 256 tiles (for either the top half or the bottom
-; half of the room) to the screen buffer at RPIXL.
-DRAWROOM_1:
-  LD E,C                  ; E holds the LSB of the screen buffer address
-  LD A,(IX+$00)           ; Pick up an attribute byte from the buffer at RATTR;
-                          ; this identifies the type of tile (background,
-                          ; floor, wall, nasty, ramp or conveyor) to be drawn
-  LD HL,BACKGROUND        ; Move HL through the attribute bytes and graphic
-  LD BC,$0036             ; data of the background, floor, wall, nasty, ramp
-  CPIR                    ; and conveyor tiles starting at BACKGROUND until we
-                          ; find a byte that matches the attribute byte of the
-                          ; tile to be drawn; note that if a graphic data byte
-                          ; matches the attribute byte being searched for, the
-                          ; CPIR instruction can exit early, which is a bug
-  LD C,E                  ; Restore the value of the tile counter in C
-  LD B,$08                ; There are eight bytes in the tile
-BUFMSB:
-  LD D,$00                ; This instruction is set to either 'LD D,$70' or 'LD
-                          ; D,$78' above; now DE holds the appropriate address
-                          ; in the screen buffer at RPIXL
-DRAWROOM_2:
-  LD A,(HL)               ; Copy the tile graphic data to the screen buffer at
-  LD (DE),A               ; RPIXL
-  INC HL
-  INC D
-  DJNZ DRAWROOM_2
-  INC IX                  ; Move IX along to the next byte in the attribute
-                          ; buffer
-  INC C                   ; Have we drawn 256 tiles yet?
-  JP NZ,DRAWROOM_1        ; If not, jump back to draw the next one
-  RET
-
-; Fill the buffer at 5E00 with attribute bytes for the current room
-;
-; Used by the routine at DRAWROOM. Fills the buffer at RATTR with attribute
-; bytes for the background, floor, wall, nasty, conveyor and ramp tiles in the
-; current room.
-ROOMATTRS:
-  LD HL,ROOMLAYOUT        ; Point HL at the first room layout byte at
-                          ; ROOMLAYOUT
-  LD IX,RATTR             ; Point IX at the first byte of the attribute buffer
-                          ; at RATTR
-; The following loop copies the attribute bytes for the background, floor, wall
-; and nasty tiles into the buffer at RATTR.
-ROOMATTRS_0:
-  LD A,(HL)               ; Pick up a room layout byte
-  RLCA                    ; Move bits 6 and 7 into bits 0 and 1
-  RLCA
-  CALL ROOMATTR           ; Copy the attribute byte for this tile into the
-                          ; buffer at RATTR
-  LD A,(HL)               ; Pick up the room layout byte again
-  RRCA                    ; Move bits 4 and 5 into bits 0 and 1
-  RRCA
-  RRCA
-  RRCA
-  CALL ROOMATTR           ; Copy the attribute byte for this tile into the
-                          ; buffer at RATTR
-  LD A,(HL)               ; Pick up the room layout byte again
-  RRCA                    ; Move bits 2 and 3 into bits 0 and 1
-  RRCA
-  CALL ROOMATTR           ; Copy the attribute byte for this tile into the
-                          ; buffer at RATTR
-  LD A,(HL)               ; Pick up the room layout byte again; this time the
-                          ; required bit-pair is already in bits 0 and 1
-  CALL ROOMATTR           ; Copy the attribute byte for this tile into the
-                          ; buffer at RATTR
-  INC HL                  ; Point HL at the next room layout byte
-  LD A,L                  ; Have we processed all 128 room layout bytes yet?
-  AND $80
-  JR Z,ROOMATTRS_0        ; If not, jump back to process the next one
-; Next consider the conveyor tiles (if any).
-  LD A,(CONVLEN)          ; Pick up the length of the conveyor from CONVLEN
-  OR A                    ; Is there a conveyor in the room?
-  JR Z,ROOMATTRS_2        ; Jump if not
-  LD HL,(CONVLOC)         ; Pick up the address of the conveyor's location in
-                          ; the attribute buffer at RATTR from CONVLOC
-  LD B,A                  ; B will count the conveyor tiles
-  LD A,(CONVEYOR)         ; Pick up the attribute byte for the conveyor tile
-                          ; from CONVEYOR
-ROOMATTRS_1:
-  LD (HL),A               ; Copy the attribute bytes for the conveyor tiles
-  INC HL                  ; into the buffer at RATTR
-  DJNZ ROOMATTRS_1
-; And finally consider the ramp tiles (if any).
-ROOMATTRS_2:
-  LD A,(RAMPLEN)          ; Pick up the length of the ramp from RAMPLEN
-  OR A                    ; Is there a ramp in the room?
-  RET Z                   ; Return if not
-  LD HL,(RAMPLOC)         ; Pick up the address of the ramp's location in the
-                          ; attribute buffer at RATTR from RAMPLOC
-  LD A,(RAMPDIR)          ; Pick up the ramp direction from RAMPDIR; A=0 (ramp
-  AND $01                 ; goes up to the left) or 1 (ramp goes up to the
-                          ; right)
-  RLCA                    ; Now DE=-33 (ramp goes up to the left) or -31 (ramp
-  ADD A,$DF               ; goes up to the right)
-  LD E,A
-  LD D,$FF
-  LD A,(RAMPLEN)          ; Pick up the length of the ramp from RAMPLEN
-  LD B,A                  ; B will count the ramp tiles
-  LD A,(RAMP)             ; Pick up the attribute byte for the ramp tile from
-                          ; RAMP
-ROOMATTRS_3:
-  LD (HL),A               ; Copy the attribute bytes for the ramp tiles into
-  ADD HL,DE               ; the buffer at RATTR
-  DJNZ ROOMATTRS_3
-  RET
-
-; Copy a room attribute byte into the buffer at 5E00
-;
-; Used by the routine at ROOMATTRS. On entry, A holds a room layout byte,
-; rotated such that the bit-pair corresponding to the tile of interest is in
-; bits 0 and 1.
-;
-; A Room layout byte (rotated)
-; IX Attribute buffer address (5E00-5FFF)
-ROOMATTR:
-  AND $03                 ; Keep only bits 0 and 1; A=0 (background), 1
-                          ; (floor), 2 (wall) or 3 (nasty)
-  LD C,A                  ; Multiply by 9 and add 160; now A=160 (background),
-  RLCA                    ; 169 (floor), 178 (wall) or 187 (nasty)
-  RLCA
-  RLCA
-  ADD A,C
-  ADD A,$A0
-  LD E,A                  ; Point DE at the attribute byte for the background,
-  LD D,ROOMLAYOUT/256     ; floor, wall or nasty tile (see BACKGROUND)
-  LD A,(DE)               ; Copy the attribute byte into the buffer at RATTR
-  LD (IX+$00),A
-  INC IX                  ; Move IX along to the next byte in the attribute
-                          ; buffer
-  RET
-
-; Move Willy (1)
-;
-; Used by the routine at MAINLOOP. This routine deals with Willy if he's
-; jumping or falling.
-MOVEWILLY:
-  LD A,(ROPE)             ; Pick up the rope status indicator from ROPE
-  DEC A                   ; Is Willy on a rope?
-  BIT 7,A
-  JP Z,MOVEWILLY2         ; Jump if so
-  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
-  CP $01                  ; Is Willy jumping?
-  JR NZ,MOVEWILLY_3       ; Jump if not
-; Willy is currently jumping.
-  LD A,(JUMPING)          ; Pick up the jumping animation counter (0-17) from
-                          ; JUMPING
-  AND $FE                 ; Discard bit 0
-  SUB $08                 ; Now -8<=A<=8 (and A is even)
-  LD HL,PIXEL_Y           ; Adjust Willy's pixel y-coordinate at PIXEL_Y
-  ADD A,(HL)              ; depending on where Willy is in the jump
-  LD (HL),A
-  CP $F0                  ; Is the new value negative (above the top of the
-                          ; screen)?
-  JP NC,ROOMABOVE         ; If so, move Willy into the room above
-  CALL MOVEWILLY_8        ; Adjust Willy's attribute buffer location at
-                          ; LOCATION depending on his pixel y-coordinate
-  LD A,(WALL)             ; Pick up the attribute byte of the wall tile for the
-                          ; current room from WALL
-  CP (HL)                 ; Is the top-left cell of Willy's sprite overlapping
-                          ; a wall tile?
-  JP Z,MOVEWILLY_11       ; Jump if so
-  INC HL                  ; Point HL at the top-right cell occupied by Willy's
-                          ; sprite
-  CP (HL)                 ; Is the top-right cell of Willy's sprite overlapping
-                          ; a wall tile?
-  JP Z,MOVEWILLY_11       ; Jump if so
-  LD A,(JUMPING)          ; Increment the jumping animation counter at JUMPING
-  INC A
-  LD (JUMPING),A
-  SUB $08                 ; A=J-8, where J (1-18) is the new value of the
-                          ; jumping animation counter
-  JP P,MOVEWILLY_0        ; Jump if J>=8
-  NEG                     ; A=8-J (1<=J<=7, 1<=A<=7)
-MOVEWILLY_0:
-  INC A                   ; A=1+ABS(J-8)
-  RLCA                    ; D=8*(1+ABS(J-8)); this value determines the pitch
-  RLCA                    ; of the jumping sound effect (rising as Willy rises,
-  RLCA                    ; falling as Willy falls)
-  LD D,A
-  LD C,$20                ; C=32; this value determines the duration of the
-                          ; jumping sound effect
-  LD A,(BORDER)           ; Pick up the border colour for the current room from
-                          ; BORDER
-MOVEWILLY_1:
-  OUT ($FE),A             ; Make a jumping sound effect
-  XOR $18
-  LD B,D
-MOVEWILLY_2:
-  DJNZ MOVEWILLY_2
-  DEC C
-  JR NZ,MOVEWILLY_1
-  LD A,(JUMPING)          ; Pick up the jumping animation counter (1-18) from
-                          ; JUMPING
-  CP $12                  ; Has Willy reached the end of the jump?
-  JP Z,MOVEWILLY_9        ; Jump if so
-  CP $10                  ; Is the jumping animation counter now 16?
-  JR Z,MOVEWILLY_3        ; Jump if so
-  CP $0D                  ; Is the jumping animation counter now 13?
-  JP NZ,MOVEWILLY3        ; Jump if not
-; If we get here, then Willy is standing on the floor or a ramp, or he's
-; falling, or his jumping animation counter is 13 (at which point Willy is on
-; his way down and is exactly two cell-heights above where he started the jump)
-; or 16 (at which point Willy is on his way down and is exactly one cell-height
-; above where he started the jump).
-MOVEWILLY_3:
-  LD A,(PIXEL_Y)          ; Pick up Willy's pixel y-coordinate from PIXEL_Y
-  AND $0E                 ; Is Willy either on a ramp, or occupying only four
-                          ; cells?
-  JR NZ,MOVEWILLY_4       ; Jump if not
-  LD HL,(LOCATION)        ; Pick up Willy's attribute buffer coordinates from
-                          ; LOCATION
-  LD DE,$0040             ; Point HL at the left-hand cell below Willy's sprite
-  ADD HL,DE
-  LD A,FATTR/$100+$02     ; Is this location below the floor of the current
-                          ; room?
-  CP H
-  JP Z,ROOMBELOW          ; If so, move Willy into the room below
-  LD A,(NASTY)            ; Pick up the attribute byte of the nasty tile for
-                          ; the current room from NASTY
-  CP (HL)                 ; Does the left-hand cell below Willy's sprite
-                          ; contain a nasty?
-  JR Z,MOVEWILLY_4        ; Jump if so
-  INC HL                  ; Point HL at the right-hand cell below Willy's
-                          ; sprite
-  LD A,(NASTY)            ; Pick up the attribute byte of the nasty tile for
-                          ; the current room from NASTY (again, redundantly)
-  CP (HL)                 ; Does the right-hand cell below Willy's sprite
-                          ; contain a nasty?
-  JR Z,MOVEWILLY_4        ; Jump if so
-  LD A,(BACKGROUND)       ; Pick up the attribute byte of the background tile
-                          ; for the current room from BACKGROUND
-  CP (HL)                 ; Set the zero flag if the right-hand cell below
-                          ; Willy's sprite is empty
-  DEC HL                  ; Point HL at the left-hand cell below Willy's sprite
-  JP NZ,MOVEWILLY2        ; Jump if the right-hand cell below Willy's sprite is
-                          ; not empty
-  CP (HL)                 ; Is the left-hand cell below Willy's sprite empty?
-  JP NZ,MOVEWILLY2        ; Jump if not
-MOVEWILLY_4:
-  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
-  CP $01                  ; Is Willy jumping?
-  JP Z,MOVEWILLY3         ; Jump if so
-; If we get here, then Willy is either in the process of falling or just about
-; to start falling.
-  LD HL,DMFLAGS           ; Reset bit 1 at DMFLAGS: Willy is not moving left or
-  RES 1,(HL)              ; right
-  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
-  OR A                    ; Is Willy already falling?
-  JP Z,MOVEWILLY_10       ; Jump if not
-  INC A                   ; Increment the airborne status indicator
-  CP $10                  ; Is it 16 now?
-  JR NZ,MOVEWILLY_5       ; Jump if not
-  LD A,$0C                ; Decrease the airborne status indicator from 16 to
-                          ; 12
-MOVEWILLY_5:
-  LD (AIRBORNE),A         ; Update the airborne status indicator at AIRBORNE
-  RLCA                    ; D=16*A; this value determines the pitch of the
-  RLCA                    ; falling sound effect
-  RLCA
-  RLCA
-  LD D,A
-  LD C,$20                ; C=32; this value determines the duration of the
-                          ; falling sound effect
-  LD A,(BORDER)           ; Pick up the border colour for the current room from
-                          ; BORDER
-MOVEWILLY_6:
-  OUT ($FE),A             ; Make a falling sound effect
-  XOR $18
-  LD B,D
-MOVEWILLY_7:
-  DJNZ MOVEWILLY_7
-  DEC C
-  JR NZ,MOVEWILLY_6
-  LD A,(PIXEL_Y)          ; Add 8 to Willy's pixel y-coordinate at PIXEL_Y;
-  ADD A,$08               ; this moves Willy downwards by 4 pixels
-  LD (PIXEL_Y),A
-; This entry point is used by the routine at DRAWTHINGS to update Willy's
-; attribute buffer location when he's on a rope.
-MOVEWILLY_8:
-  AND $F0                 ; L=16*Y, where Y is Willy's screen y-coordinate
-  LD L,A                  ; (0-14)
-  XOR A                   ; Clear A and the carry flag
-  RL L                    ; Now L=32*(Y-8*INT(Y/8)), and the carry flag is set
-                          ; if Willy is in the lower half of the room (Y>=8)
-  ADC A,FATTR/$100        ; H=92 or 93 (MSB of the address of Willy's location
-  LD H,A                  ; in the attribute buffer)
-  LD A,(LOCATION)         ; Pick up Willy's screen x-coordinate (0-30) from
-  AND $1F                 ; bits 0-4 at LOCATION
-  OR L                    ; Now L holds the LSB of Willy's attribute buffer
-  LD L,A                  ; address
-  LD (LOCATION),HL        ; Store Willy's updated attribute buffer location at
-                          ; LOCATION
-  RET
-; Willy has just finished a jump.
-MOVEWILLY_9:
-  LD A,$06                ; Set the airborne status indicator at AIRBORNE to 6:
-  LD (AIRBORNE),A         ; Willy will continue to fall unless he's landed on a
-                          ; wall or floor block
-  RET
-; Willy has just started falling.
-MOVEWILLY_10:
-  LD A,$02                ; Set the airborne status indicator at AIRBORNE to 2
-  LD (AIRBORNE),A
-  RET
-; The top-left or top-right cell of Willy's sprite is overlapping a wall tile.
-MOVEWILLY_11:
-  LD A,(PIXEL_Y)          ; Adjust Willy's pixel y-coordinate at PIXEL_Y so
-  ADD A,$10               ; that the top row of cells of his sprite is just
-  AND $F0                 ; below the wall tile
-  LD (PIXEL_Y),A
-  CALL MOVEWILLY_8        ; Adjust Willy's attribute buffer location at
-                          ; LOCATION to account for this new pixel y-coordinate
-  LD A,$02                ; Set the airborne status indicator at AIRBORNE to 2:
-  LD (AIRBORNE),A         ; Willy has started falling
-  LD HL,DMFLAGS           ; Reset bit 1 at DMFLAGS: Willy is not moving left or
-  RES 1,(HL)              ; right
-  RET
-
-; Move Willy (2)
-;
-; Used by the routine at MOVEWILLY. This routine checks the keyboard and
-; joystick.
-;
-; HL Attribute buffer address of the left-hand cell below Willy's sprite (if
-;    Willy is not on a rope)
-MOVEWILLY2:
-  LD E,$FF                ; Initialise E to 255 (all bits set); it will be used
-                          ; to hold keyboard and joystick readings
-  LD A,(ROPE)             ; Pick up the rope status indicator from ROPE
-  DEC A                   ; Is Willy on a rope?
-  BIT 7,A
-  JR Z,MOVEWILLY2_1       ; Jump if so
-  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
-  CP $0C                  ; Has Willy just landed after falling from too great
-                          ; a height?
-  JP NC,KILLWILLY_0       ; If so, kill him
-  XOR A                   ; Reset the airborne status indicator at AIRBORNE
-  LD (AIRBORNE),A         ; (Willy has landed safely)
-  LD A,(CONVEYOR)         ; Pick up the attribute byte of the conveyor tile for
-                          ; the current room from CONVEYOR
-  CP (HL)                 ; Does the attribute byte of the left-hand cell below
-                          ; Willy's sprite match that of the conveyor tile?
-  JR Z,MOVEWILLY2_0       ; Jump if so
-  INC HL                  ; Point HL at the right-hand cell below Willy's
-                          ; sprite
-  CP (HL)                 ; Does the attribute byte of the right-hand cell
-                          ; below Willy's sprite match that of the conveyor
-                          ; tile?
-  JR NZ,MOVEWILLY2_1      ; Jump if not
-MOVEWILLY2_0:
-  LD A,(CONVDIR)          ; Pick up the direction byte of the conveyor
-                          ; definition from CONVDIR (0=left, 1=right)
-  SUB $03                 ; Now E=253 (bit 1 reset) if the conveyor is moving
-  LD E,A                  ; left, or 254 (bit 0 reset) if it's moving right
-MOVEWILLY2_1:
-  LD BC,$DFFE             ; Read keys P-O-I-U-Y (right, left, right, left,
-  IN A,(C)                ; right) into bits 0-4 of A
-  AND $1F                 ; Set bit 5 and reset bits 6 and 7
-  OR $20
-  AND E                   ; Reset bit 0 if the conveyor is moving right, or bit
-                          ; 1 if it's moving left
-  LD E,A                  ; Save the result in E
-  LD A,(MODE)             ; Pick up the game mode indicator (0, 1 or 2) from
-                          ; MODE
-  AND $02                 ; Now A=1 if Willy is running to the toilet, 0
-  RRCA                    ; otherwise
-  XOR E                   ; Flip bit 0 of E if Willy is running to the toilet,
-  LD E,A                  ; forcing him to move right (unless he's jumped onto
-                          ; the bed, in which case bit 0 of E is now set,
-                          ; meaning that the conveyor does not move him, and
-                          ; the 'P' key has no effect; this is a bug)
-  LD BC,$FBFE             ; Read keys Q-W-E-R-T (left, right, left, right,
-  IN A,(C)                ; left) into bits 0-4 of A
-  AND $1F                 ; Keep only bits 0-4, shift them into bits 1-5, and
-  RLC A                   ; set bit 0
-  OR $01
-  AND E                   ; Merge this keyboard reading into bits 1-5 of E
-  LD E,A
-  LD B,$E7                ; Read keys 1-2-3-4-5 ('5' is left) and 0-9-8-7-6
-  IN A,(C)                ; (jump, nothing, right, right, left) into bits 0-4
-                          ; of A
-  RRCA                    ; Rotate the result right and set bits 0-2 and 4-7;
-  OR $F7                  ; this ignores every key except '5' and '6' (left)
-  AND E                   ; Merge this reading of the '5' and '6' keys into bit
-  LD E,A                  ; 3 of E
-  LD B,$EF                ; Read keys 0-9-8-7-6 (jump, nothing, right, right,
-  IN A,(C)                ; left) into bits 0-4 of A
-  OR $FB                  ; Set bits 0, 1 and 3-7; this ignores every key
-                          ; except '8' (right)
-  AND E                   ; Merge this reading of the '8' key into bit 2 of E
-  LD E,A
-  IN A,(C)                ; Read keys 0-9-8-7-6 (jump, nothing, right, right,
-                          ; left) into bits 0-4 of A
-  RRCA                    ; Rotate the result right and set bits 0, 1 and 3-7;
-  OR $FB                  ; this ignores every key except '7' (right)
-  AND E                   ; Merge this reading of the '7' key into bit 2 of E
-  LD E,A
-  LD A,(JOYSTICK)         ; Collect the Kempston joystick indicator from
-                          ; JOYSTICK
-  OR A                    ; Is the joystick connected?
-  JR Z,MOVEWILLY2_2       ; Jump if not
-  LD BC,$001F             ; Collect input from the joystick
-  IN A,(C)
-  AND $03                 ; Keep only bits 0 (right) and 1 (left) and flip them
-  CPL
-  AND E                   ; Merge this reading of the joystick right and left
-  LD E,A                  ; buttons into bits 0 and 1 of E
-; At this point, bits 0-5 in E indicate the direction in which Willy is being
-; moved or trying to move. If bit 0, 2 or 4 is reset, Willy is being moved or
-; trying to move right; if bit 1, 3 or 5 is reset, Willy is being moved or
-; trying to move left.
-MOVEWILLY2_2:
-  LD C,$00                ; Initialise C to 0 (no movement)
-  LD A,E                  ; Copy the movement bits into A
-  AND $2A                 ; Keep only bits 1, 3 and 5 (the 'left' bits)
-  CP $2A                  ; Are any of these bits reset?
-  JR Z,MOVEWILLY2_3       ; Jump if not
-  LD C,$04                ; Set bit 2 of C: Willy is moving left
-  XOR A                   ; Reset the inactivity timer at INACTIVE
-  LD (INACTIVE),A
-MOVEWILLY2_3:
-  LD A,E                  ; Copy the movement bits into A
-  AND $15                 ; Keep only bits 0, 2 and 4 (the 'right' bits)
-  CP $15                  ; Are any of these bits reset?
-  JR Z,MOVEWILLY2_4       ; Jump if not
-  SET 3,C                 ; Set bit 3 of C: Willy is moving right
-  XOR A                   ; Reset the inactivity timer at INACTIVE
-  LD (INACTIVE),A
-MOVEWILLY2_4:
-  LD A,(DMFLAGS)          ; Pick up Willy's direction and movement flags from
-                          ; DMFLAGS
-  ADD A,C                 ; Point HL at the entry in the left-right movement
-  LD C,A                  ; table at LRMOVEMENT that corresponds to the
-  LD B,$00                ; direction Willy is facing, and the direction in
-  LD HL,LRMOVEMENT        ; which he is being moved or trying to move
-  ADD HL,BC
-  LD A,(HL)               ; Update Willy's direction and movement flags at
-  LD (DMFLAGS),A          ; DMFLAGS with the entry from the left-right movement
-                          ; table
-; That is left-right movement taken care of. Now check the jump keys.
-  LD BC,$7EFE             ; Read keys SHIFT-Z-X-C-V and B-N-M-SS-SPACE
-  IN A,(C)
-  AND $1F                 ; Are any of these keys being pressed?
-  CP $1F
-  JR NZ,MOVEWILLY2_5      ; Jump if so
-  LD B,$EF                ; Read keys 6-7-8-9-0
-  IN A,(C)
-  BIT 0,A                 ; Is '0' being pressed?
-  JR Z,MOVEWILLY2_5       ; Jump if so
-  LD A,(JOYSTICK)         ; Collect the Kempston joystick indicator from
-                          ; JOYSTICK
-  OR A                    ; Is the joystick connected?
-  JR Z,MOVEWILLY3         ; Jump if not
-  LD BC,$001F             ; Collect input from the joystick
-  IN A,(C)
-  BIT 4,A                 ; Is the fire button being pressed?
-  JR Z,MOVEWILLY3         ; Jump if not
-; A jump key or the fire button is being pressed. Time to make Willy jump.
-MOVEWILLY2_5:
-  LD A,(MODE)             ; Pick up the game mode indicator from MODE
-  BIT 1,A                 ; Is Willy running to the toilet?
-  JR NZ,MOVEWILLY3        ; Jump if so
-  XOR A                   ; Initialise the jumping animation counter at JUMPING
-  LD (JUMPING),A          ; to 0
-  LD (INACTIVE),A         ; Reset the inactivity timer at INACTIVE
-  INC A                   ; Set the airborne status indicator at AIRBORNE to 1:
-  LD (AIRBORNE),A         ; Willy is jumping
-  LD A,(ROPE)             ; Pick up the rope status indicator from ROPE
-  DEC A                   ; Is Willy on a rope?
-  BIT 7,A
-  JR NZ,MOVEWILLY3        ; Jump if not
-  LD A,$F0                ; Set the rope status indicator at ROPE to 240
-  LD (ROPE),A
-  LD A,(PIXEL_Y)          ; Round down Willy's pixel y-coordinate at PIXEL_Y to
-  AND $F0                 ; the nearest multiple of 16; this might move him
-  LD (PIXEL_Y),A          ; upwards a little, but ensures that his actual pixel
-                          ; y-coordinate is a multiple of 8 (making his sprite
-                          ; cell-aligned) before he begins the jump off the
-                          ; rope
-  LD HL,DMFLAGS           ; Set bit 1 at DMFLAGS: during this jump off the
-  SET 1,(HL)              ; rope, Willy will move in the direction he's facing
-  RET
-
-; Move Willy (3)
-;
-; Used by the routines at MOVEWILLY and MOVEWILLY2. This routine moves Willy
-; left or right if necessary.
-MOVEWILLY3:
-  LD A,(DMFLAGS)          ; Pick up Willy's direction and movement flags from
-                          ; DMFLAGS
-  AND $02                 ; Is Willy moving?
-  RET Z                   ; Return if not
-  LD A,(ROPE)             ; Pick up the rope status indicator from ROPE
-  DEC A                   ; Is Willy on a rope?
-  BIT 7,A
-  RET Z                   ; Return if so (Willy's movement along a rope is
-                          ; handled at DRAWTHINGS_19)
-  LD A,(DMFLAGS)          ; Pick up Willy's direction and movement flags from
-                          ; DMFLAGS
-  AND $01                 ; Is Willy facing right?
-  JP Z,MOVEWILLY3_3       ; Jump if so
-; Willy is moving left.
-  LD A,(FRAME)            ; Pick up Willy's animation frame from FRAME
-  OR A                    ; Is it 0?
-  JR Z,MOVEWILLY3_0       ; If so, jump to move Willy's sprite left across a
-                          ; cell boundary
-  DEC A                   ; Decrement Willy's animation frame at FRAME
-  LD (FRAME),A
-  RET
-; Willy's sprite is moving left across a cell boundary. In the comments that
-; follow, (x,y) refers to the coordinates of the top-left cell currently
-; occupied by Willy's sprite.
-MOVEWILLY3_0:
-  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
-  LD BC,$0000             ; Prepare BC for later addition
-  CP $00                  ; Is Willy jumping?
-  JR NZ,MOVEWILLY3_1      ; Jump if so
-  LD HL,(LOCATION)        ; Collect Willy's attribute buffer coordinates from
-                          ; LOCATION
-  LD BC,$0000             ; Prepare BC for later addition (again, redundantly)
-  LD A,(RAMPDIR)          ; Pick up the direction byte of the ramp definition
-                          ; for the current room from RAMPDIR
-  DEC A                   ; Now A=31 if the ramp goes up to the left, or 65 if
-  OR $A1                  ; it goes up to the right
-  XOR $E0
-  LD E,A                  ; Point HL at the cell at (x-1,y+1) if the ramp goes
-  LD D,$00                ; up to the left, or at the cell at (x+1,y+2) if the
-  ADD HL,DE               ; ramp goes up to the right
-  LD A,(RAMP)             ; Pick up the attribute byte of the ramp tile for the
-                          ; current room from RAMP
-  CP (HL)                 ; Is there a ramp tile in the cell pointed to by HL?
-  JR NZ,MOVEWILLY3_1      ; Jump if not
-  LD BC,$0020             ; Prepare BC for later addition
-  LD A,(RAMPDIR)          ; Pick up the direction byte of the ramp definition
-                          ; for the current room from RAMPDIR
-  OR A                    ; Does the ramp go up to the right?
-  JR NZ,MOVEWILLY3_1      ; Jump if so
-  LD BC,$FFE0             ; BC=-32 (the ramp goes up to the left)
-MOVEWILLY3_1:
-  LD HL,(LOCATION)        ; Collect Willy's attribute buffer coordinates from
-                          ; LOCATION
-  LD A,L                  ; Is Willy's screen x-coordinate 0 (on the far left)?
-  AND $1F
-  JP Z,ROOMLEFT           ; If so, move Willy into the room to the left
-  ADD HL,BC               ; Point HL at the cell at (x-1,y+1), or at the cell
-  DEC HL                  ; at (x-1,y) if Willy is on or approaching a ramp
-  LD DE,$0020             ; that goes up to the left, or at the cell at
-  ADD HL,DE               ; (x-1,y+2) if Willy is walking down a ramp
-  LD A,(WALL)             ; Pick up the attribute byte of the wall tile for the
-                          ; current room from WALL
-  CP (HL)                 ; Is there a wall tile in the cell pointed to by HL?
-  RET Z                   ; Return if so without moving Willy (his path is
-                          ; blocked)
-  LD A,(PIXEL_Y)          ; Pick up Willy's pixel y-coordinate (Y) from PIXEL_Y
-  SRA C                   ; Now B=Y (if Willy is neither on nor approaching a
-  ADD A,C                 ; ramp), or Y+16 (if Willy is walking down a ramp),
-  LD B,A                  ; or Y-16 (if Willy is on or approaching a ramp that
-                          ; goes up to the left); this will be Willy's new
-                          ; pixel y-coordinate
-  AND $0F                 ; Does Willy's sprite currently occupy only two rows
-                          ; of cells?
-  JR Z,MOVEWILLY3_2       ; Jump if so
-  LD A,(WALL)             ; Pick up the attribute byte of the wall tile for the
-                          ; current room from WALL
-  ADD HL,DE               ; Point HL at the cell at (x-1,y+2), or at the cell
-                          ; at (x-1,y+1) if Willy is on or approaching a ramp
-                          ; that goes up to the left, or at the cell at
-                          ; (x-1,y+3) if Willy is on a ramp that goes up to the
-                          ; right
-  CP (HL)                 ; Is there a wall tile in the cell pointed to by HL?
-  RET Z                   ; Return if so without moving Willy (his path is
-                          ; blocked)
-  OR A                    ; Point HL at the cell at (x-1,y+1), or at the cell
-  SBC HL,DE               ; at (x-1,y) if Willy is on or approaching a ramp
-                          ; that goes up to the left, or at the cell at
-                          ; (x-1,y+2) if Willy is walking down a ramp
-MOVEWILLY3_2:
-  OR A                    ; Point HL at the cell at (x-1,y), or at the cell at
-  SBC HL,DE               ; (x-1,y-1) if Willy is on or approaching a ramp that
-                          ; goes up to the left, or at the cell at (x-1,y+1) if
-                          ; Willy is walking down a ramp
-  LD (LOCATION),HL        ; Save Willy's new attribute buffer coordinates (in
-                          ; HL) at LOCATION
-  LD A,B                  ; Save Willy's new pixel y-coordinate at PIXEL_Y
-  LD (PIXEL_Y),A
-  LD A,$03                ; Change Willy's animation frame at FRAME from 0 to 3
-  LD (FRAME),A
-  RET
-; Willy is moving right.
-MOVEWILLY3_3:
-  LD A,(FRAME)            ; Pick up Willy's animation frame from FRAME
-  CP $03                  ; Is it 3?
-  JR Z,MOVEWILLY3_4       ; If so, jump to move Willy's sprite right across a
-                          ; cell boundary
-  INC A                   ; Increment Willy's animation frame at FRAME
-  LD (FRAME),A
-  RET
-; Willy's sprite is moving right across a cell boundary. In the comments that
-; follow, (x,y) refers to the coordinates of the top-left cell currently
-; occupied by Willy's sprite.
-MOVEWILLY3_4:
-  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
-  LD BC,$0000             ; Prepare BC for later addition
-  OR A                    ; Is Willy jumping or falling?
-  JR NZ,MOVEWILLY3_5      ; Jump if so
-  LD HL,(LOCATION)        ; Collect Willy's attribute buffer coordinates from
-                          ; LOCATION
-  LD A,(RAMPDIR)          ; Pick up the direction byte of the ramp definition
-                          ; for the current room from RAMPDIR
-  DEC A                   ; Now A=64 if the ramp goes up to the left, or 34 if
-  OR $9D                  ; it goes up to the right
-  XOR $BF
-  LD E,A                  ; Point HL at the cell at (x,y+2) if the ramp goes up
-  LD D,$00                ; to the left, or at the cell at (x+2,y+1) if the
-  ADD HL,DE               ; ramp goes up to the right
-  LD A,(RAMP)             ; Pick up the attribute byte of the ramp tile for the
-                          ; current room from RAMP
-  CP (HL)                 ; Is there a ramp tile in the cell pointed to by HL?
-  JR NZ,MOVEWILLY3_5      ; Jump if not
-  LD BC,$0020             ; Prepare BC for later addition
-  LD A,(RAMPDIR)          ; Pick up the direction byte of the ramp definition
-                          ; for the current room from RAMPDIR
-  OR A                    ; Does the ramp go up to the left?
-  JR Z,MOVEWILLY3_5       ; Jump if so
-  LD BC,$FFE0             ; BC=-32 (the ramp goes up to the right)
-MOVEWILLY3_5:
-  LD HL,(LOCATION)        ; Collect Willy's attribute buffer coordinates from
-                          ; LOCATION
-  ADD HL,BC               ; Point HL at the cell at (x+2,y), or at the cell at
-  INC HL                  ; (x+2,y+1) if Willy is walking down a ramp, or at
-  INC HL                  ; the cell at (x+2,y-1) if Willy is on or approaching
-                          ; a ramp that goes up to the right
-  LD A,L                  ; Is Willy's screen x-coordinate 30 (on the far
-  AND $1F                 ; right)?
-  JP Z,ROOMRIGHT          ; If so, move Willy into the room on the right
-  LD DE,$0020             ; Prepare DE for addition
-  LD A,(WALL)             ; Pick up the attribute byte of the wall tile for the
-                          ; current room from WALL
-  ADD HL,DE               ; Point HL at the cell at (x+2,y+1), or at the cell
-                          ; at (x+2,y+2) if Willy is walking down a ramp, or at
-                          ; the cell at (x+2,y) if Willy is on or approaching a
-                          ; ramp that goes up to the right
-  CP (HL)                 ; Is there a wall tile in the cell pointed to by HL?
-  RET Z                   ; Return if so without moving Willy (his path is
-                          ; blocked)
-  LD A,(PIXEL_Y)          ; Pick up Willy's pixel y-coordinate (Y) from PIXEL_Y
-  SRA C                   ; Now B=Y (if Willy is neither on nor approaching a
-  ADD A,C                 ; ramp), or Y+16 (if Willy is walking down a ramp),
-  LD B,A                  ; or Y-16 (if Willy is on or approaching a ramp that
-                          ; goes up to the right); this will be Willy's new
-                          ; pixel y-coordinate
-  AND $0F                 ; Does Willy's sprite currently occupy only two rows
-                          ; of cells?
-  JR Z,MOVEWILLY3_6       ; Jump if so
-  LD A,(WALL)             ; Pick up the attribute byte of the wall tile for the
-                          ; current room from WALL
-  ADD HL,DE               ; Point HL at the cell at (x+2,y+2), or at the cell
-                          ; at (x+2,y+3) if Willy is walking down a ramp, or at
-                          ; the cell at (x+2,y+1) if Willy is on or approaching
-                          ; a ramp that goes up to the right
-  CP (HL)                 ; Is there a wall tile in the cell pointed to by HL?
-  RET Z                   ; Return if so without moving Willy (his path is
-                          ; blocked)
-  OR A                    ; Point HL at the cell at (x+2,y+1), or at the cell
-  SBC HL,DE               ; at (x+2,y+2) if Willy is walking down a ramp, or at
-                          ; the cell at (x+2,y) if Willy is on or approaching a
-                          ; ramp that goes up to the right
-MOVEWILLY3_6:
-  LD A,(WALL)             ; Pick up the attribute byte of the wall tile for the
-                          ; current room from WALL
-  OR A                    ; Point HL at the cell at (x+2,y), or at the cell at
-  SBC HL,DE               ; (x+2,y+1) if Willy is walking down a ramp, or at
-                          ; the cell at (x+2,y-1) if Willy is on or approaching
-                          ; a ramp that goes up to the right
-  CP (HL)                 ; Is there a wall tile in the cell pointed to by HL?
-  RET Z                   ; Return if so without moving Willy (his path is
-                          ; blocked)
-  DEC HL                  ; Point HL at the cell at (x+1,y), or at the cell at
-                          ; (x+1,y+1) if Willy is walking down a ramp, or at
-                          ; the cell at (x+1,y-1) if Willy is on or approaching
-                          ; a ramp that goes up to the right
-  LD (LOCATION),HL        ; Save Willy's new attribute buffer coordinates (in
-                          ; HL) at LOCATION
-  XOR A                   ; Change Willy's animation frame at FRAME from 3 to 0
-  LD (FRAME),A
-  LD A,B                  ; Save Willy's new pixel y-coordinate at PIXEL_Y
-  LD (PIXEL_Y),A
-  RET
-
-; Kill Willy
-;
-; Used by the routine at WILLYATTR when Willy hits a nasty.
-KILLWILLY:
-  POP HL                  ; Drop the return address from the stack
-; This entry point is used by the routines at MOVEWILLY2 (when Willy lands
-; after falling from too great a height), DRAWTHINGS (when an arrow or guardian
-; hits Willy) and BEDANDBATH (when Willy gets too close to Maria).
-KILLWILLY_0:
-  POP HL                  ; Drop the return address from the stack
-  LD A,$FF                ; Set the airborne status indicator at AIRBORNE to
-  LD (AIRBORNE),A         ; 255 (meaning Willy has had a fatal accident)
-  JP MAINLOOP_0           ; Jump back into the main loop
-
-; Move the rope and guardians in the current room
-;
-; Used by the routine at MAINLOOP.
-MOVETHINGS:
-  LD IX,ENTITYBUF         ; Point IX at the first byte of the first entity
-                          ; buffer at ENTITYBUF
-; The entity-moving loop begins here.
-MOVETHINGS_0:
-  LD A,(IX+$00)           ; Pick up the first byte of the current entity's
-                          ; buffer
-  CP $FF                  ; Have we already dealt with every entity?
-  RET Z                   ; Return if so
-  AND $03                 ; Keep only bits 0 and 1 (which determine the type of
-                          ; entity)
-  JP Z,MOVETHINGS_13      ; Jump to consider the next entity buffer if this one
-                          ; belongs to an arrow or is unused
-  CP $01                  ; Is this a horizontal guardian?
-  JP Z,MOVETHINGS_5       ; Jump if so
-  CP $02                  ; Is this a vertical guardian?
-  JP Z,MOVETHINGS_9       ; Jump if so
-; We are dealing with a rope.
-  BIT 7,(IX+$00)          ; Is the rope currently swinging right to left?
-  JR Z,MOVETHINGS_2       ; Jump if so
-; The rope is swinging left to right.
-  LD A,(IX+$01)           ; Pick up the animation frame index
-  BIT 7,A                 ; Is the rope currently swinging away from the
-                          ; centre?
-  JR Z,MOVETHINGS_1       ; Jump if so
-; The rope is swinging left to right, towards the centre (132<=A<=182).
-  SUB $02                 ; Subtract 2 from the animation frame index in A
-  CP $94                  ; Is it still 148 or greater?
-  JR NC,MOVETHINGS_4      ; If so, use it as the next animation frame index
-  SUB $02                 ; Subtract 2 from the animation frame index again
-  CP $80                  ; Is it 128 now?
-  JR NZ,MOVETHINGS_4      ; If not, use it as the next animation frame index
-  XOR A                   ; The rope has reached the centre, so the next
-                          ; animation frame index is 0
-  JR MOVETHINGS_4         ; Jump to set it
-; The rope is swinging left to right, away from the centre (0<=A<=52).
-MOVETHINGS_1:
-  ADD A,$02               ; Add 2 to the animation frame index in A
-  CP $12                  ; Is it now 18 or greater?
-  JR NC,MOVETHINGS_4      ; If so, use it as the next animation frame index
-  ADD A,$02               ; Add 2 to the animation frame index again
-  JR MOVETHINGS_4         ; Use this value as the next animation frame index
-; The rope is swinging right to left.
-MOVETHINGS_2:
-  LD A,(IX+$01)           ; Pick up the animation frame index
-  BIT 7,A                 ; Is the rope currently swinging away from the
-                          ; centre?
-  JR NZ,MOVETHINGS_3      ; Jump if so
-; The rope is swinging right to left, towards the centre (4<=A<=54).
-  SUB $02                 ; Subtract 2 from the animation frame index in A
-  CP $14                  ; Is it still 20 or greater?
-  JR NC,MOVETHINGS_4      ; If so, use it as the next animation frame index
-  SUB $02                 ; Subtract 2 from the animation frame index again
-  OR A                    ; Is it 0 now?
-  JR NZ,MOVETHINGS_4      ; If not, use it as the next animation frame index
-  LD A,$80                ; The rope has reached the centre, so the next
-                          ; animation frame index is 128
-  JR MOVETHINGS_4         ; Jump to set it
-; The rope is swinging right to left, away from the centre (128<=A<=180).
-MOVETHINGS_3:
-  ADD A,$02               ; Add 2 to the animation frame index in A
-  CP $92                  ; Is it now 146 or greater?
-  JR NC,MOVETHINGS_4      ; If so, use it as the next animation frame index
-  ADD A,$02               ; Add 2 to the animation frame index again
-; Now A holds the rope's next animation frame index.
-MOVETHINGS_4:
-  LD (IX+$01),A           ; Update the animation frame index
-  AND $7F                 ; Reset bit 7
-  CP (IX+$07)             ; Does A match the eighth byte of the rope's buffer
-                          ; (54)?
-  JP NZ,MOVETHINGS_13     ; If not, jump to consider the next entity
-  LD A,(IX+$00)           ; Flip bit 7 of the first byte of the rope's buffer:
-  XOR $80                 ; the rope has just changed direction and will now
-  LD (IX+$00),A           ; swing back towards the centre
-  JP MOVETHINGS_13        ; Jump to consider the next entity
-; We are dealing with a horizontal guardian.
-MOVETHINGS_5:
-  BIT 7,(IX+$00)          ; Is the guardian currently moving left to right?
-  JR NZ,MOVETHINGS_7      ; Jump if so
-; This guardian is moving right to left.
-  LD A,(IX+$00)           ; Update the guardian's animation frame (in bits 5
-  SUB $20                 ; and 6 of the first byte of its buffer)
-  AND $7F
-  LD (IX+$00),A
-  CP $60                  ; Is it time to update the x-coordinate of the
-                          ; guardian sprite?
-  JR C,MOVETHINGS_13      ; If not, jump to consider the next entity
-  LD A,(IX+$02)           ; Pick up the sprite's current screen x-coordinate
-  AND $1F                 ; (0-31)
-  CP (IX+$06)             ; Has the guardian reached the leftmost point of its
-                          ; path?
-  JR Z,MOVETHINGS_6       ; Jump if so
-  DEC (IX+$02)            ; Decrement the sprite's x-coordinate
-  JR MOVETHINGS_13        ; Jump to consider the next entity
-MOVETHINGS_6:
-  LD (IX+$00),$81         ; The guardian will now start moving left to right
-  JR MOVETHINGS_13        ; Jump to consider the next entity
-; This guardian is moving left to right.
-MOVETHINGS_7:
-  LD A,(IX+$00)           ; Update the guardian's animation frame (in bits 5
-  ADD A,$20               ; and 6 of the first byte of its buffer)
-  OR $80
-  LD (IX+$00),A
-  CP $A0                  ; Is it time to update the x-coordinate of the
-                          ; guardian sprite?
-  JR NC,MOVETHINGS_13     ; If not, jump to consider the next entity
-  LD A,(IX+$02)           ; Pick up the sprite's current screen x-coordinate
-  AND $1F                 ; (0-31)
-  CP (IX+$07)             ; Has the guardian reached the rightmost point of its
-                          ; path?
-  JR Z,MOVETHINGS_8       ; Jump if so
-  INC (IX+$02)            ; Increment the sprite's x-coordinate
-  JR MOVETHINGS_13        ; Jump to consider the next entity
-MOVETHINGS_8:
-  LD (IX+$00),$61         ; The guardian will now start moving right to left
-  JR MOVETHINGS_13        ; Jump to consider the next entity
-; We are dealing with a vertical guardian.
-MOVETHINGS_9:
-  LD A,(IX+$00)           ; Flip bit 3 of the first byte of the guardian's
-  XOR $08                 ; buffer (if bit 4 is set, the guardian's animation
-  LD (IX+$00),A           ; frame is updated on every pass through this
-                          ; routine; otherwise, it is updated on every second
-                          ; pass when bit 3 is set)
-  AND $18                 ; Are bits 3 and 4 both reset now?
-  JR Z,MOVETHINGS_10      ; Jump if so
-  LD A,(IX+$00)           ; Update the guardian's animation frame (in bits 5-7
-  ADD A,$20               ; of the first byte of its buffer)
-  LD (IX+$00),A
-MOVETHINGS_10:
-  LD A,(IX+$03)           ; Update the guardian's y-coordinate
-  ADD A,(IX+$04)
-  LD (IX+$03),A
-  CP (IX+$07)             ; Has the guardian reached the lowest point of its
-                          ; path (maximum y-coordinate)?
-  JR NC,MOVETHINGS_12     ; If so, jump to change its direction of movement
-  CP (IX+$06)             ; Compare the new y-coordinate with the minimum value
-                          ; (the highest point of its path)
-  JR Z,MOVETHINGS_11      ; If they match, jump to change the guardian's
-                          ; direction of movement
-  JR NC,MOVETHINGS_13     ; If the new y-coordinate is above the minimum value,
-                          ; jump to consider the next entity
-MOVETHINGS_11:
-  LD A,(IX+$06)           ; Make sure that the guardian's y-coordinate is set
-  LD (IX+$03),A           ; to its minimum value
-MOVETHINGS_12:
-  LD A,(IX+$04)           ; Negate the y-coordinate increment; this changes the
-  NEG                     ; guardian's direction of movement
-  LD (IX+$04),A
-; The current entity has been dealt with. Time for the next one.
-MOVETHINGS_13:
-  LD DE,$0008             ; Point IX at the first byte of the next entity's
-  ADD IX,DE               ; buffer
-  JP MOVETHINGS_0         ; Jump back to deal with it
-
-; Draw the rope, arrows and guardians in the current room
-;
-; Used by the routine at MAINLOOP. Draws the rope, arrows and guardians in the
-; current room to the screen buffer at FPIXL.
-DRAWTHINGS:
-  LD IX,ENTITYBUF         ; Point IX at the first byte of the first entity
-                          ; buffer at ENTITYBUF
-; The drawing loop begins here.
-DRAWTHINGS_0:
-  LD A,(IX+$00)           ; Pick up the first byte of the current entity's
-                          ; buffer
-  CP $FF                  ; Have we already dealt with every entity?
-  RET Z                   ; Return if so
-  AND $07                 ; Keep only bits 0-2 (which determine the type of
-                          ; entity)
-  JP Z,DRAWTHINGS_22      ; Jump to consider the next entity buffer if this one
-                          ; is not being used
-  CP $03                  ; Is this a rope?
-  JP Z,DRAWTHINGS_9       ; Jump if so
-  CP $04                  ; Is this an arrow?
-  JR Z,DRAWTHINGS_2       ; Jump if so
-; We are dealing with a horizontal or vertical guardian.
-  LD E,(IX+$03)           ; Point DE at the entry in the screen buffer address
-  LD D,SBUFADDRS/256      ; lookup table at SBUFADDRS that corresponds to the
-                          ; guardian's y-coordinate
-  LD A,(DE)               ; Copy the LSB of the screen buffer address to L
-  LD L,A
-  LD A,(IX+$02)           ; Pick up the guardian's x-coordinate from bits 0-4
-  AND $1F                 ; of the third byte of its buffer
-  ADD A,L                 ; Adjust the LSB of the screen buffer address in L
-  LD L,A                  ; for the guardian's x-coordinate
-  LD A,E                  ; Copy the fourth byte of the guardian's buffer to A
-  RLCA                    ; H=92 or 93; now HL holds the address of the
-  AND $01                 ; guardian's current location in the attribute buffer
-  OR FATTR/$100           ; at FATTR
-  LD H,A
-  LD DE,$001F             ; Prepare DE for later addition
-  LD A,(IX+$01)           ; Pick up the second byte of the guardian's buffer
-  AND $0F                 ; Keep only bits 0-2 (INK colour) and 3 (BRIGHT
-                          ; value)
-  ADD A,$38               ; Push bit 3 up to bit 6
-  AND $47                 ; Keep only bits 0-2 (INK colour) and 6 (BRIGHT
-                          ; value)
-  LD C,A                  ; Save this value in C temporarily
-  LD A,(HL)               ; Pick up the room attribute byte at the guardian's
-                          ; location from the buffer at FATTR
-  AND $38                 ; Keep only bits 3-5 (PAPER colour)
-  XOR C                   ; Merge the INK colour and BRIGHT value from C
-  LD C,A                  ; Copy this attribute value to C
-  LD (HL),C               ; Set the attribute bytes in the buffer at FATTR for
-  INC HL                  ; the top two rows of cells occupied by the
-  LD (HL),C               ; guardian's sprite
-  ADD HL,DE
-  LD (HL),C
-  INC HL
-  LD (HL),C
-  LD A,(IX+$03)           ; Pick up the fourth byte of the guardian's buffer
-  AND $0E                 ; Does the guardian's sprite occupy only two rows of
-                          ; cells at the moment?
-  JR Z,DRAWTHINGS_1       ; Jump if so
-  ADD HL,DE               ; Set the attribute bytes in the buffer at FATTR for
-  LD (HL),C               ; the third row of cells occupied by the guardian's
-  INC HL                  ; sprite
-  LD (HL),C
-DRAWTHINGS_1:
-  LD C,$01                ; Prepare C for the call to DRAWSPRITE later on
-  LD A,(IX+$01)           ; Now bits 5-7 of A hold the animation frame mask
-  AND (IX+$00)            ; AND on the current animation frame (bits 5-7)
-  OR (IX+$02)             ; OR on the base sprite index (bits 5-7)
-  AND $E0                 ; Keep only bits 5-7
-  LD E,A                  ; Point DE at the graphic data for the guardian's
-  LD D,(IX+$05)           ; current animation frame (see GUARDIANS)
-  LD H,SBUFADDRS/256      ; Point HL at the guardian's current location in the
-  LD L,(IX+$03)           ; screen buffer at FPIXL
-  LD A,(IX+$02)
-  AND $1F
-  OR (HL)
-  INC HL
-  LD H,(HL)
-  LD L,A
-  CALL DRAWSPRITE         ; Draw the guardian
-  JP NZ,KILLWILLY_0       ; Kill Willy if the guardian collided with him
-  JP DRAWTHINGS_22        ; Jump to consider the next entity
-; We are dealing with an arrow.
-DRAWTHINGS_2:
-  BIT 7,(IX+$00)          ; Is the arrow travelling left to right?
-  JR NZ,DRAWTHINGS_3      ; Jump if so
-  DEC (IX+$04)            ; Decrement the arrow's x-coordinate
-  LD C,$2C                ; The sound effect for an arrow travelling right to
-                          ; left is made when the x-coordinate is 44
-  JR DRAWTHINGS_4
-DRAWTHINGS_3:
-  INC (IX+$04)            ; Increment the arrow's x-coordinate
-  LD C,$F4                ; The sound effect for an arrow travelling left to
-                          ; right is made when the x-coordinate is 244
-DRAWTHINGS_4:
-  LD A,(IX+$04)           ; Pick up the arrow's x-coordinate (0-255)
-  CP C                    ; Is it time to make the arrow sound effect?
-  JR NZ,DRAWTHINGS_7      ; Jump if not
-  LD BC,$0280             ; Prepare the delay counters (B=2, C=128) for the
-                          ; arrow sound effect
-  LD A,(BORDER)           ; Pick up the border colour for the current room from
-                          ; BORDER
-DRAWTHINGS_5:
-  OUT ($FE),A             ; Produce the arrow sound effect
-  XOR $18
-DRAWTHINGS_6:
-  DJNZ DRAWTHINGS_6
-  LD B,C
-  DEC C
-  JR NZ,DRAWTHINGS_5
-  JP DRAWTHINGS_22        ; Jump to consider the next entity
-DRAWTHINGS_7:
-  AND $E0                 ; Is the arrow's x-coordinate in the range 0-31 (i.e.
-                          ; on-screen)?
-  JP NZ,DRAWTHINGS_22     ; If not, jump to consider the next entity
-  LD E,(IX+$02)           ; Point DE at the entry in the screen buffer address
-  LD D,SBUFADDRS/256      ; lookup table at SBUFADDRS that corresponds to the
-                          ; arrow's y-coordinate
-  LD A,(DE)               ; Pick up the LSB of the screen buffer address
-  ADD A,(IX+$04)          ; Adjust it for the arrow's x-coordinate
-  LD L,A                  ; Point HL at the arrow's current location in the
-  LD A,E                  ; attribute buffer at FATTR
-  AND $80
-  RLCA
-  OR FATTR/$100
-  LD H,A
-  LD (IX+$05),$00         ; Initialise the collision detection byte (0=off,
-                          ; 255=on)
-  LD A,(HL)               ; Pick up the room attribute byte at the arrow's
-                          ; location
-  AND $07                 ; Keep only bits 0-2 (INK colour)
-  CP $07                  ; Is the INK white?
-  JR NZ,DRAWTHINGS_8      ; Jump if not
-  DEC (IX+$05)            ; Activate collision detection
-DRAWTHINGS_8:
-  LD A,(HL)               ; Set the INK colour to white at the arrow's location
-  OR $07
-  LD (HL),A
-  INC DE                  ; Pick up the MSB of the screen buffer address for
-  LD A,(DE)               ; the arrow's location
-  LD H,A                  ; Point HL at the top pixel row of the arrow's
-  DEC H                   ; location in the screen buffer at FPIXL
-  LD A,(IX+$06)           ; Draw the top pixel row of the arrow
-  LD (HL),A
-  INC H                   ; Point HL at the middle pixel row of the arrow's
-                          ; location in the screen buffer at FPIXL
-  LD A,(HL)               ; Pick up the graphic byte that's already here
-  AND (IX+$05)            ; Has the arrow hit anything that has white INK (e.g.
-                          ; Willy)?
-  JP NZ,KILLWILLY_0       ; If so, kill Willy
-  LD (HL),$FF             ; Draw the shaft of the arrow
-  INC H                   ; Point HL at the bottom pixel row of the arrow's
-                          ; location in the screen buffer at FPIXL
-  LD A,(IX+$06)           ; Draw the bottom pixel row of the arrow
-  LD (HL),A
-  JP DRAWTHINGS_22        ; Jump to consider the next entity
-; We are dealing with a rope.
-DRAWTHINGS_9:
-  LD IY,SBUFADDRS         ; Point IY at the first byte of the screen buffer
-                          ; address lookup table at SBUFADDRS
-  LD (IX+$09),$00         ; Initialise the second byte in the following entity
-                          ; buffer to zero; this will count the segments of
-                          ; rope to draw
-  LD A,(IX+$02)           ; Initialise the fourth byte of the rope's buffer;
-  LD (IX+$03),A           ; this holds the x-coordinate of the cell in which
-                          ; the segment of rope under consideration will be
-                          ; drawn
-  LD (IX+$05),$80         ; Initialise the sixth byte of the rope's buffer to
-                          ; 128 (bit 7 set); the value held here is used to
-                          ; draw the segment of rope under consideration
-; The following loop draws each segment of the rope from top to bottom.
-DRAWTHINGS_10:
-  LD A,(IY+$00)           ; Point HL at the location of the segment of rope
-  ADD A,(IX+$03)          ; under consideration in the screen buffer at FPIXL
-  LD L,A
-  LD H,(IY+$01)
-  LD A,(ROPE)             ; Pick up the rope status indicator at ROPE
-  OR A                    ; Is Willy on the rope, or has he recently jumped or
-                          ; dropped off it?
-  JR NZ,DRAWTHINGS_11     ; Jump if so
-  LD A,(IX+$05)           ; Pick up the drawing byte
-  AND (HL)                ; Is this segment of rope touching anything else
-                          ; that's been drawn so far (e.g. Willy)?
-  JR Z,DRAWTHINGS_13      ; Jump if not
-  LD A,(IX+$09)           ; Copy the segment counter into the rope status
-  LD (ROPE),A             ; indicator at ROPE
-  SET 0,(IX+$0B)          ; Signal: Willy is on the rope
-DRAWTHINGS_11:
-  CP (IX+$09)             ; Does the rope status indicator at ROPE match the
-                          ; segment counter?
-  JR NZ,DRAWTHINGS_13     ; Jump if not
-  BIT 0,(IX+$0B)          ; Is Willy on the rope (and clinging to this
-                          ; particular segment)?
-  JR Z,DRAWTHINGS_13      ; Jump if not
-  LD B,(IX+$03)           ; Copy the x-coordinate of the cell containing the
-                          ; segment of rope under consideration to B
-  LD A,(IX+$05)           ; Pick up the drawing byte in A
-  LD C,$01                ; The value in C will specify Willy's next animation
-                          ; frame; initialise it to 1
-  CP $04                  ; Is the set bit of the drawing byte in bit 0 or 1?
-  JR C,DRAWTHINGS_12      ; Jump if so
-  LD C,$00                ; Assume that Willy's next animation frame will be 0
-  CP $10                  ; Is the set bit of the drawing byte in bit 2 or 3?
-  JR C,DRAWTHINGS_12      ; Jump if so
-  DEC B                   ; Decrement the x-coordinate
-  LD C,$03                ; Assume that Willy's next animation frame will be 3
-  CP $40                  ; Is the set bit of the drawing byte in bit 4 or 5?
-  JR C,DRAWTHINGS_12      ; Jump if so
-  LD C,$02                ; Willy's next animation frame will be 2 (the set bit
-                          ; of the drawing byte is in bit 6 or 7)
-DRAWTHINGS_12:
-  LD (FRAME),BC           ; Set Willy's animation frame at FRAME, and
-                          ; temporarily store his x-coordinate at LOCATION
-  LD A,IYl                ; Update Willy's pixel y-coordinate at PIXEL_Y to
-  SUB $10                 ; account for his change of location as the rope
-  LD (PIXEL_Y),A          ; moves
-  PUSH HL                 ; Save HL briefly
-  CALL MOVEWILLY_8        ; Update Willy's attribute buffer address at LOCATION
-                          ; to account for his change of location as the rope
-                          ; moves
-  POP HL                  ; Restore the screen buffer address of the segment of
-                          ; rope under consideration to HL
-  JR DRAWTHINGS_13        ; Make a redundant jump to the next instruction
-DRAWTHINGS_13:
-  LD A,(IX+$05)           ; Draw a pixel of the rope to the screen buffer at
-  OR (HL)                 ; FPIXL
-  LD (HL),A
-  LD A,(IX+$09)           ; Point HL at the relevant entry in the second half
-  ADD A,(IX+$01)          ; of the rope animation table at ROPEANIM
-  LD L,A
-  SET 7,L
-  LD H,ROPEANIM/256
-  LD E,(HL)               ; Add its value to IY; now IY points at the entry in
-  LD D,$00                ; the screen buffer address lookup table at SBUFADDRS
-  ADD IY,DE               ; that corresponds to the next segment of rope to
-                          ; consider
-  RES 7,L                 ; Point HL at the relevant entry in the first half of
-                          ; the rope animation table at ROPEANIM
-  LD A,(HL)               ; Pick up its value
-  OR A                    ; Is it zero?
-  JR Z,DRAWTHINGS_18      ; Jump if so
-  LD B,A                  ; Copy the rope animation table entry value to B;
-                          ; this will count the rotations of the drawing byte
-  BIT 7,(IX+$01)          ; Is the rope currently right of centre?
-  JR Z,DRAWTHINGS_16      ; Jump if so
-DRAWTHINGS_14:
-  RLC (IX+$05)            ; Rotate the drawing byte left once
-  BIT 0,(IX+$05)          ; Did that push the set bit from bit 7 into bit 0?
-  JR Z,DRAWTHINGS_15      ; Jump if not
-  DEC (IX+$03)            ; Decrement the x-coordinate for the cell containing
-                          ; this segment of rope
-DRAWTHINGS_15:
-  DJNZ DRAWTHINGS_14      ; Jump back until the drawing byte has been rotated
-                          ; as required
-  JR DRAWTHINGS_18        ; Jump to consider the next segment of rope
-DRAWTHINGS_16:
-  RRC (IX+$05)            ; Rotate the drawing byte right once
-  BIT 7,(IX+$05)          ; Did that push the set bit from bit 0 into bit 7?
-  JR Z,DRAWTHINGS_17      ; Jump if not
-  INC (IX+$03)            ; Increment the x-coordinate for the cell containing
-                          ; this segment of rope
-DRAWTHINGS_17:
-  DJNZ DRAWTHINGS_16      ; Jump back until the drawing byte has been rotated
-                          ; as required
-DRAWTHINGS_18:
-  LD A,(IX+$09)           ; Pick up the segment counter
-  CP (IX+$04)             ; Have we drawn every segment of the rope yet?
-  JR Z,DRAWTHINGS_19      ; Jump if so
-  INC (IX+$09)            ; Increment the segment counter
-  JP DRAWTHINGS_10        ; Jump back to draw the next segment of rope
-; Now that the entire rope has been drawn, deal with Willy's movement along it.
-DRAWTHINGS_19:
-  LD A,(ROPE)             ; Pick up the rope status indicator at ROPE
-  BIT 7,A                 ; Has Willy recently jumped off the rope or dropped
-                          ; off the bottom of it (A>=240)?
-  JR Z,DRAWTHINGS_20      ; Jump if not
-  INC A                   ; Update the rope status indicator at ROPE
-  LD (ROPE),A
-  RES 0,(IX+$0B)          ; Signal: Willy is not on the rope
-  JR DRAWTHINGS_22        ; Jump to consider the next entity
-DRAWTHINGS_20:
-  BIT 0,(IX+$0B)          ; Is Willy on the rope?
-  JR Z,DRAWTHINGS_22      ; If not, jump to consider the next entity
-  LD A,(DMFLAGS)          ; Pick up Willy's direction and movement flags from
-                          ; DMFLAGS
-  BIT 1,A                 ; Is Willy moving up or down the rope?
-  JR Z,DRAWTHINGS_22      ; If not, jump to consider the next entity
-  RRCA                    ; XOR Willy's direction bit (0=facing right, 1=facing
-  XOR (IX+$00)            ; left) with the rope's direction bit (0=swinging
-  RLCA                    ; right to left, 1=swinging left to right)
-  RLCA                    ; Now A=1 if Willy is facing the same direction as
-  AND $02                 ; the rope is swinging (he will move down the rope),
-  DEC A                   ; or -1 otherwise (he will move up the rope)
-  LD HL,ROPE              ; Increment or decrement the rope status indicator at
-  ADD A,(HL)              ; ROPE
-  LD (HL),A
-  LD A,(ABOVE)            ; Pick up the number of the room above from ABOVE and
-  LD C,A                  ; copy it to C
-  LD A,(ROOM)             ; Pick up the number of the current room from ROOM
-  CP C                    ; Is there a room above this one?
-  JR NZ,DRAWTHINGS_21     ; Jump if so
-  LD A,(HL)               ; Pick up the rope status indicator at ROPE
-  CP $0C                  ; Is it 12 or greater?
-  JR NC,DRAWTHINGS_21     ; Jump if so
-  LD (HL),$0C             ; Set the rope status indicator at ROPE to 12 (there
-                          ; is nowhere to go above this rope)
-DRAWTHINGS_21:
-  LD A,(HL)               ; Pick up the rope status indicator at ROPE
-  CP (IX+$04)             ; Compare it with the length of the rope
-  JR C,DRAWTHINGS_22      ; If Willy is at or above the bottom of the rope,
-  JR Z,DRAWTHINGS_22      ; jump to consider the next entity
-  LD (HL),$F0             ; Set the rope status indicator at ROPE to 240 (Willy
-                          ; has just dropped off the bottom of the rope)
-  LD A,(PIXEL_Y)          ; Round down Willy's pixel y-coordinate at PIXEL_Y to
-  AND $F8                 ; the nearest multiple of 8; this might move him
-  LD (PIXEL_Y),A          ; upwards a little, but ensures that his actual pixel
-                          ; y-coordinate is a multiple of 4 before he starts
-                          ; falling
-  XOR A                   ; Initialise the airborne status indicator at
-  LD (AIRBORNE),A         ; AIRBORNE
-  JR DRAWTHINGS_22        ; Make a redundant jump to the next instruction
-; The current entity has been dealt with. Time for the next one.
-DRAWTHINGS_22:
-  LD DE,$0008             ; Point IX at the first byte of the next entity's
-  ADD IX,DE               ; buffer
-  JP DRAWTHINGS_0         ; Jump back to deal with it
-
-; Draw the items in the current room and collect any that Willy is touching
-;
-; Used by the routine at MAINLOOP.
-DRAWITEMS:
-  LD H,ITEMTABLE1/256     ; Page 164 holds the first byte of each entry in the
-                          ; item table
-  LD A,(FIRSTITEM)        ; Pick up the index of the first item from FIRSTITEM
-  LD L,A                  ; Point HL at the first byte of the first entry in
-                          ; the item table
-; The item-drawing loop begins here.
-DRAWITEMS_0:
-  LD C,(HL)               ; Pick up the first byte of the current entry in the
-                          ; item table
-  RES 7,C                 ; Reset bit 7; bit 6 holds the collection flag, and
-                          ; bits 0-5 hold the room number
-  LD A,(ROOM)             ; Pick up the number of the current room from ROOM
-  OR $40                  ; Set bit 6 (corresponding to the collection flag)
-  CP C                    ; Is the item in the current room and still
-                          ; uncollected?
-  JR NZ,DRAWITEMS_7       ; If not, jump to consider the next entry in the item
-                          ; table
-; This item is in the current room and has not been collected yet.
-  LD A,(HL)               ; Pick up the first byte of the current entry in the
-                          ; item table
-  RLCA                    ; Point DE at the location of the item in the
-  AND $01                 ; attribute buffer at FATTR
-  ADD A,FATTR/$100
-  LD D,A
-  INC H
-  LD E,(HL)
-  DEC H
-  LD A,(DE)               ; Pick up the current attribute byte at the item's
-                          ; location
-  AND $07                 ; Is the INK white (which happens if Willy is
-  CP $07                  ; touching the item, or the room's background tile
-                          ; has white INK, as in Swimming Pool)?
-  JR NZ,DRAWITEMS_6       ; Jump if not
-; Willy is touching this item (or the room's background tile has white INK), so
-; add it to his collection.
-  LD IX,MSG_ITEMS         ; Point IX at the number of items collected at
-                          ; MSG_ITEMS
-DRAWITEMS_1:
-  INC (IX+$02)            ; Increment a digit of the number of items collected
-  LD A,(IX+$02)           ; Was the digit originally '9'?
-  CP $3A
-  JR NZ,DRAWITEMS_2       ; Jump if not
-  LD (IX+$02),$30         ; Set the digit to '0'
-  DEC IX                  ; Move back to the digit on the left
-  JR DRAWITEMS_1          ; Jump back to increment this digit
-DRAWITEMS_2:
-  LD A,(BORDER)           ; Pick up the border colour for the current room from
-                          ; BORDER
-  LD C,$80                ; Produce the sound effect for collecting an item
-DRAWITEMS_3:
-  OUT ($FE),A
-  XOR $18
-  LD E,A
-  LD A,$90
-  SUB C
-  LD B,A
-  LD A,E
-DRAWITEMS_4:
-  DJNZ DRAWITEMS_4
-  DEC C
-  DEC C
-  JR NZ,DRAWITEMS_3
-  LD A,(ITEMS)            ; Update the counter of items remaining at ITEMS, and
-  INC A                   ; set the zero flag if there are no more items to
-  LD (ITEMS),A            ; collect
-  JR NZ,DRAWITEMS_5       ; Jump if there are any items still to be collected
-  LD A,$01                ; Update the game mode indicator at MODE to 1 (all
-  LD (MODE),A             ; items collected)
-DRAWITEMS_5:
-  RES 6,(HL)              ; Reset bit 6 of the first byte of the entry in the
-                          ; item table: the item has been collected
-  JR DRAWITEMS_7          ; Jump to consider the next entry in the item table
-; Willy is not touching this item, so draw it and cycle its INK colour.
-DRAWITEMS_6:
-  LD A,(TICKS)            ; Generate the INK colour for the item from the value
-  ADD A,L                 ; of the minute counter at TICKS (0-255) and the
-  AND $03                 ; index of the item in the item table (173-255)
-  ADD A,$03
-  LD C,A
-  LD A,(DE)               ; Change the INK colour of the item in the attribute
-  AND $F8                 ; buffer at FATTR
-  OR C
-  LD (DE),A
-  LD A,(HL)               ; Point DE at the location of the item in the screen
-  RLCA                    ; buffer at FPIXL
-  RLCA
-  RLCA
-  RLCA
-  AND $08
-  ADD A,FPIXL/$100
-  LD D,A
-  PUSH HL                 ; Save HL briefly
-  LD HL,ITEM              ; Point HL at the item graphic for the current room
-                          ; (at ITEM)
-  LD B,$08                ; There are eight pixel rows to copy
-  CALL PRINTCHAR_0        ; Draw the item to the screen buffer at FPIXL
-  POP HL                  ; Restore the item table pointer to HL
-; The current item has been dealt with (skipped, collected or drawn) as
-; appropriate. Time to consider the next one.
-DRAWITEMS_7:
-  INC L                   ; Point HL at the first byte of the next entry in the
-                          ; item table
-  JR NZ,DRAWITEMS_0       ; Jump back unless we've examined every entry
-  RET
-
-; Draw a sprite
-;
-; Used by the routines at CODESCREEN (to draw the number key graphics on the
-; code entry screen), DRAWLIVES (to draw the remaining lives), GAMEOVER (to
-; draw Willy, the foot and the barrel during the game over sequence),
-; DRAWTHINGS (to draw guardians in the current room) and BEDANDBATH (to draw
-; Maria in Master Bedroom). If C=1 on entry, this routine returns with the zero
-; flag reset if any of the set bits in the sprite being drawn collides with a
-; set bit in the background.
-;
-; C Drawing mode: 0 (overwrite) or 1 (blend)
-; DE Address of sprite graphic data
-; HL Address to draw at
-DRAWSPRITE:
-  LD B,$10                ; There are 16 rows of pixels to draw
-DRAWSPRITE_0:
-  BIT 0,C                 ; Set the zero flag if we're in overwrite mode
-  LD A,(DE)               ; Pick up a sprite graphic byte
-  JR Z,DRAWSPRITE_1       ; Jump if we're in overwrite mode
-  AND (HL)                ; Return with the zero flag reset if any of the set
-  RET NZ                  ; bits in the sprite graphic byte collide with a set
-                          ; bit in the background (e.g. in Willy's sprite)
-  LD A,(DE)               ; Pick up the sprite graphic byte again
-  OR (HL)                 ; Blend it with the background byte
-DRAWSPRITE_1:
-  LD (HL),A               ; Copy the graphic byte to its destination cell
-  INC L                   ; Move HL along to the next cell on the right
-  INC DE                  ; Point DE at the next sprite graphic byte
-  BIT 0,C                 ; Set the zero flag if we're in overwrite mode
-  LD A,(DE)               ; Pick up a sprite graphic byte
-  JR Z,DRAWSPRITE_2       ; Jump if we're in overwrite mode
-  AND (HL)                ; Return with the zero flag reset if any of the set
-  RET NZ                  ; bits in the sprite graphic byte collide with a set
-                          ; bit in the background (e.g. in Willy's sprite)
-  LD A,(DE)               ; Pick up the sprite graphic byte again
-  OR (HL)                 ; Blend it with the background byte
-DRAWSPRITE_2:
-  LD (HL),A               ; Copy the graphic byte to its destination cell
-  DEC L                   ; Move HL to the next pixel row down in the cell on
-  INC H                   ; the left
-  INC DE                  ; Point DE at the next sprite graphic byte
-  LD A,H                  ; Have we drawn the bottom pixel row in this pair of
-  AND $07                 ; cells yet?
-  JR NZ,DRAWSPRITE_3      ; Jump if not
-  LD A,H                  ; Otherwise move HL to the top pixel row in the cell
-  SUB $08                 ; below
-  LD H,A
-  LD A,L
-  ADD A,$20
-  LD L,A
-  AND $E0                 ; Was the last pair of cells at y-coordinate 7 or 15?
-  JR NZ,DRAWSPRITE_3      ; Jump if not
-  LD A,H                  ; Otherwise adjust HL to account for the movement
-  ADD A,$08               ; from the top or middle third of the screen to the
-  LD H,A                  ; next one down
-DRAWSPRITE_3:
-  DJNZ DRAWSPRITE_0       ; Jump back until all 16 rows of pixels have been
-                          ; drawn
-  XOR A                   ; Set the zero flag (to indicate no collision)
-  RET
-
-; Move Willy into the room to the left
-;
-; Used by the routine at MOVEWILLY3.
-ROOMLEFT:
-  LD A,(LEFT)             ; Pick up the number of the room to the left from
-                          ; LEFT
-  LD (ROOM),A             ; Make it the current room number by copying it to
-                          ; ROOM
-  LD A,(LOCATION)         ; Adjust Willy's screen x-coordinate (at LOCATION) to
-  OR $1F                  ; 30 (on the far right)
-  AND $FE
-  LD (LOCATION),A
-  POP HL                  ; Drop the return address (AFTERMOVE1, in the main
-                          ; loop) from the stack
-  JP INITROOM             ; Draw the room and re-enter the main loop
-
-; Move Willy into the room to the right
-;
-; Used by the routine at MOVEWILLY3.
-ROOMRIGHT:
-  LD A,(RIGHT)            ; Pick up the number of the room to the right from
-                          ; RIGHT
-  LD (ROOM),A             ; Make it the current room number by copying it to
-                          ; ROOM
-  LD A,(LOCATION)         ; Adjust Willy's screen x-coordinate (at LOCATION) to
-  AND $E0                 ; 0 (on the far left)
-  LD (LOCATION),A
-  POP HL                  ; Drop the return address (AFTERMOVE1, in the main
-                          ; loop) from the stack
-  JP INITROOM             ; Draw the room and re-enter the main loop
-
-; Move Willy into the room above
-;
-; Used by the routines at MAINLOOP and MOVEWILLY.
-ROOMABOVE:
-  LD A,(ABOVE)            ; Pick up the number of the room above from ABOVE
-  LD (ROOM),A             ; Make it the current room number by copying it to
-                          ; ROOM
-  LD A,(LOCATION)         ; Willy should now appear on the bottom floor of the
-  AND $1F                 ; room, so adjust his attribute buffer coordinates
-  ADD A,$A0               ; (at LOCATION) accordingly
-  LD (LOCATION),A
-  LD A,FATTR/$100+$01
-  LD (LOCATION+1),A
-  LD A,$D0                ; Adjust Willy's pixel y-coordinate (at PIXEL_Y) as
-  LD (PIXEL_Y),A          ; well
-  XOR A                   ; Reset the airborne status indicator at AIRBORNE
-  LD (AIRBORNE),A
-  POP HL                  ; Drop the return address (either AFTERMOVE1 or
-                          ; AFTERMOVE2, in the main loop) from the stack
-  JP INITROOM             ; Draw the room and re-enter the main loop
-
-; Move Willy into the room below
-;
-; Used by the routine at MOVEWILLY.
-ROOMBELOW:
-  LD A,(BELOW)            ; Pick up the number of the room below from BELOW
-  LD (ROOM),A             ; Make it the current room number by copying it to
-                          ; ROOM
-  XOR A                   ; Set Willy's pixel y-coordinate (at PIXEL_Y) to 0
-  LD (PIXEL_Y),A
-  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
-  CP $0B                  ; Is it 11 or greater (meaning Willy has already been
-                          ; falling for a while)?
-  JR NC,ROOMBELOW_0       ; Jump if so
-  LD A,$02                ; Otherwise set the airborne status indicator to 2
-  LD (AIRBORNE),A         ; (Willy will start falling here if there's no floor
-                          ; beneath him)
-ROOMBELOW_0:
-  LD A,(LOCATION)         ; Willy should now appear at the top of the room, so
-  AND $1F                 ; adjust his attribute buffer coordinates (at
-  LD (LOCATION),A         ; LOCATION) accordingly
-  LD A,FATTR/$100
-  LD (LOCATION+1),A
-  POP HL                  ; Drop the return address (AFTERMOVE1, in the main
-                          ; loop) from the stack
-  JP INITROOM             ; Draw the room and re-enter the main loop
-
-; Move the conveyor in the current room
-;
-; Used by the routine at MAINLOOP.
-MVCONVEYOR:
-  LD HL,(CONVLOC)         ; Pick up the address of the conveyor's location in
-                          ; the attribute buffer at RATTR from CONVLOC
-  LD A,H                  ; Point DE and HL at the location of the left end of
-  AND $01                 ; the conveyor in the screen buffer at RPIXL
-  RLCA
-  RLCA
-  RLCA
-  ADD A,RPIXL/$100
-  LD H,A
-  LD E,L
-  LD D,H
-  LD A,(CONVLEN)          ; Pick up the length of the conveyor from CONVLEN
-  OR A                    ; Is there a conveyor in the room?
-  RET Z                   ; Return if not
-  LD B,A                  ; B will count the conveyor tiles
-  LD A,(CONVDIR)          ; Pick up the direction of the conveyor from CONVDIR
-                          ; (0=left, 1=right)
-  OR A                    ; Is the conveyor moving right?
-  JR NZ,MVCONVEYOR_1      ; Jump if so
-; The conveyor is moving left.
-  LD A,(HL)               ; Copy the first pixel row of the conveyor tile to A
-  RLC A                   ; Rotate it left twice
-  RLC A
-  INC H                   ; Point HL at the third pixel row of the conveyor
-  INC H                   ; tile
-  LD C,(HL)               ; Copy this pixel row to C
-  RRC C                   ; Rotate it right twice
-  RRC C
-MVCONVEYOR_0:
-  LD (DE),A               ; Update the first and third pixel rows of every
-  LD (HL),C               ; conveyor tile in the screen buffer at RPIXL
-  INC L
-  INC E
-  DJNZ MVCONVEYOR_0
-  RET
-; The conveyor is moving right.
-MVCONVEYOR_1:
-  LD A,(HL)               ; Copy the first pixel row of the conveyor tile to A
-  RRC A                   ; Rotate it right twice
-  RRC A
-  INC H                   ; Point HL at the third pixel row of the conveyor
-  INC H                   ; tile
-  LD C,(HL)               ; Copy this pixel row to C
-  RLC C                   ; Rotate it left twice
-  RLC C
-  JR MVCONVEYOR_0         ; Jump back to update the first and third pixel rows
-                          ; of every conveyor tile
-
-; Deal with special rooms (Master Bedroom, The Bathroom)
-;
-; Used by the routine at MAINLOOP.
-BEDANDBATH:
-  LD A,(ROOM)             ; Pick up the number of the current room from ROOM
-  CP $23                  ; Are we in Master Bedroom?
-  JR NZ,DRAWTOILET        ; Jump if not
-  LD A,(MODE)             ; Pick up the game mode indicator from MODE
-  OR A                    ; Has Willy collected all the items?
-  JR NZ,BEDANDBATH_1      ; Jump if so
-; Willy hasn't collected all the items yet, so Maria is on guard.
-  LD A,(TICKS)            ; Pick up the minute counter from TICKS; this will
-                          ; determine Maria's animation frame
-  AND $02                 ; Keep only bit 1, move it to bit 5, and set bit 7
-  RRCA
-  RRCA
-  RRCA
-  RRCA
-  OR $80
-  LD E,A                  ; Now E=128 (foot down) or 160 (foot raised)
-  LD A,(PIXEL_Y)          ; Pick up Willy's pixel y-coordinate from PIXEL_Y
-  CP $D0                  ; Is Willy on the floor below the ramp?
-  JR Z,BEDANDBATH_0       ; Jump if so
-  LD E,$C0                ; E=192 (raising arm)
-  CP $C0                  ; Is Willy 8 or fewer pixels above floor level?
-  JR NC,BEDANDBATH_0      ; Jump if so
-  LD E,$E0                ; E=224 (arm raised)
-BEDANDBATH_0:
-  LD D,MARIA0/256         ; Point DE at the sprite graphic data for Maria
-                          ; (MARIA0, MARIA1, MARIA2 or MARIA3)
-  LD HL,FPIXL+$086E       ; Draw Maria at (11,14) in the screen buffer at FPIXL
-  LD C,$01
-  CALL DRAWSPRITE
-  JP NZ,KILLWILLY_0       ; Kill Willy if Maria collided with him
-  LD HL,$4545             ; H=L=69 (INK 5: PAPER 0: BRIGHT 1)
-  LD (FATTR+$016E),HL     ; Set the attribute bytes for the top half of Maria's
-                          ; sprite in the buffer at FATTR
-  LD HL,$0707             ; H=L=7 (INK 7: PAPER 0: BRIGHT 0)
-  LD (FATTR+$018E),HL     ; Set the attribute bytes for the bottom half of
-                          ; Maria's sprite in the buffer at FATTR
-  RET
-; Willy has collected all the items, so Maria is gone.
-BEDANDBATH_1:
-  LD A,(LOCATION)         ; Pick up Willy's screen x-coordinate from LOCATION
-  AND $1F
-  CP $06                  ; Has Willy reached the bed (at x=5) yet?
-  RET NC                  ; Return if not
-  LD A,$02                ; Update the game mode indicator at MODE to 2 (Willy
-  LD (MODE),A             ; is running to the toilet)
-  RET
-
-; Check whether Willy has reached the toilet
-;
-; Called by the routine at MAINLOOP when Willy is on his way to the toilet.
-CHKTOILET:
-  LD A,(ROOM)             ; Pick up the number of the current room from ROOM
-  CP $21                  ; Are we in The Bathroom?
-  RET NZ                  ; Return if not
-  LD A,(LOCATION)         ; Pick up the LSB of Willy's attribute buffer
-                          ; location from LOCATION
-  CP $BC                  ; Is Willy's screen x-coordinate 28 (where the toilet
-                          ; is)?
-  RET NZ                  ; Return if not
-; Willy has reached the toilet.
-  XOR A                   ; Reset the minute counter at TICKS to 0 (so that we
-  LD (TICKS),A            ; get to see Willy's head down the toilet for at
-                          ; least a whole game minute)
-  LD A,$03                ; Update the game mode indicator at MODE to 3
-  LD (MODE),A             ; (Willy's head is down the toilet)
-  RET
-
-; Animate the toilet in The Bathroom
-;
-; Used by the routine at BEDANDBATH.
-DRAWTOILET:
-  LD A,(ROOM)             ; Pick up the number of the current room from ROOM
-  CP $21                  ; Are we in The Bathroom?
-  RET NZ                  ; Return if not
-  LD A,(TICKS)            ; Pick up the minute counter from TICKS; this will
-                          ; determine the animation frame to use for the toilet
-  AND $01                 ; Keep only bit 0 and move it to bit 5
-  RRCA
-  RRCA
-  RRCA
-  LD E,A                  ; Now E=0 or 32
-  LD A,(MODE)             ; Pick up the game mode indicator from MODE
-  CP $03                  ; Is Willy's head down the toilet?
-  JR NZ,DRAWTOILET_0      ; Jump if not
-  SET 6,E                 ; Now E=64 or 96
-DRAWTOILET_0:
-  LD D,TOILET0/256        ; Point DE at the toilet sprite to use (TOILET0,
-                          ; TOILET1, TOILET2 or TOILET3)
-  LD IX,SBUFADDRS+208     ; Draw the toilet at (13,28) in the screen buffer at
-  LD BC,$101C             ; FPIXL
-  CALL DRAWWILLY_1
-  LD HL,$0707             ; H=L=7 (INK 7: PAPER 0)
-  LD (FATTR+$01BC),HL     ; Set the attribute bytes for the toilet in the
-  LD (FATTR+$01DC),HL     ; buffer at FATTR
-  RET
-
-; Check and set the attribute bytes for Willy's sprite in the buffer at 5C00
-;
-; Used by the routine at MAINLOOP. Sets the attribute bytes in the buffer at
-; FATTR for the six cells (in three rows of two) occupied by or under Willy's
-; sprite, or kills Willy if any of the cells contains a nasty.
-WILLYATTRS:
-  LD HL,(LOCATION)        ; Pick up Willy's attribute buffer coordinates from
-                          ; LOCATION
-  LD B,$00                ; Initialise B to 0 (in case Willy is not standing on
-                          ; a ramp)
-  LD A,(RAMPDIR)          ; Pick up the direction byte of the ramp definition
-                          ; for the current room from RAMPDIR
-  AND $01                 ; Point HL at one of the cells under Willy's feet
-  ADD A,$40               ; (the one on the left if the ramp goes up to the
-  LD E,A                  ; left, the one on the right if the ramp goes up to
-  LD D,$00                ; the right)
-  ADD HL,DE
-  LD A,(RAMP)             ; Pick up the ramp's attribute byte from RAMP
-  CP (HL)                 ; Is Willy on or just above the ramp?
-  JR NZ,WILLYATTRS_0      ; Jump if not
-  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
-  OR A                    ; Is Willy airborne?
-  JR NZ,WILLYATTRS_0      ; Jump if so
-; Willy is standing on a ramp. Calculate the offset that needs to be added to
-; the y-coordinate stored at PIXEL_Y to obtain Willy's true pixel y-coordinate.
-  LD A,(FRAME)            ; Pick up Willy's current animation frame (0-3) from
-                          ; FRAME
-  AND $03                 ; B=0, 4, 8 or 12
-  RLCA
-  RLCA
-  LD B,A
-  LD A,(RAMPDIR)          ; Pick up the direction byte of the ramp definition
-                          ; for the current room from RAMPDIR
-  AND $01                 ; A=B (if the ramp goes up to the left) or 12-B (if
-  DEC A                   ; the ramp goes up to the right)
-  XOR $0C
-  XOR B
-  AND $0C
-  LD B,A                  ; Copy this value to B
-; Now B holds a y-coordinate offset of 0, 4, 8 or 12 if Willy is standing on a
-; ramp, or 0 otherwise.
-WILLYATTRS_0:
-  LD HL,(LOCATION)        ; Pick up Willy's attribute buffer coordinates from
-                          ; LOCATION
-  LD DE,$001F             ; Prepare DE for later addition
-  LD C,$0F                ; Set C=15 for the top two rows of cells (to make the
-                          ; routine at WILLYATTR force white INK)
-  CALL WILLYATTR          ; Check and set the attribute byte for the top-left
-                          ; cell
-  INC HL                  ; Move HL to the next cell to the right
-  CALL WILLYATTR          ; Check and set the attribute byte for the top-right
-                          ; cell
-  ADD HL,DE               ; Move HL down a row and back one cell to the left
-  CALL WILLYATTR          ; Check and set the attribute byte for the mid-left
-                          ; cell
-  INC HL                  ; Move HL to the next cell to the right
-  CALL WILLYATTR          ; Check and set the attribute byte for the mid-right
-                          ; cell
-  LD A,(PIXEL_Y)          ; Pick up Willy's pixel y-coordinate from PIXEL_Y
-  ADD A,B                 ; Add the y-coordinate offset calculated earlier (to
-  LD C,A                  ; get Willy's true pixel y-coordinate if he's
-                          ; standing on a ramp) and transfer the result to C
-  ADD HL,DE               ; Move HL down a row and back one cell to the left;
-                          ; at this point HL may be pointing at one of the
-                          ; cells in the top row of the buffer at RATTR, which
-                          ; is a bug
-  CALL WILLYATTR          ; Check and set the attribute byte for the
-                          ; bottom-left cell
-  INC HL                  ; Move HL to the next cell to the right
-  CALL WILLYATTR          ; Check and set the attribute byte for the
-                          ; bottom-right cell
-  JR DRAWWILLY            ; Draw Willy to the screen buffer at FPIXL
-
-; Check and set the attribute byte for a cell occupied by Willy's sprite
-;
-; Used by the routine at WILLYATTRS. Sets the attribute byte in the buffer at
-; FATTR for one of the six cells (in three rows of two) occupied by or under
-; Willy's sprite, or kills Willy if the cell contains a nasty. On entry, C
-; holds either 15 if the cell is in the top two rows, or Willy's pixel
-; y-coordinate if the cell is in the bottom row.
-;
-; C 15 or Willy's pixel y-coordinate
-; HL Address of the attribute byte in the buffer at FATTR
-WILLYATTR:
-  LD A,(BACKGROUND)       ; Pick up the attribute byte of the background tile
-                          ; in the current room from BACKGROUND
-  CP (HL)                 ; Does this cell contain a background tile?
-  JR NZ,WILLYATTR_0       ; Jump if not
-  LD A,C                  ; Set the zero flag if we are going to retain the INK
-  AND $0F                 ; colour in this cell; this happens only if the cell
-                          ; is in the bottom row and Willy's sprite is confined
-                          ; to the top two rows
-  JR Z,WILLYATTR_0        ; Jump if we are going to retain the current INK
-                          ; colour in this cell
-  LD A,(BACKGROUND)       ; Pick up the attribute byte of the background tile
-                          ; in the current room from BACKGROUND
-  OR $07                  ; Set bits 0-2, making the INK white
-  LD (HL),A               ; Set the attribute byte for this cell in the buffer
-                          ; at FATTR
-WILLYATTR_0:
-  LD A,(NASTY)            ; Pick up the attribute byte of the nasty tile in the
-                          ; current room from NASTY
-  CP (HL)                 ; Has Willy hit a nasty?
-  JP Z,KILLWILLY          ; Kill Willy if so
-  RET
-
-; Draw Willy to the screen buffer at 6000
-;
-; Used by the routine at WILLYATTRS.
-;
-; B y-coordinate offset (0, 4, 8 or 12)
-DRAWWILLY:
-  LD A,(PIXEL_Y)          ; Pick up Willy's pixel y-coordinate from PIXEL_Y
-  ADD A,B                 ; Add the y-coordinate offset (to get Willy's true
-                          ; pixel y-coordinate if he's standing on a ramp)
-  LD IXh,SBUFADDRS/256    ; Point IX at the entry in the screen buffer address
-  LD IXl,A                ; lookup table at SBUFADDRS that corresponds to
-                          ; Willy's y-coordinate
-  LD A,(DMFLAGS)          ; Pick up Willy's direction and movement flags from
-                          ; DMFLAGS
-  AND $01                 ; Now E=0 if Willy is facing right, or 128 if he's
-  RRCA                    ; facing left
-  LD E,A
-  LD A,(FRAME)            ; Pick up Willy's animation frame (0-3) from FRAME
-  AND $03                 ; Point DE at the sprite graphic data for Willy's
-  RRCA                    ; current animation frame (see MANDAT)
-  RRCA
-  RRCA
-  OR E
-  LD E,A
-  LD D,MANDAT/256
-  LD A,(ROOM)             ; Pick up the number of the current room from ROOM
-  CP $1D                  ; Are we in the The Nightmare Room?
-  JR NZ,DRAWWILLY_0       ; Jump if not
-  LD D,FLYINGPIG0/256     ; Point DE at the graphic data for the flying pig
-  LD A,E                  ; sprite (FLYINGPIG0+E)
-  XOR $80
-  LD E,A
-DRAWWILLY_0:
-  LD B,$10                ; There are 16 rows of pixels to copy
-  LD A,(LOCATION)         ; Pick up Willy's screen x-coordinate (0-31) from
-  AND $1F                 ; LOCATION
-  LD C,A                  ; Copy it to C
-; This entry point is used by the routine at DRAWTOILET to draw the toilet in
-; The Bathroom.
-DRAWWILLY_1:
-  LD A,(IX+$00)           ; Set HL to the address in the screen buffer at FPIXL
-  LD H,(IX+$01)           ; that corresponds to where we are going to draw the
-  OR C                    ; next pixel row of the sprite graphic
-  LD L,A
-  LD A,(DE)               ; Pick up a sprite graphic byte
-  OR (HL)                 ; Merge it with the background
-  LD (HL),A               ; Save the resultant byte to the screen buffer
-  INC HL                  ; Move HL along to the next cell to the right
-  INC DE                  ; Point DE at the next sprite graphic byte
-  LD A,(DE)               ; Pick it up in A
-  OR (HL)                 ; Merge it with the background
-  LD (HL),A               ; Save the resultant byte to the screen buffer
-  INC IX                  ; Point IX at the next entry in the screen buffer
-  INC IX                  ; address lookup table at SBUFADDRS
-  INC DE                  ; Point DE at the next sprite graphic byte
-  DJNZ DRAWWILLY_1        ; Jump back until all 16 rows of pixels have been
-                          ; drawn
-  RET
-
-; Print a message
-;
-; Used by the routines at CODESCREEN, TITLESCREEN, STARTGAME, MAINLOOP and
-; GAMEOVER.
-;
-; IX Address of the message
-; C Length of the message
-; DE Display file address
-PRINTMSG:
-  LD A,(IX+$00)           ; Collect a character from the message
-  CALL PRINTCHAR          ; Print it
-  INC IX                  ; Point IX at the next character in the message
-  INC E                   ; Point DE at the next character cell (subtracting 8
-  LD A,D                  ; from D compensates for the operations performed by
-  SUB $08                 ; the routine at PRINTCHAR)
-  LD D,A
-  DEC C                   ; Have we printed the entire message yet?
-  JR NZ,PRINTMSG          ; If not, jump back to print the next character
-  RET
-
-; Print a single character
-;
-; Used by the routines at CODESCREEN and PRINTMSG.
-;
-; A ASCII code of the character
-; DE Display file address
-PRINTCHAR:
-  LD H,$07                ; Point HL at the bitmap for the character (in the
-  LD L,A                  ; ROM)
-  SET 7,L
-  ADD HL,HL
-  ADD HL,HL
-  ADD HL,HL
-  LD B,$08                ; There are eight pixel rows in a character bitmap
-; This entry point is used by the routine at TITLESCREEN to draw a triangle UDG
-; on the title screen, and by the routine at DRAWITEMS to draw an item in the
-; current room.
-PRINTCHAR_0:
-  LD A,(HL)               ; Copy the character bitmap (or triangle UDG, or item
-  LD (DE),A               ; graphic) to the screen (or screen buffer)
-  INC HL
-  INC D
-  DJNZ PRINTCHAR_0
-  RET
-
-; Play the theme tune (Moonlight Sonata)
-;
-; Used by the routine at TITLESCREEN. For each of the 99 bytes in the tune data
-; table at THEMETUNE, this routine produces two notes, each lasting
-; approximately 0.15s; the second note is played at half the frequency of the
-; first. Returns with the zero flag reset if ENTER, 0 or the fire button is
-; pressed while the tune is being played.
-;
-; HL THEMETUNE
-PLAYTUNE:
-  LD A,(HL)               ; Pick up the next byte of tune data from the table
-                          ; at THEMETUNE
-  CP $FF                  ; Has the tune finished?
-  RET Z                   ; Return (with the zero flag set) if so
-  LD BC,$0064             ; B=0 (short note duration counter), C=100 (short
-                          ; note counter)
-  XOR A                   ; A=0 (border colour and speaker state)
-  LD E,(HL)               ; Save the byte of tune data in E for retrieval
-                          ; during the short note loop
-  LD D,E                  ; Initialise D (pitch delay counter)
-PLAYTUNE_0:
-  OUT ($FE),A             ; Produce a short note (approximately 0.003s) whose
-  DEC D                   ; pitch is determined by the value in E
-  JR NZ,PLAYTUNE_1
-  LD D,E
-  XOR $18
-PLAYTUNE_1:
-  DJNZ PLAYTUNE_0
-  EX AF,AF'               ; Save A briefly
-  LD A,C                  ; Is the short note counter in C (which starts off at
-  CP $32                  ; 100) down to 50 yet?
-  JR NZ,PLAYTUNE_2        ; Jump if not
-  RL E                    ; Otherwise double the value in E (which halves the
-                          ; note frequency)
-PLAYTUNE_2:
-  EX AF,AF'               ; Restore the value of A
-  DEC C                   ; Decrement the short note counter in C
-  JR NZ,PLAYTUNE_0        ; Jump back unless we've finished playing 50 short
-                          ; notes at the lower frequency
-  CALL CHECKENTER         ; Check whether ENTER, 0 or the fire button is being
-                          ; pressed
-  RET NZ                  ; Return (with the zero flag reset) if it is
-  INC HL                  ; Move HL along to the next byte of tune data
-  JR PLAYTUNE             ; Jump back to play the next batch of 100 short notes
-
-; Check whether ENTER, 0 or the fire button is being pressed
-;
-; Used by the routine at PLAYTUNE. Returns with the zero flag reset if ENTER, 0
-; or the fire button on the joystick is being pressed.
-CHECKENTER:
-  LD A,(JOYSTICK)         ; Collect the Kempston joystick indicator from
-                          ; JOYSTICK
-  OR A                    ; Is the joystick connected?
-  JR Z,CHECKENTER_0       ; Jump if not
-  IN A,($1F)              ; Collect input from the joystick
-  BIT 4,A                 ; Is the fire button being pressed?
-  RET NZ                  ; Return (with the zero flag reset) if so
-CHECKENTER_0:
-  LD BC,$AFFE             ; Read keys H-J-K-L-ENTER and 6-7-8-9-0
-  IN A,(C)
-  AND $01                 ; Keep only bit 0 of the result (ENTER, 0)
-  CP $01                  ; Reset the zero flag if ENTER or 0 is being pressed
-  RET
-
-; Play an intro message sound effect
-;
-; Used by the routine at TITLESCREEN.
-;
-; A Value between 50 and 81
-INTROSOUND:
-  LD E,A                  ; Save the value of A in E for later retrieval
-  LD C,$FE                ; We will output to port 254
-INTROSOUND_0:
-  LD D,A                  ; Copy A into D; bits 0-2 of D determine the initial
-                          ; border colour
-  RES 4,D                 ; Reset bit 4 of D (initial speaker state)
-  RES 3,D                 ; Reset bit 3 of D (initial MIC state)
-  LD B,E                  ; Initialise B (delay counter for the inner loop)
-INTROSOUND_1:
-  CP B                    ; Is it time to flip the MIC and speaker and make the
-                          ; border black?
-  JR NZ,INTROSOUND_2      ; Jump if not
-  LD D,$18                ; Set bits 3 (MIC) and 4 (speaker) of D, and reset
-                          ; bits 0-2 (black border)
-INTROSOUND_2:
-  OUT (C),D               ; Set the MIC state, speaker state and border colour
-  DJNZ INTROSOUND_1       ; Jump back until the inner loop is finished
-  DEC A                   ; Is the outer loop finished too?
-  JR NZ,INTROSOUND_0      ; Jump back if not
-  RET
-
-SPARE:
-  DEFS $9D00-$
-
-; Attributes for the top two-thirds of the title screen
-;
-; Used by the routine at TITLESCREEN.
-ATTRSUPPER:
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$28,$28,$05,$05,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$D3,$D3,$D3,$00,$D3,$D3,$D3,$00,$D3,$D3,$D3,$00
-  DEFB $28,$D3,$D3,$D3,$25,$D3,$D3,$D3,$00,$D3,$D3,$D3,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$D3,$00,$00,$D3,$00,$00,$00,$00,$D3,$28,$28
-  DEFB $2D,$D3,$25,$25,$24,$D3,$00,$00,$00,$00,$D3,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$D3,$00,$00,$D3,$D3,$D3,$00,$28,$D3,$2D,$2D
-  DEFB $25,$D3,$D3,$D3,$24,$D3,$D3,$D3,$00,$00,$D3,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$D3,$00,$00,$D3,$00,$28,$28,$2D,$D3,$25,$25
-  DEFB $24,$24,$04,$D3,$24,$D3,$00,$00,$00,$00,$D3,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$D3,$D3,$00,$00,$D3,$D3,$D3,$2D,$25,$D3,$24,$24
-  DEFB $04,$D3,$D3,$D3,$24,$D3,$D3,$D3,$00,$00,$D3,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$29,$29,$2D,$2D,$2C,$2C,$04,$04
-  DEFB $00,$00,$09,$09,$24,$24,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$09,$09,$29,$29,$2D,$2D,$05,$05
-  DEFB $00,$00,$09,$09,$24,$24,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$D3,$00,$08,$08,$D3,$09,$D3,$29,$D3,$2D
-  DEFB $05,$05,$D3,$09,$24,$D3,$00,$00,$00,$D3,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$D3,$00,$00,$00,$D3,$08,$D3,$09,$D3,$29
-  DEFB $2D,$2D,$D3,$09,$24,$D3,$00,$00,$00,$D3,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$D3,$00,$D3,$00,$D3,$00,$D3,$08,$D3,$09
-  DEFB $29,$29,$D3,$09,$24,$D3,$D3,$D3,$D3,$D3,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$D3,$00,$D3,$00,$D3,$00,$D3,$00,$D3,$08
-  DEFB $09,$09,$D3,$09,$24,$24,$00,$D3,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$D3,$D3,$D3,$D3,$D3,$00,$D3,$00,$D3,$D3
-  DEFB $D3,$08,$D3,$D3,$D3,$24,$00,$D3,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$08,$08,$04,$04,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-
-; Attributes for the bottom third of the screen
-;
-; Used by the routines at TITLESCREEN, STARTGAME and ENDPAUSE.
-ATTRSLOWER:
-  DEFB $46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46
-  DEFB $46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $01,$02,$03,$04,$05,$06,$07,$07,$07,$07,$07,$07,$07,$07,$07,$07
-  DEFB $07,$07,$07,$07,$07,$07,$07,$07,$07,$07,$06,$05,$04,$03,$02,$01
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $45,$45,$06,$06,$04,$04,$41,$41,$05,$05,$43,$43,$44,$44,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $45,$45,$06,$06,$04,$04,$41,$41,$05,$05,$43,$43,$44,$44,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-
-; Entity definitions
-;
-; Used by the routine at STARTGAME.
-;
-; The following (empty) entity definition (0x00) is copied into one of the
-; entity buffers at ENTITYBUF for any entity specification whose first byte is
-; zero.
-ENTITYDEFS:
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-; The following entity definition (0x01) is used in We must perform a
-; Quirkafleeg, On the Roof, Cold Store, Swimming Pool and The Beach.
-ENTITY1:
-  DEFB %00000011          ; Rope (bits 0-2), initially swinging right to left
-                          ; (bit 7)
-  DEFB $22                ; Initial animation frame index
-  DEFB $00                ; Replaced by the x-coordinate of the top of the rope
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $00                ; Unused
-  DEFB $20                ; Length
-  DEFB $00                ; Unused
-  DEFB $83                ; Unused
-  DEFB $36                ; Animation frame at which the rope changes direction
-; The following entity definition (0x02) is used in The Security Guard, Rescue
-; Esmerelda, I'm sure I've seen this before.. and Up on the Battlements.
-ENTITY2:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %00100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $80                ; Initial pixel y-coordinate: 64
-  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
-  DEFB $50                ; Minimum pixel y-coordinate: 40
-  DEFB $D0                ; Maximum pixel y-coordinate: 104
-; The following entity definition (0x03) is used in The Security Guard, I'm
-; sure I've seen this before.. and Up on the Battlements.
-ENTITY3:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %00101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $A0                ; Initial pixel y-coordinate: 80
-  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
-  DEFB $58                ; Minimum pixel y-coordinate: 44
-  DEFB $D0                ; Maximum pixel y-coordinate: 104
-; The following entity definition (0x04) is used in The Security Guard, Rescue
-; Esmerelda, I'm sure I've seen this before.. and Up on the Battlements.
-ENTITY4:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %00100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $60                ; Initial pixel y-coordinate: 48
-  DEFB $08                ; Initial pixel y-coordinate increment: 4 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
-  DEFB $60                ; Minimum pixel y-coordinate: 48
-  DEFB $C0                ; Maximum pixel y-coordinate: 96
-; The following entity definition (0x05) is used in I'm sure I've seen this
-; before.. and Up on the Battlements.
-ENTITY5:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %00100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $40                ; Initial pixel y-coordinate: 32
-  DEFB $0C                ; Initial pixel y-coordinate increment: 6 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
-  DEFB $40                ; Minimum pixel y-coordinate: 32
-  DEFB $C0                ; Maximum pixel y-coordinate: 96
-; The following entity definition (0x06) is used in At the Foot of the
-; MegaTree.
-ENTITY6:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %00100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $40                ; Initial pixel y-coordinate: 32
-  DEFB $0A                ; Initial pixel y-coordinate increment: 5 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
-  DEFB $40                ; Minimum pixel y-coordinate: 32
-  DEFB $B0                ; Maximum pixel y-coordinate: 88
-; The following entity definition (0x07) is used in At the Foot of the MegaTree
-; and Above the West Bedroom.
-ENTITY7:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %01100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $64                ; Initial pixel y-coordinate: 50
-  DEFB $F4                ; Initial pixel y-coordinate increment: -6 (moving
-                          ; up)
-  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
-  DEFB $20                ; Minimum pixel y-coordinate: 16
-  DEFB $A0                ; Maximum pixel y-coordinate: 80
-; The following entity definition (0x08) is used in At the Foot of the
-; MegaTree.
-ENTITY8:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %01101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $80                ; Initial pixel y-coordinate: 64
-  DEFB $06                ; Initial pixel y-coordinate increment: 3 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
-  DEFB $26                ; Minimum pixel y-coordinate: 19
-  DEFB $B0                ; Maximum pixel y-coordinate: 88
-; The following entity definition (0x09) is used in Inside the MegaTrunk and On
-; a Branch Over the Drive.
-ENTITY9:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %00101011          ; INK 3 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $A0                ; Initial pixel y-coordinate: 80
-  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
-  DEFB $80                ; Minimum pixel y-coordinate: 64
-  DEFB $E0                ; Maximum pixel y-coordinate: 112
-; The following entity definition (0x0A) is used in The Off Licence.
-ENTITY10:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %01101101          ; INK 5 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $60                ; Initial pixel y-coordinate: 48
-  DEFB $08                ; Initial pixel y-coordinate increment: 4 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$13 ; Page containing the sprite graphic data: BE
-  DEFB $10                ; Minimum pixel y-coordinate: 8
-  DEFB $D0                ; Maximum pixel y-coordinate: 104
-; The following entity definition (0x0B) is used in Dr Jones will never believe
-; this and Nomen Luni.
-ENTITY11:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %01100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $C0                ; Initial pixel y-coordinate: 96
-  DEFB $F6                ; Initial pixel y-coordinate increment: -5 (moving
-                          ; up)
-  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
-  DEFB $70                ; Minimum pixel y-coordinate: 56
-  DEFB $C0                ; Maximum pixel y-coordinate: 96
-; The following entity definition (0x0C) is used in The Off Licence.
-ENTITY12:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %01100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $70                ; Pixel y-coordinate: 56
-  DEFB $01                ; Unused
-  DEFB GUARDIANS/$100+$13 ; Page containing the sprite graphic data: BE
-  DEFB $13                ; Minimum x-coordinate
-  DEFB $1D                ; Maximum x-coordinate
-; The following entity definition (0x0D) is used in Rescue Esmerelda, I'm sure
-; I've seen this before.. and We must perform a Quirkafleeg.
-ENTITY13:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $40                ; Pixel y-coordinate: 32
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
-  DEFB $00                ; Minimum x-coordinate
-  DEFB $09                ; Maximum x-coordinate
-; The following entity definition (0x0E) is used in The Bridge.
-ENTITY14:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %01101100          ; INK 4 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $30                ; Initial pixel y-coordinate: 24
-  DEFB $0C                ; Initial pixel y-coordinate increment: 6 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$0E ; Page containing the sprite graphic data: B9
-  DEFB $00                ; Minimum pixel y-coordinate: 0
-  DEFB $C0                ; Maximum pixel y-coordinate: 96
-; The following entity definition (0x0F) is used in Rescue Esmerelda.
-ENTITY15:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %00100111          ; INK 7 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $10                ; Initial pixel y-coordinate: 8
-  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$05 ; Page containing the sprite graphic data: B0
-  DEFB $00                ; Minimum pixel y-coordinate: 0
-  DEFB $20                ; Maximum pixel y-coordinate: 16
-; The following entity definition (0x10) is used in Entrance to Hades, The
-; Chapel and Priests' Hole.
-ENTITY16:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %00000100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 000 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $60                ; Initial pixel y-coordinate: 48
-  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
-  DEFB $00                ; Minimum pixel y-coordinate: 0
-  DEFB $B0                ; Maximum pixel y-coordinate: 88
-; The following entity definition (0x11) is used in Entrance to Hades, The
-; Chapel and Priests' Hole.
-ENTITY17:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %00000100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 000 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $60                ; Initial pixel y-coordinate: 48
-  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
-  DEFB $00                ; Minimum pixel y-coordinate: 0
-  DEFB $B0                ; Maximum pixel y-coordinate: 88
-; The following entity definition (0x12) is used in Entrance to Hades, The
-; Chapel and Priests' Hole.
-ENTITY18:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %00100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $80                ; Initial pixel y-coordinate: 64
-  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
-  DEFB $20                ; Minimum pixel y-coordinate: 16
-  DEFB $D0                ; Maximum pixel y-coordinate: 104
-; The following entity definition (0x13) is used in Ballroom East and Top
-; Landing.
-ENTITY19:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %00001010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 000 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $20                ; Initial pixel y-coordinate: 16
-  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
-                          ; down)
-  DEFB BARREL/$100        ; Page containing the sprite graphic data: 9C
-  DEFB $20                ; Minimum pixel y-coordinate: 16
-  DEFB $60                ; Maximum pixel y-coordinate: 48
-; The following entity definition (0x14) is used in The Bridge and West  Wing.
-ENTITY20:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $A0                ; Pixel y-coordinate: 80
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
-  DEFB $00                ; Minimum x-coordinate
-  DEFB $0A                ; Maximum x-coordinate
-; The following entity definition (0x15) is used in The Bridge, The Drive and
-; Ballroom East.
-ENTITY21:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %11100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $A0                ; Pixel y-coordinate: 80
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
-  DEFB $0E                ; Minimum x-coordinate
-  DEFB $1D                ; Maximum x-coordinate
-; The following entity definition (0x16) is used in The Drive and Inside the
-; MegaTrunk.
-ENTITY22:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $B0                ; Pixel y-coordinate: 88
-  DEFB $01                ; Unused
-  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
-  DEFB $10                ; Minimum x-coordinate
-  DEFB $1D                ; Maximum x-coordinate
-; The following entity definition (0x17) is used in The Drive.
-ENTITY23:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $80                ; Pixel y-coordinate: 64
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
-  DEFB $05                ; Minimum x-coordinate
-  DEFB $1D                ; Maximum x-coordinate
-; The following entity definition (0x18) is used in The Drive, Inside the
-; MegaTrunk and Tree Top.
-ENTITY24:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11101101          ; INK 5 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $50                ; Pixel y-coordinate: 40
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
-  DEFB $00                ; Minimum x-coordinate
-  DEFB $0A                ; Maximum x-coordinate
-; The following entity definition (0x19) is used in Out on a limb.
-ENTITY25:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11101011          ; INK 3 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $70                ; Pixel y-coordinate: 56
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
-  DEFB $0E                ; Minimum x-coordinate
-  DEFB $17                ; Maximum x-coordinate
-; The following entity definition (0x1A) is used in Under the MegaTree, The
-; Hall, Tree Top and Emergency Generator.
-ENTITY26:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $30                ; Pixel y-coordinate: 24
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$0B ; Page containing the sprite graphic data: B6
-  DEFB $05                ; Minimum x-coordinate
-  DEFB $1E                ; Maximum x-coordinate
-; The following entity definition (0x1B) is used in On a Branch Over the Drive,
-; Orangery, Dr Jones will never believe this and The Yacht.
-ENTITY27:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %01101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $90                ; Initial pixel y-coordinate: 72
-  DEFB $FC                ; Initial pixel y-coordinate increment: -2 (moving
-                          ; up)
-  DEFB GUARDIANS/$100+$07 ; Page containing the sprite graphic data: B2
-  DEFB $80                ; Minimum pixel y-coordinate: 64
-  DEFB $D0                ; Maximum pixel y-coordinate: 104
-; The following entity definition (0x1C) is used in Under the Drive and West
-; Wing Roof.
-ENTITY28:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $B0                ; Pixel y-coordinate: 88
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
-  DEFB $0C                ; Minimum x-coordinate
-  DEFB $1D                ; Maximum x-coordinate
-; The following entity definition (0x1D) is used in On top of the house, Under
-; the Drive, Nomen Luni and Back Stairway.
-ENTITY29:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %01100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $30                ; Initial pixel y-coordinate: 24
-  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$07 ; Page containing the sprite graphic data: B2
-  DEFB $00                ; Minimum pixel y-coordinate: 0
-  DEFB $80                ; Maximum pixel y-coordinate: 64
-; The following entity definition (0x1E) is used in Tree Root and West Bedroom.
-ENTITY30:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %11100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $40                ; Initial pixel y-coordinate: 32
-  DEFB $FC                ; Initial pixel y-coordinate increment: -2 (moving
-                          ; up)
-  DEFB GUARDIANS/$100+$02 ; Page containing the sprite graphic data: AD
-  DEFB $00                ; Minimum pixel y-coordinate: 0
-  DEFB $80                ; Maximum pixel y-coordinate: 64
-; The following entity definition (0x1F) is used in Tree Root.
-ENTITY31:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %00100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $90                ; Initial pixel y-coordinate: 72
-  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$0C ; Page containing the sprite graphic data: B7
-  DEFB $40                ; Minimum pixel y-coordinate: 32
-  DEFB $A0                ; Maximum pixel y-coordinate: 80
-; The following entity definition (0x20) is used in Under the MegaTree.
-ENTITY32:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $D0                ; Pixel y-coordinate: 104
-  DEFB $01                ; Unused
-  DEFB GUARDIANS/$100+$0D ; Page containing the sprite graphic data: B8
-  DEFB $00                ; Minimum x-coordinate
-  DEFB $1E                ; Maximum x-coordinate
-; The following entity definition (0x21) is used in Ballroom West.
-ENTITY33:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $B0                ; Pixel y-coordinate: 88
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$0D ; Page containing the sprite graphic data: B8
-  DEFB $10                ; Minimum x-coordinate
-  DEFB $1A                ; Maximum x-coordinate
-; The following entity definition (0x22) is used in On the Roof.
-ENTITY34:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %11100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $D0                ; Pixel y-coordinate: 104
-  DEFB $01                ; Unused
-  DEFB GUARDIANS/$100+$0D ; Page containing the sprite graphic data: B8
-  DEFB $0E                ; Minimum x-coordinate
-  DEFB $18                ; Maximum x-coordinate
-; The following entity definition (0x23) is used in Tree Root.
-ENTITY35:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %11101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $90                ; Pixel y-coordinate: 72
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$0D ; Page containing the sprite graphic data: B8
-  DEFB $0F                ; Minimum x-coordinate
-  DEFB $17                ; Maximum x-coordinate
-; The following entity definition (0x24) is used in The Drive, Top Landing and
-; Back Stairway.
-ENTITY36:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %01100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $D0                ; Pixel y-coordinate: 104
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$04 ; Page containing the sprite graphic data: AF
-  DEFB $0A                ; Minimum x-coordinate
-  DEFB $1E                ; Maximum x-coordinate
-; The following entity definition (0x25) is used in Priests' Hole.
-ENTITY37:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $A0                ; Pixel y-coordinate: 80
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
-  DEFB $08                ; Minimum x-coordinate
-  DEFB $18                ; Maximum x-coordinate
-; The following entity definition (0x26) is used in Halfway up the East Wall.
-ENTITY38:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %01101110          ; INK 6 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $60                ; Pixel y-coordinate: 48
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$03 ; Page containing the sprite graphic data: AE
-  DEFB $02                ; Minimum x-coordinate
-  DEFB $07                ; Maximum x-coordinate
-; The following entity definition (0x27) is used in Cuckoo's Nest and Under the
-; Roof.
-ENTITY39:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %01100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $80                ; Pixel y-coordinate: 64
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$04 ; Page containing the sprite graphic data: AF
-  DEFB $0C                ; Minimum x-coordinate
-  DEFB $12                ; Maximum x-coordinate
-; The following entity definition (0x28) is used in Ballroom East, Ballroom
-; West and Tree Root.
-ENTITY40:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %01000101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 010 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $70                ; Initial pixel y-coordinate: 56
-  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
-  DEFB $60                ; Minimum pixel y-coordinate: 48
-  DEFB $C0                ; Maximum pixel y-coordinate: 96
-; The following entity definition (0x29) is used in Ballroom East.
-ENTITY41:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %01100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $96                ; Initial pixel y-coordinate: 75
-  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
-  DEFB $90                ; Minimum pixel y-coordinate: 72
-  DEFB $C0                ; Maximum pixel y-coordinate: 96
-; The following entity definition (0x2A) is used in Under the MegaTree,
-; Ballroom East and Ballroom West.
-ENTITY42:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %01001011          ; INK 3 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 010 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $90                ; Initial pixel y-coordinate: 72
-  DEFB $FA                ; Initial pixel y-coordinate increment: -3 (moving
-                          ; up)
-  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
-  DEFB $60                ; Minimum pixel y-coordinate: 48
-  DEFB $AE                ; Maximum pixel y-coordinate: 87
-; The following entity definition (0x2B) is not used.
-ENTITY43:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %01001010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 010 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $B0                ; Initial pixel y-coordinate: 88
-  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
-  DEFB $90                ; Minimum pixel y-coordinate: 72
-  DEFB $B8                ; Maximum pixel y-coordinate: 92
-; The following entity definition (0x2C) is used in The Off Licence and Inside
-; the MegaTrunk.
-ENTITY44:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %01001010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 010 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $40                ; Initial pixel y-coordinate: 32
-  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
-  DEFB $00                ; Minimum pixel y-coordinate: 0
-  DEFB $D0                ; Maximum pixel y-coordinate: 104
-; The following entity definition (0x2D) is used in Out on a limb and East Wall
-; Base.
-ENTITY45:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %01000101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 010 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $B0                ; Initial pixel y-coordinate: 88
-  DEFB $08                ; Initial pixel y-coordinate increment: 4 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
-  DEFB $00                ; Minimum pixel y-coordinate: 0
-  DEFB $D0                ; Maximum pixel y-coordinate: 104
-; The following entity definition (0x2E) is used in Tree Top.
-ENTITY46:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %01100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $A0                ; Pixel y-coordinate: 80
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$10 ; Page containing the sprite graphic data: BB
-  DEFB $00                ; Minimum x-coordinate
-  DEFB $13                ; Maximum x-coordinate
-; The following entity definition (0x2F) is used in Inside the MegaTrunk.
-ENTITY47:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %01101110          ; INK 6 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $30                ; Pixel y-coordinate: 24
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$10 ; Page containing the sprite graphic data: BB
-  DEFB $11                ; Minimum x-coordinate
-  DEFB $1E                ; Maximum x-coordinate
-; The following entity definition (0x30) is used in The Kitchen and West of
-; Kitchen.
-ENTITY48:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %00101011          ; INK 3 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $40                ; Initial pixel y-coordinate: 32
-  DEFB $06                ; Initial pixel y-coordinate increment: 3 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$0C ; Page containing the sprite graphic data: B7
-  DEFB $10                ; Minimum pixel y-coordinate: 8
-  DEFB $D0                ; Maximum pixel y-coordinate: 104
-; The following entity definition (0x31) is used in The Kitchen and West of
-; Kitchen.
-ENTITY49:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %00100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $C0                ; Initial pixel y-coordinate: 96
-  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$0C ; Page containing the sprite graphic data: B7
-  DEFB $00                ; Minimum pixel y-coordinate: 0
-  DEFB $D0                ; Maximum pixel y-coordinate: 104
-; The following entity definition (0x32) is used in The Kitchen and West of
-; Kitchen.
-ENTITY50:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %00100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $80                ; Initial pixel y-coordinate: 64
-  DEFB $F8                ; Initial pixel y-coordinate increment: -4 (moving
-                          ; up)
-  DEFB GUARDIANS/$100+$0C ; Page containing the sprite graphic data: B7
-  DEFB $00                ; Minimum pixel y-coordinate: 0
-  DEFB $D0                ; Maximum pixel y-coordinate: 104
-; The following entity definition (0x33) is used in West Bedroom and Above the
-; West Bedroom.
-ENTITY51:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %00101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $30                ; Initial pixel y-coordinate: 24
-  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$0C ; Page containing the sprite graphic data: B7
-  DEFB $00                ; Minimum pixel y-coordinate: 0
-  DEFB $A0                ; Maximum pixel y-coordinate: 80
-; The following entity definition (0x34) is used in The Wine Cellar, Tool  Shed
-; and West Wing Roof.
-ENTITY52:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $D0                ; Pixel y-coordinate: 104
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$0A ; Page containing the sprite graphic data: B5
-  DEFB $07                ; Minimum x-coordinate
-  DEFB $16                ; Maximum x-coordinate
-; The following entity definition (0x35) is used in At the Foot of the MegaTree
-; and The Yacht.
-ENTITY53:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11101011          ; INK 3 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $D0                ; Pixel y-coordinate: 104
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$0A ; Page containing the sprite graphic data: B5
-  DEFB $04                ; Minimum x-coordinate
-  DEFB $0E                ; Maximum x-coordinate
-; The following entity definition (0x36) is used in Cold Store.
-ENTITY54:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $D0                ; Pixel y-coordinate: 104
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$12 ; Page containing the sprite graphic data: BD
-  DEFB $00                ; Minimum x-coordinate
-  DEFB $18                ; Maximum x-coordinate
-; The following entity definition (0x37) is used in Cold Store and Under the
-; Roof.
-ENTITY55:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %01100111          ; INK 7 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $90                ; Pixel y-coordinate: 72
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$10 ; Page containing the sprite graphic data: BB
-  DEFB $00                ; Minimum x-coordinate
-  DEFB $05                ; Maximum x-coordinate
-; The following entity definition (0x38) is used in Cold Store.
-ENTITY56:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %11100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $60                ; Pixel y-coordinate: 48
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$12 ; Page containing the sprite graphic data: BD
-  DEFB $00                ; Minimum x-coordinate
-  DEFB $06                ; Maximum x-coordinate
-; The following entity definition (0x39) is used in Cold Store.
-ENTITY57:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %01100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $30                ; Pixel y-coordinate: 24
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$10 ; Page containing the sprite graphic data: BB
-  DEFB $00                ; Minimum x-coordinate
-  DEFB $09                ; Maximum x-coordinate
-; The following entity definition (0x3A) is used in Top Landing.
-ENTITY58:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %01100111          ; INK 7 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $40                ; Initial pixel y-coordinate: 32
-  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$02 ; Page containing the sprite graphic data: AD
-  DEFB $20                ; Minimum pixel y-coordinate: 16
-  DEFB $D0                ; Maximum pixel y-coordinate: 104
-; The following entity definition (0x3B) is used in The Bathroom.
-ENTITY59:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %01100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $30                ; Pixel y-coordinate: 24
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$0E ; Page containing the sprite graphic data: B9
-  DEFB $00                ; Minimum x-coordinate
-  DEFB $1B                ; Maximum x-coordinate
-; The following entity definition (0x3C) is used in Cuckoo's Nest, On a Branch
-; Over the Drive, The Hall, I'm sure I've seen this before.., We must perform a
-; Quirkafleeg, Orangery, The Attic, Under the Roof, West Wing Roof and The
-; Beach.
-ENTITY60:
-  DEFB %10000100          ; Arrow (bits 0-2), flying left to right (bit 7)
-  DEFB $06                ; Unused
-  DEFB $00                ; Replaced by the pixel y-coordinate (copied from the
-                          ; second byte of the entity specification in the room
-                          ; definition)
-  DEFB $00                ; Unused
-  DEFB $D0                ; Initial x-coordinate: 208
-  DEFB $00                ; Unused
-  DEFB %10000010          ; Top/bottom pixel row (drawn either side of the
-                          ; shaft)
-  DEFB $00                ; Unused
-; The following entity definition (0x3D) is used in On a Branch Over the Drive
-; and Conservatory Roof.
-ENTITY61:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %01100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $50                ; Pixel y-coordinate: 40
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$02 ; Page containing the sprite graphic data: AD
-  DEFB $10                ; Minimum x-coordinate
-  DEFB $1E                ; Maximum x-coordinate
-; The following entity definition (0x3E) is used in On a Branch Over the Drive.
-ENTITY62:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %01100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $60                ; Initial pixel y-coordinate: 48
-  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$0E ; Page containing the sprite graphic data: B9
-  DEFB $00                ; Minimum pixel y-coordinate: 0
-  DEFB $70                ; Maximum pixel y-coordinate: 56
-; The following entity definition (0x3F) is not used.
-  DEFB $FF,$00,$00,$00,$00,$00,$00,$00
-; The following entity definition (0x40) is used in The Wine Cellar.
-ENTITY64:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $30                ; Pixel y-coordinate: 24
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
-  DEFB $00                ; Minimum x-coordinate
-  DEFB $1B                ; Maximum x-coordinate
-; The following entity definition (0x41) is used in The Wine Cellar.
-ENTITY65:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $60                ; Pixel y-coordinate: 48
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
-  DEFB $04                ; Minimum x-coordinate
-  DEFB $1B                ; Maximum x-coordinate
-; The following entity definition (0x42) is used in The Wine Cellar.
-ENTITY66:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $90                ; Pixel y-coordinate: 72
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
-  DEFB $02                ; Minimum x-coordinate
-  DEFB $1B                ; Maximum x-coordinate
-; The following entity definition (0x43) is used in First Landing.
-ENTITY67:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $C0                ; Pixel y-coordinate: 96
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
-  DEFB $18                ; Minimum x-coordinate
-  DEFB $1E                ; Maximum x-coordinate
-; The following entity definition (0x44) is used in Under the Drive.
-ENTITY68:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $80                ; Pixel y-coordinate: 64
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$03 ; Page containing the sprite graphic data: AE
-  DEFB $15                ; Minimum x-coordinate
-  DEFB $1E                ; Maximum x-coordinate
-; The following entity definition (0x45) is used in The Hall, Tree Top, I'm
-; sure I've seen this before.., Up on the Battlements, A bit of tree and The
-; Attic.
-ENTITY69:
-  DEFB %00000100          ; Arrow (bits 0-2), flying right to left (bit 7)
-  DEFB $06                ; Unused
-  DEFB $00                ; Replaced by the pixel y-coordinate (copied from the
-                          ; second byte of the entity specification in the room
-                          ; definition)
-  DEFB $00                ; Unused
-  DEFB $1C                ; Initial x-coordinate: 28
-  DEFB $00                ; Unused
-  DEFB %01000001          ; Top/bottom pixel row (drawn either side of the
-                          ; shaft)
-  DEFB $00                ; Unused
-; The following entity definition (0x46) is used in The Nightmare Room.
-ENTITY70:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %01100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $40                ; Initial pixel y-coordinate: 32
-  DEFB $FC                ; Initial pixel y-coordinate increment: -2 (moving
-                          ; up)
-  DEFB MARIA0/$100        ; Page containing the sprite graphic data: 9C
-  DEFB $00                ; Minimum pixel y-coordinate: 0
-  DEFB $A0                ; Maximum pixel y-coordinate: 80
-; The following entity definition (0x47) is used in The Nightmare Room.
-ENTITY71:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %00100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $20                ; Initial pixel y-coordinate: 16
-  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
-                          ; down)
-  DEFB MARIA0/$100        ; Page containing the sprite graphic data: 9C
-  DEFB $00                ; Minimum pixel y-coordinate: 0
-  DEFB $D0                ; Maximum pixel y-coordinate: 104
-; The following entity definition (0x48) is used in The Nightmare Room.
-ENTITY72:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %00000110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 000 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $90                ; Initial pixel y-coordinate: 72
-  DEFB $06                ; Initial pixel y-coordinate increment: 3 (moving
-                          ; down)
-  DEFB MARIA0/$100        ; Page containing the sprite graphic data: 9C
-  DEFB $00                ; Minimum pixel y-coordinate: 0
-  DEFB $C0                ; Maximum pixel y-coordinate: 96
-; The following entity definition (0x49) is used in The Nightmare Room.
-ENTITY73:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %01101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $80                ; Initial pixel y-coordinate: 64
-  DEFB $F8                ; Initial pixel y-coordinate increment: -4 (moving
-                          ; up)
-  DEFB MARIA0/$100        ; Page containing the sprite graphic data: 9C
-  DEFB $10                ; Minimum pixel y-coordinate: 8
-  DEFB $D0                ; Maximum pixel y-coordinate: 104
-; The following entity definition (0x4A) is used in The Forgotten Abbey.
-ENTITY74:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %11100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $50                ; Pixel y-coordinate: 40
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
-  DEFB $04                ; Minimum x-coordinate
-  DEFB $14                ; Maximum x-coordinate
-; The following entity definition (0x4B) is used in The Forgotten Abbey.
-ENTITY75:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $50                ; Pixel y-coordinate: 40
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
-  DEFB $0C                ; Minimum x-coordinate
-  DEFB $1C                ; Maximum x-coordinate
-; The following entity definition (0x4C) is used in The Forgotten Abbey.
-ENTITY76:
-  DEFB %00100001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 1 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $90                ; Pixel y-coordinate: 72
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
-  DEFB $09                ; Minimum x-coordinate
-  DEFB $14                ; Maximum x-coordinate
-; The following entity definition (0x4D) is used in The Forgotten Abbey.
-ENTITY77:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %11100111          ; INK 7 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $90                ; Pixel y-coordinate: 72
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
-  DEFB $16                ; Minimum x-coordinate
-  DEFB $1B                ; Maximum x-coordinate
-; The following entity definition (0x4E) is used in The Forgotten Abbey and
-; Swimming Pool.
-ENTITY78:
-  DEFB %00100001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 1 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $D0                ; Pixel y-coordinate: 104
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
-  DEFB $05                ; Minimum x-coordinate
-  DEFB $0C                ; Maximum x-coordinate
-; The following entity definition (0x4F) is used in The Forgotten Abbey.
-ENTITY79:
-  DEFB %01000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 2 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11101001          ; INK 1 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $D0                ; Pixel y-coordinate: 104
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
-  DEFB $0B                ; Minimum x-coordinate
-  DEFB $12                ; Maximum x-coordinate
-; The following entity definition (0x50) is used in The Forgotten Abbey.
-ENTITY80:
-  DEFB %01100001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 3 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $D0                ; Pixel y-coordinate: 104
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
-  DEFB $10                ; Minimum x-coordinate
-  DEFB $17                ; Maximum x-coordinate
-; The following entity definition (0x51) is used in The Forgotten Abbey.
-ENTITY81:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100010          ; INK 2 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $D0                ; Pixel y-coordinate: 104
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
-  DEFB $17                ; Minimum x-coordinate
-  DEFB $1E                ; Maximum x-coordinate
-; The following entity definition (0x52) is used in The Attic.
-ENTITY82:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %00100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $84                ; Initial pixel y-coordinate: 66
-  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$05 ; Page containing the sprite graphic data: B0
-  DEFB $70                ; Minimum pixel y-coordinate: 56
-  DEFB $B0                ; Maximum pixel y-coordinate: 88
-; The following entity definition (0x53) is used in The Attic.
-ENTITY83:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %00100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $8C                ; Initial pixel y-coordinate: 70
-  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$05 ; Page containing the sprite graphic data: B0
-  DEFB $70                ; Minimum pixel y-coordinate: 56
-  DEFB $B0                ; Maximum pixel y-coordinate: 88
-; The following entity definition (0x54) is used in The Attic.
-ENTITY84:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %00101001          ; INK 1 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $94                ; Initial pixel y-coordinate: 74
-  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$05 ; Page containing the sprite graphic data: B0
-  DEFB $70                ; Minimum pixel y-coordinate: 56
-  DEFB $B0                ; Maximum pixel y-coordinate: 88
-; The following entity definition (0x55) is used in The Attic.
-ENTITY85:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %00100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $9C                ; Initial pixel y-coordinate: 78
-  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$05 ; Page containing the sprite graphic data: B0
-  DEFB $70                ; Minimum pixel y-coordinate: 56
-  DEFB $B0                ; Maximum pixel y-coordinate: 88
-; The following entity definition (0x56) is used in The Attic.
-ENTITY86:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %00100010          ; INK 2 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $A4                ; Initial pixel y-coordinate: 82
-  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$05 ; Page containing the sprite graphic data: B0
-  DEFB $70                ; Minimum pixel y-coordinate: 56
-  DEFB $B0                ; Maximum pixel y-coordinate: 88
-; The following entity definition (0x57) is used in The Attic.
-ENTITY87:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %00100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $AC                ; Initial pixel y-coordinate: 86
-  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$05 ; Page containing the sprite graphic data: B0
-  DEFB $70                ; Minimum pixel y-coordinate: 56
-  DEFB $B0                ; Maximum pixel y-coordinate: 88
-; The following entity definition (0x58) is used in Out on a limb and The
-; Banyan Tree.
-ENTITY88:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $A0                ; Pixel y-coordinate: 80
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$0A ; Page containing the sprite graphic data: B5
-  DEFB $13                ; Minimum x-coordinate
-  DEFB $1E                ; Maximum x-coordinate
-; The following entity definition (0x59) is used in The Hall and West  Wing.
-ENTITY89:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %00100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 001 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $60                ; Initial pixel y-coordinate: 48
-  DEFB $00                ; Initial pixel y-coordinate increment: 0 (not
-                          ; moving)
-  DEFB GUARDIANS/$100+$05 ; Page containing the sprite graphic data: B0
-  DEFB $50                ; Minimum pixel y-coordinate: 40
-  DEFB $70                ; Maximum pixel y-coordinate: 56
-; The following entity definition (0x5A) is used in To the Kitchens    Main
-; Stairway.
-ENTITY90:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %01100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $30                ; Pixel y-coordinate: 24
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$03 ; Page containing the sprite graphic data: AE
-  DEFB $00                ; Minimum x-coordinate
-  DEFB $0B                ; Maximum x-coordinate
-; The following entity definition (0x5B) is used in To the Kitchens    Main
-; Stairway.
-ENTITY91:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %01100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $30                ; Pixel y-coordinate: 24
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$13 ; Page containing the sprite graphic data: BE
-  DEFB $0D                ; Minimum x-coordinate
-  DEFB $15                ; Maximum x-coordinate
-; The following entity definition (0x5C) is used in To the Kitchens    Main
-; Stairway and Back Stairway.
-ENTITY92:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %01100111          ; INK 7 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $01                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $60                ; Pixel y-coordinate: 48
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$0C ; Page containing the sprite graphic data: B7
-  DEFB $0C                ; Minimum x-coordinate
-  DEFB $18                ; Maximum x-coordinate
-; The following entity definition (0x5D) is used in To the Kitchens    Main
-; Stairway.
-ENTITY93:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %01100010          ; INK 2 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $90                ; Pixel y-coordinate: 72
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$0E ; Page containing the sprite graphic data: B9
-  DEFB $02                ; Minimum x-coordinate
-  DEFB $06                ; Maximum x-coordinate
-; The following entity definition (0x5E) is used in To the Kitchens    Main
-; Stairway.
-ENTITY94:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $C0                ; Pixel y-coordinate: 96
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$04 ; Page containing the sprite graphic data: AF
-  DEFB $00                ; Minimum x-coordinate
-  DEFB $1E                ; Maximum x-coordinate
-; The following entity definition (0x5F) is used in The Hall and To the
-; Kitchens    Main Stairway.
-ENTITY95:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $A0                ; Pixel y-coordinate: 80
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
-  DEFB $09                ; Minimum x-coordinate
-  DEFB $11                ; Maximum x-coordinate
-; The following entity definition (0x60) is used in East Wall Base.
-ENTITY96:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %01101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $90                ; Initial pixel y-coordinate: 72
-  DEFB $FC                ; Initial pixel y-coordinate increment: -2 (moving
-                          ; up)
-  DEFB GUARDIANS/$100+$01 ; Page containing the sprite graphic data: AC
-  DEFB $00                ; Minimum pixel y-coordinate: 0
-  DEFB $C0                ; Maximum pixel y-coordinate: 96
-; The following entity definition (0x61) is used in Orangery and West  Wing.
-ENTITY97:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %01100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $40                ; Initial pixel y-coordinate: 32
-  DEFB $08                ; Initial pixel y-coordinate increment: 4 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$01 ; Page containing the sprite graphic data: AC
-  DEFB $00                ; Minimum pixel y-coordinate: 0
-  DEFB $C0                ; Maximum pixel y-coordinate: 96
-; The following entity definition (0x62) is used in Tool  Shed.
-ENTITY98:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %01100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $90                ; Pixel y-coordinate: 72
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$04 ; Page containing the sprite graphic data: AF
-  DEFB $07                ; Minimum x-coordinate
-  DEFB $14                ; Maximum x-coordinate
-; The following entity definition (0x63) is used in Tool  Shed.
-ENTITY99:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %01100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $60                ; Pixel y-coordinate: 48
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$02 ; Page containing the sprite graphic data: AD
-  DEFB $07                ; Minimum x-coordinate
-  DEFB $11                ; Maximum x-coordinate
-; The following entity definition (0x64) is used in The Chapel and The Banyan
-; Tree.
-ENTITY100:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %01100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $80                ; Initial pixel y-coordinate: 64
-  DEFB $FE                ; Initial pixel y-coordinate increment: -1 (moving
-                          ; up)
-  DEFB GUARDIANS/$100+$01 ; Page containing the sprite graphic data: AC
-  DEFB $70                ; Minimum pixel y-coordinate: 56
-  DEFB $A0                ; Maximum pixel y-coordinate: 80
-; The following entity definition (0x65) is used in The Banyan Tree and A bit
-; of tree.
-ENTITY101:
-  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every second pass (bit 4), initial
-                          ; animation frame 0 (bits 5 and 6)
-  DEFB %01101011          ; INK 3 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $60                ; Initial pixel y-coordinate: 48
-  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$00 ; Page containing the sprite graphic data: AB
-  DEFB $50                ; Minimum pixel y-coordinate: 40
-  DEFB $A0                ; Maximum pixel y-coordinate: 80
-; The following entity definition (0x66) is used in The Chapel and The Banyan
-; Tree.
-ENTITY102:
-  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
-                          ; updated on every pass (bit 4), initial animation
-                          ; frame 0 (bits 5 and 6)
-  DEFB %01100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and x-coordinate
-                          ; (copied from the second byte of the entity
-                          ; specification in the room definition)
-  DEFB $98                ; Initial pixel y-coordinate: 76
-  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
-                          ; down)
-  DEFB GUARDIANS/$100+$00 ; Page containing the sprite graphic data: AB
-  DEFB $50                ; Minimum pixel y-coordinate: 40
-  DEFB $A0                ; Maximum pixel y-coordinate: 80
-; The following entity definition (0x67) is used in The Chapel.
-ENTITY103:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %01100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $C0                ; Pixel y-coordinate: 96
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
-  DEFB $00                ; Minimum x-coordinate
-  DEFB $0F                ; Maximum x-coordinate
-; The following entity definition (0x68) is used in A bit of tree and Nomen
-; Luni.
-ENTITY104:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $20                ; Pixel y-coordinate: 16
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
-  DEFB $00                ; Minimum x-coordinate
-  DEFB $0A                ; Maximum x-coordinate
-; The following entity definition (0x69) is used in The Bow.
-ENTITY105:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %01100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $30                ; Pixel y-coordinate: 24
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$13 ; Page containing the sprite graphic data: BE
-  DEFB $16                ; Minimum x-coordinate
-  DEFB $1E                ; Maximum x-coordinate
-; The following entity definition (0x6A) is used in Conservatory Roof.
-ENTITY106:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %01101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $B0                ; Pixel y-coordinate: 88
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$03 ; Page containing the sprite graphic data: AE
-  DEFB $11                ; Minimum x-coordinate
-  DEFB $1E                ; Maximum x-coordinate
-; The following entity definition (0x6B) is used in Nomen Luni.
-ENTITY107:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %01100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $30                ; Pixel y-coordinate: 24
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$13 ; Page containing the sprite graphic data: BE
-  DEFB $12                ; Minimum x-coordinate
-  DEFB $16                ; Maximum x-coordinate
-; The following entity definition (0x6C) is used in Watch Tower.
-ENTITY108:
-  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving left to
-                          ; right (bit 7)
-  DEFB %01100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $90                ; Pixel y-coordinate: 72
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$10 ; Page containing the sprite graphic data: BB
-  DEFB $0B                ; Minimum x-coordinate
-  DEFB $12                ; Maximum x-coordinate
-; The following entity definition (0x6D) is used in Watch Tower.
-ENTITY109:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 111 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $70                ; Pixel y-coordinate: 56
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
-  DEFB $09                ; Minimum x-coordinate
-  DEFB $1E                ; Maximum x-coordinate
-; The following entity definition (0x6E) is used in The Bow.
-ENTITY110:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %01100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $D0                ; Pixel y-coordinate: 104
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$03 ; Page containing the sprite graphic data: AE
-  DEFB $11                ; Minimum x-coordinate
-  DEFB $1E                ; Maximum x-coordinate
-; The following entity definition (0x6F) is used in Cuckoo's Nest.
-ENTITY111:
-  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
-                          ; frame 0 (bits 5 and 6), initially moving right to
-                          ; left (bit 7)
-  DEFB %01100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
-                          ; mask 011 (bits 5-7)
-  DEFB $00                ; Replaced by the base sprite index and initial
-                          ; x-coordinate (copied from the second byte of the
-                          ; entity specification in the room definition)
-  DEFB $B0                ; Pixel y-coordinate: 88
-  DEFB $00                ; Unused
-  DEFB GUARDIANS/$100+$0A ; Page containing the sprite graphic data: B5
-  DEFB $00                ; Minimum x-coordinate
-  DEFB $0B                ; Maximum x-coordinate
-; The next 15 entity definitions (0x70-0x7E) are unused.
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00
-; The following entity definition (0x7F) - whose eighth byte is at FIRSTITEM -
-; is copied into one of the entity buffers at ENTITYBUF for any entity
-; specification whose first byte is $7F or $FF; the first byte of the
-; definition ($FF) serves to terminate the entity buffers.
-ENTITY127:
-  DEFB $FF,$00,$00,$00,$00,$00,$00
-
-; Index of the first item
-;
-; Used by the routines at TITLESCREEN and DRAWITEMS.
-FIRSTITEM:
-  DEFB $AD
-
-; Item table
-;
-; Used by the routines at TITLESCREEN and DRAWITEMS.
-;
-; The location of item N (173<=N<=255) is defined by the pair of bytes at
-; addresses ITEMTABLE1+N and ITEMTABLE2+N. The meaning of the bits in each
-; byte-pair is as follows:
-;
-; +--------+----------------------------------------------------+
-; | Bit(s) | Meaning                                            |
-; +--------+----------------------------------------------------+
-; | 15     | Most significant bit of the y-coordinate           |
-; | 14     | Collection flag (reset=collected, set=uncollected) |
-; | 8-13   | Room number                                        |
-; | 5-7    | Least significant bits of the y-coordinate         |
-; | 0-4    | x-coordinate                                       |
-; +--------+----------------------------------------------------+
-ITEMTABLE1:
-  DEFS $AD                ; Unused
-  DEFB $B2                ; Item 173 at (8,25) in Watch Tower
-  DEFB $B2                ; Item 174 at (9,10) in Watch Tower
-  DEFB $B2                ; Item 175 at (9,20) in Watch Tower
-  DEFB $B2                ; Item 176 at (9,24) in Watch Tower
-  DEFB $B8                ; Item 177 at (14,9) in West Wing Roof
-  DEFB $B8                ; Item 178 at (13,19) in West Wing Roof
-  DEFB $B8                ; Item 179 at (11,27) in West Wing Roof
-  DEFB $B8                ; Item 180 at (10,6) in West Wing Roof
-  DEFB $AB                ; Item 181 at (8,31) in Conservatory Roof
-  DEFB $AB                ; Item 182 at (8,25) in Conservatory Roof
-  DEFB $AB                ; Item 183 at (8,28) in Conservatory Roof
-  DEFB $AB                ; Item 184 at (8,22) in Conservatory Roof
-  DEFB $9F                ; Item 185 at (11,4) in Swimming Pool
-  DEFB $92                ; Item 186 at (12,25) in On the Roof
-  DEFB $0F                ; Item 187 at (4,31) in I'm sure I've seen this
-                          ; before..
-  DEFB $10                ; Item 188 at (4,31) in We must perform a Quirkafleeg
-  DEFB $11                ; Item 189 at (4,31) in Up on the Battlements
-  DEFB $BC                ; Item 190 at (8,26) in The Bow
-  DEFB $BB                ; Item 191 at (14,13) in The Yacht
-  DEFB $BA                ; Item 192 at (13,22) in The Beach
-  DEFB $25                ; Item 193 at (1,28) in Orangery
-  DEFB $25                ; Item 194 at (6,16) in Orangery
-  DEFB $A5                ; Item 195 at (13,6) in Orangery
-  DEFB $1B                ; Item 196 at (6,29) in The Chapel
-  DEFB $B9                ; Item 197 at (9,23) in Above the West Bedroom
-  DEFB $BA                ; Item 198 at (13,22) in The Beach
-  DEFB $1C                ; Item 199 at (3,26) in First Landing
-  DEFB $A2                ; Item 200 at (9,2) in Top Landing
-  DEFB $19                ; Item 201 at (2,3) in Cold Store
-  DEFB $19                ; Item 202 at (5,8) in Cold Store
-  DEFB $99                ; Item 203 at (8,6) in Cold Store
-  DEFB $99                ; Item 204 at (11,6) in Cold Store
-  DEFB $B3                ; Item 205 at (14,7) in Tool  Shed
-  DEFB $16                ; Item 206 at (6,9) in To the Kitchens    Main
-                          ; Stairway
-  DEFB $96                ; Item 207 at (9,2) in To the Kitchens    Main
-                          ; Stairway
-  DEFB $28                ; Item 208 at (7,19) in Dr Jones will never believe
-                          ; this
-  DEFB $8C                ; Item 209 at (13,19) in Tree Top
-  DEFB $0C                ; Item 210 at (3,16) in Tree Top
-  DEFB $0C                ; Item 211 at (4,22) in Tree Top
-  DEFB $89                ; Item 212 at (11,5) in On a Branch Over the Drive
-  DEFB $07                ; Item 213 at (7,15) in Cuckoo's Nest
-  DEFB $2E                ; Item 214 at (3,10) in Tree Root
-  DEFB $2E                ; Item 215 at (4,29) in Tree Root
-  DEFB $26                ; Item 216 at (2,9) in Priests' Hole
-  DEFB $95                ; Item 217 at (12,17) in Ballroom West
-  DEFB $95                ; Item 218 at (12,18) in Ballroom West
-  DEFB $95                ; Item 219 at (12,20) in Ballroom West
-  DEFB $95                ; Item 220 at (12,22) in Ballroom West
-  DEFB $95                ; Item 221 at (12,23) in Ballroom West
-  DEFB $0E                ; Item 222 at (2,26) in Rescue Esmerelda
-  DEFB $0A                ; Item 223 at (4,11) in The Front Door
-  DEFB $95                ; Item 224 at (12,25) in Ballroom West
-  DEFB $95                ; Item 225 at (12,27) in Ballroom West
-  DEFB $0E                ; Item 226 at (3,26) in Rescue Esmerelda
-  DEFB $0D                ; Item 227 at (6,2) in Out on a limb
-  DEFB $0D                ; Item 228 at (1,5) in Out on a limb
-  DEFB $2C                ; Item 229 at (4,18) in On top of the house
-  DEFB $13                ; Item 230 at (3,2) in The Forgotten Abbey
-  DEFB $83                ; Item 231 at (11,1) in At the Foot of the MegaTree
-  DEFB $83                ; Item 232 at (10,4) in At the Foot of the MegaTree
-  DEFB $83                ; Item 233 at (11,7) in At the Foot of the MegaTree
-  DEFB $31                ; Item 234 at (4,28) in The Wine Cellar
-  DEFB $31                ; Item 235 at (7,4) in The Wine Cellar
-  DEFB $31                ; Item 236 at (7,28) in The Wine Cellar
-  DEFB $B1                ; Item 237 at (10,2) in The Wine Cellar
-  DEFB $B1                ; Item 238 at (10,28) in The Wine Cellar
-  DEFB $B1                ; Item 239 at (13,4) in The Wine Cellar
-  DEFB $00                ; Item 240 at (4,19) in The Off Licence
-  DEFB $00                ; Item 241 at (4,20) in The Off Licence
-  DEFB $00                ; Item 242 at (4,21) in The Off Licence
-  DEFB $00                ; Item 243 at (4,22) in The Off Licence
-  DEFB $00                ; Item 244 at (4,23) in The Off Licence
-  DEFB $00                ; Item 245 at (4,24) in The Off Licence
-  DEFB $00                ; Item 246 at (4,25) in The Off Licence
-  DEFB $00                ; Item 247 at (4,26) in The Off Licence
-  DEFB $00                ; Item 248 at (4,27) in The Off Licence
-  DEFB $00                ; Item 249 at (4,28) in The Off Licence
-  DEFB $00                ; Item 250 at (4,29) in The Off Licence
-  DEFB $00                ; Item 251 at (4,30) in The Off Licence
-  DEFB $02                ; Item 252 at (0,22) in Under the MegaTree
-  DEFB $9D                ; Item 253 at (9,26) in The Nightmare Room
-  DEFB $9E                ; Item 254 at (14,8) in The Banyan Tree
-  DEFB $A1                ; Item 255 at (13,23) in The Bathroom
-ITEMTABLE2:
-  DEFS $AD                ; Unused
-  DEFB $19                ; Item 173 at (8,25) in Watch Tower
-  DEFB $2A                ; Item 174 at (9,10) in Watch Tower
-  DEFB $34                ; Item 175 at (9,20) in Watch Tower
-  DEFB $38                ; Item 176 at (9,24) in Watch Tower
-  DEFB $C9                ; Item 177 at (14,9) in West Wing Roof
-  DEFB $B3                ; Item 178 at (13,19) in West Wing Roof
-  DEFB $7B                ; Item 179 at (11,27) in West Wing Roof
-  DEFB $46                ; Item 180 at (10,6) in West Wing Roof
-  DEFB $1F                ; Item 181 at (8,31) in Conservatory Roof
-  DEFB $19                ; Item 182 at (8,25) in Conservatory Roof
-  DEFB $1C                ; Item 183 at (8,28) in Conservatory Roof
-  DEFB $16                ; Item 184 at (8,22) in Conservatory Roof
-  DEFB $64                ; Item 185 at (11,4) in Swimming Pool
-  DEFB $99                ; Item 186 at (12,25) in On the Roof
-  DEFB $9F                ; Item 187 at (4,31) in I'm sure I've seen this
-                          ; before..
-  DEFB $9F                ; Item 188 at (4,31) in We must perform a Quirkafleeg
-  DEFB $9F                ; Item 189 at (4,31) in Up on the Battlements
-  DEFB $1A                ; Item 190 at (8,26) in The Bow
-  DEFB $CD                ; Item 191 at (14,13) in The Yacht
-  DEFB $B6                ; Item 192 at (13,22) in The Beach
-  DEFB $3C                ; Item 193 at (1,28) in Orangery
-  DEFB $D0                ; Item 194 at (6,16) in Orangery
-  DEFB $A6                ; Item 195 at (13,6) in Orangery
-  DEFB $DD                ; Item 196 at (6,29) in The Chapel
-  DEFB $37                ; Item 197 at (9,23) in Above the West Bedroom
-  DEFB $B6                ; Item 198 at (13,22) in The Beach
-  DEFB $7A                ; Item 199 at (3,26) in First Landing
-  DEFB $22                ; Item 200 at (9,2) in Top Landing
-  DEFB $43                ; Item 201 at (2,3) in Cold Store
-  DEFB $A8                ; Item 202 at (5,8) in Cold Store
-  DEFB $06                ; Item 203 at (8,6) in Cold Store
-  DEFB $66                ; Item 204 at (11,6) in Cold Store
-  DEFB $C7                ; Item 205 at (14,7) in Tool  Shed
-  DEFB $C9                ; Item 206 at (6,9) in To the Kitchens    Main
-                          ; Stairway
-  DEFB $22                ; Item 207 at (9,2) in To the Kitchens    Main
-                          ; Stairway
-  DEFB $F3                ; Item 208 at (7,19) in Dr Jones will never believe
-                          ; this
-  DEFB $B3                ; Item 209 at (13,19) in Tree Top
-  DEFB $70                ; Item 210 at (3,16) in Tree Top
-  DEFB $96                ; Item 211 at (4,22) in Tree Top
-  DEFB $65                ; Item 212 at (11,5) in On a Branch Over the Drive
-  DEFB $EF                ; Item 213 at (7,15) in Cuckoo's Nest
-  DEFB $6A                ; Item 214 at (3,10) in Tree Root
-  DEFB $9D                ; Item 215 at (4,29) in Tree Root
-  DEFB $49                ; Item 216 at (2,9) in Priests' Hole
-  DEFB $91                ; Item 217 at (12,17) in Ballroom West
-  DEFB $92                ; Item 218 at (12,18) in Ballroom West
-  DEFB $94                ; Item 219 at (12,20) in Ballroom West
-  DEFB $96                ; Item 220 at (12,22) in Ballroom West
-  DEFB $97                ; Item 221 at (12,23) in Ballroom West
-  DEFB $5A                ; Item 222 at (2,26) in Rescue Esmerelda
-  DEFB $8B                ; Item 223 at (4,11) in The Front Door
-  DEFB $99                ; Item 224 at (12,25) in Ballroom West
-  DEFB $9B                ; Item 225 at (12,27) in Ballroom West
-  DEFB $7A                ; Item 226 at (3,26) in Rescue Esmerelda
-  DEFB $C2                ; Item 227 at (6,2) in Out on a limb
-  DEFB $25                ; Item 228 at (1,5) in Out on a limb
-  DEFB $92                ; Item 229 at (4,18) in On top of the house
-  DEFB $62                ; Item 230 at (3,2) in The Forgotten Abbey
-  DEFB $61                ; Item 231 at (11,1) in At the Foot of the MegaTree
-  DEFB $44                ; Item 232 at (10,4) in At the Foot of the MegaTree
-  DEFB $67                ; Item 233 at (11,7) in At the Foot of the MegaTree
-  DEFB $9C                ; Item 234 at (4,28) in The Wine Cellar
-  DEFB $E4                ; Item 235 at (7,4) in The Wine Cellar
-  DEFB $FC                ; Item 236 at (7,28) in The Wine Cellar
-  DEFB $42                ; Item 237 at (10,2) in The Wine Cellar
-  DEFB $5C                ; Item 238 at (10,28) in The Wine Cellar
-  DEFB $A4                ; Item 239 at (13,4) in The Wine Cellar
-  DEFB $93                ; Item 240 at (4,19) in The Off Licence
-  DEFB $94                ; Item 241 at (4,20) in The Off Licence
-  DEFB $95                ; Item 242 at (4,21) in The Off Licence
-  DEFB $96                ; Item 243 at (4,22) in The Off Licence
-  DEFB $97                ; Item 244 at (4,23) in The Off Licence
-  DEFB $98                ; Item 245 at (4,24) in The Off Licence
-  DEFB $99                ; Item 246 at (4,25) in The Off Licence
-  DEFB $9A                ; Item 247 at (4,26) in The Off Licence
-  DEFB $9B                ; Item 248 at (4,27) in The Off Licence
-  DEFB $9C                ; Item 249 at (4,28) in The Off Licence
-  DEFB $9D                ; Item 250 at (4,29) in The Off Licence
-  DEFB $9E                ; Item 251 at (4,30) in The Off Licence
-  DEFB $16                ; Item 252 at (0,22) in Under the MegaTree
-  DEFB $3A                ; Item 253 at (9,26) in The Nightmare Room
-  DEFB $C8                ; Item 254 at (14,8) in The Banyan Tree
-  DEFB $B7                ; Item 255 at (13,23) in The Bathroom
-
-  DEFS $0200
-
-; Toilet graphics
-;
-; Used by the routine at DRAWTOILET.
-TOILET0:
-  DEFB $00,$0F,$00,$3F,$00,$0F,$30,$0F,$0C,$0F,$03,$0F,$00,$CF,$00,$2F
-  DEFB $00,$08,$3F,$F8,$3F,$F0,$3F,$EE,$1F,$DF,$1F,$DB,$0F,$FB,$0F,$FB
-TOILET1:
-  DEFB $00,$0F,$00,$3F,$00,$0F,$00,$0F,$00,$0F,$00,$0F,$00,$0F,$3F,$EF
-  DEFB $00,$08,$3F,$F8,$3F,$F0,$3F,$EE,$1F,$DF,$1F,$DB,$0F,$FB,$0F,$FB
-TOILET2:
-  DEFB $03,$AF,$01,$BF,$01,$8F,$01,$8F,$7F,$8F,$7F,$8F,$47,$CF,$0F,$CF
-  DEFB $00,$08,$3F,$F8,$3F,$F0,$3F,$EE,$1F,$DF,$1F,$DB,$0F,$FB,$0F,$FB
-TOILET3:
-  DEFB $00,$0F,$04,$3F,$1E,$2F,$3B,$2F,$5D,$8F,$0E,$8F,$07,$CF,$0F,$CF
-  DEFB $00,$08,$3F,$F8,$3F,$F0,$3F,$EE,$1F,$DF,$1F,$DB,$0F,$FB,$0F,$FB
-
-  DEFS $C0
-
-; Foot/barrel graphic data
-;
-; Used by the routine at GAMEOVER to display the game over sequence.
-;
-; The foot also appears as a guardian in The Nightmare Room.
-FOOT:
-  DEFB $10,$80,$10,$80,$10,$80,$10,$80,$10,$80,$10,$80,$10,$80,$20,$80
-  DEFB $20,$80,$48,$42,$88,$35,$84,$09,$80,$01,$80,$02,$43,$8D,$3C,$76
-; The barrel also appears as a guardian in Ballroom East and Top Landing.
-BARREL:
-  DEFB $37,$EC,$77,$EE,$00,$00,$6F,$F6,$EF,$F7,$EF,$F7,$D5,$5B,$DB,$BB
-  DEFB $D5,$5B,$DF,$FB,$ED,$77,$EE,$F7,$6D,$76,$00,$00,$77,$EE,$37,$EC
-
-; Maria sprite graphic data
-;
-; Used by the routine at BEDANDBATH to draw Maria in Master Bedroom.
-;
-; Maria also appears as a guardian in The Nightmare Room.
-MARIA0:
-  DEFB $03,$00,$03,$C0,$01,$E0,$01,$40,$01,$E0,$07,$80,$1F,$F8,$3F,$FC
-  DEFB $37,$6C,$14,$98,$0F,$F0,$0F,$F0,$0F,$F0,$02,$40,$02,$40,$06,$60
-MARIA1:
-  DEFB $03,$00,$03,$C0,$01,$E0,$01,$40,$01,$E0,$07,$80,$1F,$F8,$3F,$FC
-  DEFB $37,$6C,$14,$98,$0F,$F0,$0F,$F0,$0F,$F0,$02,$40,$06,$40,$02,$60
-MARIA2:
-  DEFB $03,$00,$03,$C0,$01,$E0,$01,$40,$01,$E0,$07,$80,$1F,$FC,$3F,$FE
-  DEFB $37,$66,$14,$92,$0F,$F0,$0F,$F0,$0F,$F0,$02,$40,$02,$40,$06,$60
-MARIA3:
-  DEFB $03,$00,$03,$C0,$01,$E0,$01,$40,$01,$E0,$07,$80,$1F,$FF,$3F,$FE
-  DEFB $37,$60,$14,$90,$0F,$F0,$0F,$F0,$0F,$F0,$02,$40,$02,$40,$06,$60
-
-; Willy sprite graphic data
-;
-; Used by the routines at DRAWLIVES, GAMEOVER and DRAWWILLY.
-MANDAT:
-  DEFB $3C,$00,$3C,$00,$7E,$00,$34,$00,$3E,$00,$3C,$00,$18,$00,$3C,$00
-  DEFB $7E,$00,$7E,$00,$F7,$00,$FB,$00,$3C,$00,$76,$00,$6E,$00,$77,$00
-  DEFB $0F,$00,$0F,$00,$1F,$80,$0D,$00,$0F,$80,$0F,$00,$06,$00,$0F,$00
-  DEFB $1B,$80,$1B,$80,$1B,$80,$1D,$80,$0F,$00,$06,$00,$06,$00,$07,$00
-WILLYR2:
-  DEFB $03,$C0,$03,$C0,$07,$E0,$03,$40,$03,$E0,$03,$C0,$01,$80,$03,$C0
-  DEFB $07,$E0,$07,$E0,$0F,$70,$0F,$B0,$03,$C0,$07,$60,$06,$E0,$07,$70
-  DEFB $00,$F0,$00,$F0,$01,$F8,$00,$D0,$00,$F8,$00,$F0,$00,$60,$00,$F0
-  DEFB $01,$F8,$03,$FC,$07,$FE,$06,$F6,$00,$F8,$01,$DA,$03,$0E,$03,$8C
-  DEFB $0F,$00,$0F,$00,$1F,$80,$0B,$00,$1F,$00,$0F,$00,$06,$00,$0F,$00
-  DEFB $1F,$80,$3F,$C0,$7F,$E0,$6F,$60,$1F,$00,$5B,$80,$70,$C0,$31,$C0
-  DEFB $03,$C0,$03,$C0,$07,$E0,$02,$C0,$07,$C0,$03,$C0,$01,$80,$03,$C0
-  DEFB $07,$E0,$07,$E0,$0E,$F0,$0D,$F0,$03,$C0,$06,$E0,$07,$60,$0E,$E0
-  DEFB $00,$F0,$00,$F0,$01,$F8,$00,$B0,$01,$F0,$00,$F0,$00,$60,$00,$F0
-  DEFB $01,$D8,$01,$D8,$01,$D8,$01,$B8,$00,$F0,$00,$60,$00,$60,$00,$E0
-  DEFB $00,$3C,$00,$3C,$00,$7E,$00,$2C,$00,$7C,$00,$3C,$00,$18,$00,$3C
-  DEFB $00,$7E,$00,$7E,$00,$EF,$00,$DF,$00,$3C,$00,$6E,$00,$76,$00,$EE
-
-; Guardian graphics
-;
-; Used by the routine at DRAWTHINGS.
-;
-; This guardian (page AB, sprites 0-3) appears in The Banyan Tree and A bit of
-; tree.
-GUARDIANS:
-  DEFB $00,$00,$00,$00,$2A,$AA,$7F,$FF,$7F,$FF,$7C,$3F,$7C,$3F,$7F,$FF
-  DEFB $7F,$FF,$7F,$FF,$00,$00,$2A,$AA,$00,$00,$2A,$AA,$00,$00,$00,$00
-  DEFB $00,$48,$01,$2C,$04,$BC,$12,$FE,$4B,$FE,$2E,$7F,$BC,$3F,$FE,$7C
-  DEFB $FF,$F2,$7F,$C9,$7F,$25,$3C,$94,$32,$50,$09,$40,$05,$00,$04,$00
-  DEFB $00,$00,$07,$E0,$0F,$F0,$17,$E8,$0F,$F0,$16,$68,$0E,$70,$16,$68
-  DEFB $0F,$F0,$17,$E8,$0F,$F0,$17,$E8,$08,$10,$17,$E8,$10,$08,$00,$00
-  DEFB $12,$00,$34,$80,$3D,$20,$7F,$48,$7F,$D2,$FE,$74,$FC,$3D,$3E,$7F
-  DEFB $4F,$FF,$93,$FE,$A4,$FE,$29,$3C,$0A,$4C,$02,$90,$00,$A0,$00,$20
-; This guardian (page AB, sprites 4-7) appears in The Chapel and The Banyan
-; Tree.
-  DEFB $00,$00,$00,$00,$00,$00,$02,$02,$22,$02,$A9,$54,$A8,$D8,$71,$74
-  DEFB $22,$DA,$3B,$AE,$2E,$AB,$24,$F9,$20,$DB,$20,$D8,$01,$54,$02,$8A
-  DEFB $00,$00,$02,$02,$02,$02,$01,$74,$00,$D8,$51,$54,$52,$FA,$23,$DE
-  DEFB $E7,$AB,$1E,$F9,$18,$D9,$08,$D9,$09,$54,$06,$8A,$04,$00,$00,$00
-  DEFB $02,$02,$03,$8E,$00,$F8,$01,$54,$02,$DA,$03,$FE,$11,$8B,$4B,$A9
-  DEFB $2B,$FB,$96,$F8,$6C,$D8,$05,$54,$02,$8A,$01,$00,$00,$80,$00,$40
-  DEFB $00,$00,$02,$02,$02,$02,$01,$74,$00,$D8,$51,$54,$52,$FA,$23,$DE
-  DEFB $E7,$AB,$1E,$F9,$18,$D9,$08,$D9,$09,$54,$06,$8A,$04,$00,$00,$00
-; This guardian (page AC, sprites 0-3) appears in East Wall Base, The Chapel
-; and West  Wing.
-  DEFB $20,$04,$AE,$EC,$BB,$7D,$E0,$07,$BD,$B5,$A0,$04,$3B,$7C,$00,$00
-  DEFB $1D,$B0,$20,$04,$3B,$7C,$A2,$44,$FD,$B7,$A0,$04,$3B,$DC,$20,$04
-  DEFB $20,$04,$37,$B4,$A0,$04,$FB,$7F,$A0,$04,$3D,$B4,$20,$04,$1B,$78
-  DEFB $00,$00,$3D,$B4,$A2,$44,$BB,$7D,$E0,$07,$BD,$B5,$B7,$EC,$20,$04
-  DEFB $20,$04,$3A,$DC,$3D,$BD,$E0,$07,$3B,$75,$20,$04,$3D,$BC,$00,$00
-  DEFB $1B,$70,$20,$04,$3D,$BD,$A2,$45,$FB,$77,$A0,$05,$3D,$ED,$20,$04
-  DEFB $20,$04,$3B,$75,$A0,$05,$FD,$BF,$A0,$05,$3B,$75,$20,$04,$1D,$B8
-  DEFB $00,$00,$3B,$74,$24,$84,$3D,$BD,$E0,$07,$3B,$75,$2E,$EC,$20,$04
-; This guardian (page AC, sprites 4-7) appears in The Banyan Tree and Orangery.
-  DEFB $0F,$F0,$17,$E8,$18,$18,$37,$CC,$28,$24,$53,$92,$64,$4A,$A9,$2B
-  DEFB $AA,$2B,$6A,$4A,$69,$92,$24,$24,$33,$CC,$18,$18,$17,$E8,$0F,$F0
-  DEFB $00,$E0,$07,$F0,$38,$18,$73,$CC,$64,$26,$49,$93,$52,$4B,$D4,$2B
-  DEFB $D5,$2A,$D4,$CA,$D2,$12,$49,$E4,$24,$0C,$13,$F4,$08,$78,$07,$80
-  DEFB $01,$80,$07,$E0,$18,$18,$73,$CE,$A4,$25,$C9,$95,$D2,$55,$D4,$55
-  DEFB $D4,$95,$D2,$25,$C9,$C9,$E4,$13,$73,$E6,$18,$18,$07,$E0,$01,$80
-  DEFB $07,$00,$08,$E0,$1F,$DC,$30,$26,$67,$92,$C8,$4A,$D3,$2A,$D4,$AB
-  DEFB $54,$2B,$52,$4B,$49,$93,$24,$26,$33,$CC,$28,$18,$1F,$F0,$01,$E0
-; This guardian (page AD, sprites 0-3) appears in On a Branch Over the Drive,
-; Conservatory Roof and Tool  Shed.
-  DEFB $0C,$00,$0C,$00,$0C,$00,$0C,$00,$0C,$00,$1E,$00,$12,$00,$33,$00
-  DEFB $3F,$00,$73,$80,$61,$80,$61,$80,$C0,$C0,$C0,$C0,$80,$40,$80,$40
-  DEFB $08,$40,$08,$40,$0C,$C0,$04,$80,$07,$80,$07,$80,$0C,$C0,$1C,$E0
-  DEFB $3B,$70,$30,$30,$60,$18,$60,$18,$40,$08,$C0,$0C,$80,$04,$80,$04
-  DEFB $02,$10,$02,$10,$03,$30,$01,$20,$01,$E0,$01,$E0,$03,$30,$07,$38
-  DEFB $0E,$DC,$0C,$0C,$18,$06,$18,$06,$10,$02,$30,$03,$20,$01,$20,$01
-  DEFB $00,$30,$00,$30,$00,$30,$00,$30,$00,$30,$00,$78,$00,$48,$00,$CC
-  DEFB $00,$FC,$01,$CE,$01,$86,$01,$86,$03,$03,$03,$03,$02,$01,$02,$01
-; This guardian (page AD, sprites 4-7) appears in Top Landing, Tree Root and
-; West Bedroom.
-  DEFB $00,$00,$00,$00,$00,$00,$7F,$FE,$40,$02,$FF,$FF,$DE,$7B,$C0,$03
-  DEFB $C0,$03,$DE,$7B,$FF,$FF,$40,$02,$7F,$FE,$00,$00,$00,$00,$00,$00
-  DEFB $0A,$00,$1D,$00,$36,$80,$67,$40,$C3,$A0,$71,$D0,$B8,$68,$5C,$34
-  DEFB $2C,$3A,$16,$1D,$0B,$8E,$05,$C3,$02,$E6,$01,$6C,$00,$B8,$00,$50
-  DEFB $07,$E0,$1F,$F8,$14,$28,$16,$68,$16,$68,$16,$68,$16,$68,$14,$28
-  DEFB $14,$28,$16,$68,$16,$68,$16,$68,$16,$68,$14,$28,$1F,$F8,$07,$E0
-  DEFB $00,$50,$00,$B8,$01,$6C,$02,$E6,$05,$C3,$0B,$8E,$16,$1D,$2C,$3A
-  DEFB $5C,$34,$B8,$68,$71,$D0,$C3,$A0,$67,$40,$36,$80,$1D,$00,$0A,$00
-; This guardian (page AE, sprites 0-3) appears in To the Kitchens    Main
-; Stairway, Halfway up the East Wall, Conservatory Roof and The Bow.
-  DEFB $7E,$00,$99,$00,$FF,$00,$81,$00,$7E,$00,$18,$00,$24,$00,$24,$00
-  DEFB $42,$00,$42,$00,$81,$00,$E7,$00,$A5,$00,$C3,$00,$A5,$00,$E7,$00
-  DEFB $00,$00,$1F,$80,$26,$40,$39,$C0,$30,$C0,$1F,$80,$09,$00,$10,$80
-  DEFB $20,$40,$40,$20,$80,$10,$E0,$70,$A0,$50,$C0,$30,$A0,$50,$E0,$70
-  DEFB $00,$00,$00,$00,$00,$00,$07,$E0,$09,$90,$0E,$70,$0E,$70,$06,$60
-  DEFB $1B,$D8,$60,$06,$80,$01,$E0,$07,$A0,$05,$C0,$03,$A0,$05,$E0,$07
-  DEFB $00,$00,$01,$F8,$02,$64,$03,$9C,$03,$0C,$01,$F8,$00,$90,$01,$08
-  DEFB $02,$04,$04,$02,$08,$01,$0E,$07,$0A,$05,$0C,$03,$0A,$05,$0E,$07
-; This guardian (page AE, sprites 4-7) appears in Under the Drive.
-  DEFB $0C,$00,$12,$00,$21,$10,$12,$20,$8C,$40,$52,$80,$2F,$00,$2F,$00
-  DEFB $5F,$80,$5F,$80,$5F,$80,$00,$00,$FF,$C0,$5D,$80,$5D,$80,$FF,$C0
-  DEFB $00,$01,$00,$02,$83,$04,$4C,$C8,$23,$10,$14,$A0,$0B,$C0,$0B,$C0
-  DEFB $17,$E0,$17,$E0,$17,$E0,$00,$00,$3F,$F0,$1B,$B0,$1B,$B0,$3F,$F0
-  DEFB $80,$00,$40,$00,$20,$01,$11,$E2,$08,$C4,$05,$28,$02,$F0,$02,$F0
-  DEFB $05,$F8,$05,$F8,$05,$F8,$00,$00,$0F,$FC,$0B,$74,$0B,$74,$0F,$FC
-  DEFB $00,$00,$00,$00,$08,$30,$04,$CC,$02,$31,$01,$4A,$00,$BC,$00,$BC
-  DEFB $01,$7E,$01,$7E,$01,$7E,$00,$00,$03,$FF,$02,$ED,$02,$ED,$03,$FF
-; This guardian (page AF, sprites 0-3) appears in Top Landing, Under the Roof
-; and Tool  Shed.
-  DEFB $38,$00,$7C,$00,$7E,$00,$6D,$80,$44,$40,$6C,$40,$7C,$20,$7C,$00
-  DEFB $7C,$0C,$7C,$32,$FC,$CC,$FF,$30,$FC,$C0,$7F,$00,$6C,$00,$38,$00
-  DEFB $0E,$60,$1F,$94,$1F,$08,$1B,$20,$11,$50,$1B,$50,$1F,$A0,$1F,$A0
-  DEFB $7F,$40,$DF,$40,$DF,$80,$9F,$80,$7F,$00,$1F,$00,$1B,$00,$0E,$00
-  DEFB $03,$80,$07,$C0,$07,$E0,$06,$D8,$04,$44,$0E,$C4,$7F,$C2,$EF,$C0
-  DEFB $EF,$C0,$8F,$C0,$77,$C0,$07,$C0,$07,$C0,$07,$C0,$06,$C0,$03,$80
-  DEFB $00,$E0,$01,$F0,$01,$F0,$01,$B2,$01,$15,$01,$B5,$01,$FA,$01,$FA
-  DEFB $07,$F4,$0D,$F4,$0D,$F8,$09,$F8,$07,$F0,$01,$F0,$01,$B0,$00,$E0
-; This guardian (page AF, sprites 4-7) appears in The Drive, Cuckoo's Nest, To
-; the Kitchens    Main Stairway and Back Stairway.
-  DEFB $0C,$00,$16,$00,$2F,$00,$2F,$00,$4F,$80,$5F,$80,$5F,$80,$9F,$C0
-  DEFB $BF,$C0,$BD,$C0,$BA,$C0,$BD,$40,$5A,$80,$5D,$80,$3F,$00,$0C,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$70,$03,$98,$0C,$78,$33,$F8,$47,$F0
-  DEFB $5F,$F0,$BF,$F0,$BE,$A0,$BD,$60,$5A,$C0,$5D,$40,$3F,$80,$0E,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$03,$C0,$1C,$78,$21,$FC,$4F,$FE
-  DEFB $5F,$FE,$9F,$FF,$BF,$EF,$5F,$56,$5F,$AE,$23,$54,$1F,$F8,$03,$C0
-  DEFB $00,$00,$00,$00,$00,$00,$0E,$00,$17,$C0,$17,$F0,$13,$FC,$0B,$FE
-  DEFB $0B,$FE,$0B,$D7,$05,$EB,$05,$D7,$02,$EA,$02,$7E,$01,$8C,$00,$70
-; This guardian (page B0, sprites 0-3) appears in The Attic.
-  DEFB $07,$C0,$18,$30,$23,$88,$44,$44,$88,$22,$90,$13,$90,$13,$88,$22
-  DEFB $44,$44,$23,$88,$18,$30,$07,$C0,$03,$00,$03,$00,$03,$00,$03,$80
-  DEFB $07,$C0,$18,$30,$20,$08,$43,$84,$84,$42,$88,$23,$88,$23,$84,$42
-  DEFB $43,$84,$20,$08,$18,$30,$07,$C0,$0F,$80,$1D,$D0,$08,$E0,$04,$40
-  DEFB $07,$C0,$1F,$F0,$3E,$78,$7C,$3C,$7E,$7C,$FF,$FE,$FF,$FE,$F0,$00
-  DEFB $FF,$80,$7F,$F0,$7F,$FC,$3F,$F8,$1F,$F0,$07,$C0,$00,$00,$00,$00
-  DEFB $07,$C0,$1F,$F0,$3C,$F8,$78,$7C,$7C,$FC,$FF,$80,$FC,$00,$F0,$00
-  DEFB $F8,$00,$7E,$00,$7F,$80,$3F,$E0,$1F,$F0,$07,$C0,$00,$00,$00,$00
-; This guardian (page B0, sprites 4-5) appears in Rescue Esmerelda.
-  DEFB $07,$C0,$08,$20,$0A,$A0,$08,$20,$0B,$A0,$10,$10,$25,$48,$0A,$A0
-  DEFB $3D,$78,$46,$C4,$07,$C0,$02,$80,$05,$40,$0F,$E0,$14,$80,$08,$C0
-  DEFB $07,$C0,$08,$20,$0A,$A0,$08,$20,$39,$38,$00,$00,$05,$40,$0A,$A0
-  DEFB $1D,$70,$16,$D0,$17,$D0,$0A,$A0,$05,$40,$0F,$E0,$02,$50,$06,$20
-; This guardian (page B0, sprites 6-7) appears in The Hall and West  Wing.
-  DEFB $01,$80,$00,$00,$01,$80,$45,$91,$01,$80,$89,$A2,$45,$91,$01,$80
-  DEFB $CD,$B3,$CD,$B3,$CD,$B3,$CD,$B3,$23,$C4,$12,$48,$0D,$B0,$00,$00
-  DEFB $01,$80,$00,$00,$01,$80,$89,$A2,$01,$80,$45,$91,$89,$A2,$01,$80
-  DEFB $CD,$B3,$CD,$B3,$CD,$B3,$CD,$B3,$23,$C4,$12,$48,$0D,$B0,$00,$00
-; This guardian (page B1, sprites 0-7) is not used.
-  DEFB $16,$00,$16,$00,$16,$00,$16,$00,$16,$00,$16,$00,$16,$00,$16,$00
-  DEFB $FF,$C0,$00,$00,$52,$80,$C0,$C0,$33,$00,$B3,$40,$08,$00,$2D,$00
-  DEFB $05,$80,$05,$80,$05,$80,$05,$80,$05,$80,$05,$80,$05,$80,$05,$80
-  DEFB $3F,$F0,$00,$00,$0D,$20,$24,$00,$0C,$D0,$0C,$F0,$28,$00,$0D,$20
-  DEFB $01,$60,$01,$60,$01,$60,$01,$60,$01,$60,$01,$60,$01,$60,$01,$60
-  DEFB $0F,$FC,$00,$00,$02,$D0,$00,$40,$0B,$34,$03,$30,$0C,$0C,$05,$28
-  DEFB $00,$58,$00,$58,$00,$58,$00,$58,$00,$58,$00,$58,$00,$58,$00,$58
-  DEFB $03,$FF,$00,$00,$01,$2C,$00,$05,$03,$CC,$02,$CC,$00,$09,$01,$2C
-  DEFB $00,$40,$01,$80,$02,$40,$05,$C0,$0B,$C0,$0B,$C0,$17,$C0,$17,$C0
-  DEFB $16,$40,$16,$00,$16,$00,$16,$00,$16,$00,$16,$00,$16,$00,$16,$00
-  DEFB $03,$00,$0F,$C0,$08,$40,$13,$20,$13,$20,$08,$40,$0F,$C0,$07,$80
-  DEFB $05,$80,$05,$80,$05,$80,$05,$80,$05,$80,$05,$80,$05,$80,$05,$80
-  DEFB $08,$00,$0E,$00,$0B,$00,$0B,$80,$0B,$C0,$0B,$C0,$0B,$E0,$0F,$E0
-  DEFB $09,$60,$01,$60,$01,$60,$01,$60,$01,$60,$01,$60,$01,$60,$01,$60
-  DEFB $00,$30,$00,$DC,$00,$BC,$01,$7E,$01,$7E,$00,$BC,$00,$BC,$00,$58
-  DEFB $00,$58,$00,$58,$00,$58,$00,$58,$00,$58,$00,$58,$00,$58,$00,$58
-; This guardian (page B2, sprites 0-3) appears in On top of the house and The
-; Yacht.
-  DEFB $00,$03,$00,$0F,$00,$1F,$80,$3F,$C0,$7F,$D1,$FF,$5F,$FF,$9F,$FF
-  DEFB $CF,$FF,$D3,$FF,$DF,$FC,$FF,$F0,$FF,$E0,$7F,$C0,$3F,$80,$0E,$00
-  DEFB $00,$00,$00,$00,$50,$01,$D8,$03,$9C,$07,$4F,$1F,$D7,$FF,$DB,$FF
-  DEFB $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$8F,$FE,$07,$FC,$03,$F8,$00,$E0
-  DEFB $00,$00,$03,$80,$07,$C0,$8F,$C0,$DF,$E0,$DB,$F1,$57,$FF,$8F,$FF
-  DEFB $DF,$FF,$DF,$FF,$FF,$FF,$FC,$7F,$F8,$3F,$70,$3F,$00,$1F,$00,$0E
-  DEFB $00,$38,$00,$FE,$01,$FF,$83,$FF,$C7,$FF,$DF,$FF,$5F,$FF,$9B,$FF
-  DEFB $C7,$FF,$DF,$FF,$DF,$C7,$FF,$01,$FE,$00,$7C,$00,$38,$00,$00,$00
-; This guardian (page B2, sprites 4-7) appears in On a Branch Over the Drive,
-; Orangery, Dr Jones will never believe this, Under the Drive, Nomen Luni and
-; Back Stairway.
-  DEFB $03,$C0,$0E,$F0,$1D,$F8,$3E,$FC,$53,$CE,$65,$A6,$A4,$27,$71,$8F
-  DEFB $BF,$F7,$55,$EF,$6E,$76,$53,$CA,$38,$1C,$16,$78,$0B,$F0,$02,$C0
-  DEFB $03,$C0,$0D,$F0,$1A,$F8,$3F,$FC,$51,$8C,$64,$26,$C5,$A7,$B3,$CF
-  DEFB $5D,$BB,$AA,$77,$5F,$FA,$72,$4E,$38,$1C,$1C,$38,$0B,$F0,$02,$C0
-  DEFB $03,$C0,$0B,$F0,$15,$78,$3F,$FC,$50,$0C,$65,$A6,$C7,$E7,$F1,$8F
-  DEFB $BE,$7F,$DD,$F7,$2C,$3A,$5A,$5E,$2C,$3C,$16,$78,$0B,$F0,$03,$C0
-  DEFB $03,$C0,$0D,$F0,$1A,$F8,$3F,$FC,$51,$8C,$64,$26,$C5,$A7,$B3,$CF
-  DEFB $5D,$BB,$AA,$77,$5F,$FA,$72,$4E,$38,$1C,$1C,$38,$0B,$F0,$02,$C0
-; The next 256 bytes are unused.
-  DEFS $0100
-; This guardian (page B4, sprites 0-7) appears in The Forgotten Abbey, The
-; Chapel, First Landing, Swimming Pool and The Wine Cellar.
-  DEFB $0E,$00,$15,$00,$2A,$80,$17,$00,$FF,$00,$16,$00,$0C,$00,$1F,$80
-  DEFB $3F,$80,$7F,$00,$2A,$00,$7F,$00,$6F,$00,$7F,$00,$18,$00,$38,$00
-  DEFB $03,$80,$05,$40,$0A,$A0,$05,$C0,$7F,$C0,$05,$80,$03,$00,$07,$E0
-  DEFB $0F,$E0,$1F,$C0,$0A,$80,$1F,$C0,$1B,$C0,$1F,$C0,$18,$80,$38,$00
-  DEFB $00,$E0,$01,$50,$02,$A8,$01,$70,$0F,$F0,$01,$60,$00,$C0,$01,$F8
-  DEFB $03,$F8,$07,$F0,$02,$A0,$07,$F0,$06,$F0,$07,$F0,$06,$30,$00,$60
-  DEFB $00,$38,$00,$54,$00,$AA,$00,$5C,$01,$FC,$00,$58,$00,$30,$00,$7E
-  DEFB $00,$FE,$01,$FC,$00,$A8,$01,$FC,$01,$BC,$01,$FC,$01,$18,$00,$38
-  DEFB $1C,$00,$2A,$00,$55,$00,$3A,$00,$3F,$80,$1A,$00,$0C,$00,$7E,$00
-  DEFB $7F,$00,$3F,$80,$15,$00,$3F,$80,$3D,$80,$3F,$80,$18,$80,$1C,$00
-  DEFB $07,$00,$0A,$80,$15,$40,$0E,$80,$0F,$F0,$06,$80,$03,$00,$1F,$80
-  DEFB $1F,$C0,$0F,$E0,$05,$40,$0F,$E0,$0F,$60,$0F,$E0,$0C,$60,$06,$00
-  DEFB $01,$C0,$02,$A0,$05,$50,$03,$A0,$03,$FE,$01,$A0,$00,$C0,$07,$E0
-  DEFB $07,$F0,$03,$F8,$01,$50,$03,$F8,$03,$D8,$03,$F8,$01,$18,$00,$1C
-  DEFB $00,$70,$00,$A8,$01,$54,$00,$E8,$00,$FF,$00,$68,$00,$30,$01,$F8
-  DEFB $01,$FC,$00,$FE,$00,$54,$00,$FE,$00,$F6,$00,$FE,$00,$18,$00,$1C
-; This guardian (page B5, sprites 0-7) appears in At the Foot of the MegaTree,
-; Cuckoo's Nest, Out on a limb, The Banyan Tree, The Wine Cellar, Tool  Shed,
-; West Wing Roof and The Yacht.
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$06,$00,$3F,$00,$1F,$00,$0D,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$01,$80
-  DEFB $0F,$C0,$07,$40,$03,$40,$4F,$40,$07,$40,$03,$20,$0F,$20,$87,$20
-  DEFB $00,$60,$03,$F0,$01,$D0,$00,$D0,$03,$D0,$01,$D0,$00,$C8,$03,$C8
-  DEFB $01,$C8,$00,$C8,$0B,$C8,$21,$C8,$00,$C8,$0B,$C4,$01,$C4,$20,$C4
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$18,$00,$FC,$00,$74
-  DEFB $00,$34,$00,$F4,$00,$74,$01,$36,$00,$FA,$02,$7A,$00,$3A,$04,$FA
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$30,$00,$7E,$00,$7C,$00,$58,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$0C,$00
-  DEFB $1F,$80,$17,$00,$16,$00,$17,$80,$17,$00,$26,$10,$27,$80,$27,$08
-  DEFB $03,$00,$07,$E0,$05,$C0,$05,$80,$05,$E0,$05,$C0,$09,$80,$09,$E0
-  DEFB $09,$D0,$09,$80,$09,$E8,$09,$C2,$09,$80,$11,$E8,$11,$C0,$11,$82
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$C0,$01,$F8,$01,$70
-  DEFB $01,$60,$01,$78,$01,$70,$02,$60,$02,$78,$02,$70,$02,$61,$02,$78
-; This guardian (page B6, sprites 0-7) appears in Under the MegaTree, The Hall,
-; Tree Top and Emergency Generator.
-FLYINGPIG0:
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$13,$40,$17,$80,$3F,$C0
-  DEFB $55,$40,$FA,$A0,$FD,$40,$1F,$A0,$08,$80,$05,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$08,$D0,$05,$E0,$0F,$F0
-  DEFB $16,$B0,$3D,$50,$3E,$A8,$07,$50,$02,$A8,$02,$54,$00,$28,$00,$14
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$02,$34,$01,$78,$03,$FC
-  DEFB $05,$54,$0F,$AA,$0F,$D4,$01,$FA,$00,$88,$01,$04,$00,$00,$00,$00
-  DEFB $00,$03,$00,$0A,$00,$15,$00,$0A,$00,$15,$00,$AB,$00,$56,$00,$EB
-  DEFB $01,$55,$03,$EB,$03,$FF,$00,$7E,$00,$22,$00,$22,$00,$00,$00,$00
-  DEFB $80,$00,$50,$00,$A8,$00,$50,$00,$A8,$00,$D5,$00,$6A,$00,$D7,$00
-  DEFB $AA,$80,$D7,$C0,$FF,$C0,$7E,$00,$44,$00,$44,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$2C,$40,$1E,$80,$3F,$C0
-  DEFB $2A,$A0,$55,$F0,$2B,$F0,$5F,$80,$11,$00,$20,$80,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$0B,$10,$07,$A0,$0F,$F0
-  DEFB $0D,$68,$0A,$BC,$15,$7C,$0A,$E0,$15,$40,$2A,$40,$14,$00,$28,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$02,$C8,$01,$E8,$03,$FC
-  DEFB $02,$AA,$05,$5F,$02,$BF,$05,$F8,$01,$10,$00,$A0,$00,$00,$00,$00
-; This guardian (page B7, sprites 0-1) appears in The Kitchen and West of
-; Kitchen.
-  DEFB $0A,$A0,$15,$50,$0A,$A0,$05,$42,$05,$45,$05,$45,$07,$C2,$0D,$62
-  DEFB $0F,$E3,$3C,$7F,$7B,$BF,$EF,$E3,$AE,$E2,$47,$C2,$CE,$C0,$C0,$E0
-  DEFB $C0,$00,$CA,$A0,$D5,$50,$CA,$A0,$45,$40,$45,$42,$A7,$C5,$CD,$65
-  DEFB $6F,$E2,$7C,$7A,$3A,$BF,$0F,$EF,$0E,$E3,$07,$C2,$06,$E2,$0E,$02
-; This guardian (page B7, sprites 2-3) appears in Tree Root, West Bedroom and
-; Above the West Bedroom.
-  DEFB $03,$00,$04,$80,$05,$C0,$0B,$A0,$15,$40,$17,$60,$17,$60,$1F,$E0
-  DEFB $13,$90,$2D,$68,$2F,$78,$2F,$78,$2F,$78,$2F,$78,$AF,$79,$7F,$FE
-  DEFB $00,$C0,$01,$20,$01,$70,$02,$E8,$05,$50,$05,$D8,$05,$D8,$07,$F8
-  DEFB $09,$C8,$16,$B4,$17,$BC,$17,$BC,$17,$BC,$17,$BC,$97,$BD,$7F,$FE
-; This guardian (page B7, sprites 4-7) appears in To the Kitchens    Main
-; Stairway and Back Stairway.
-  DEFB $76,$00,$00,$00,$6E,$00,$76,$00,$6E,$00,$00,$00,$76,$00,$6E,$00
-  DEFB $00,$00,$76,$00,$00,$00,$00,$00,$6E,$00,$76,$00,$00,$00,$6E,$00
-  DEFB $1D,$80,$2A,$00,$27,$60,$51,$B0,$4B,$D0,$90,$80,$AA,$E8,$94,$B8
-  DEFB $91,$80,$AA,$D8,$91,$00,$55,$00,$4B,$B0,$2B,$60,$24,$00,$1D,$80
-  DEFB $03,$C0,$0C,$30,$10,$98,$32,$14,$68,$82,$40,$2A,$B5,$11,$C8,$45
-  DEFB $A4,$91,$9A,$05,$48,$42,$55,$0A,$28,$54,$12,$88,$0D,$70,$03,$C0
-  DEFB $01,$B8,$00,$54,$06,$E4,$0D,$8A,$0B,$D2,$01,$09,$17,$55,$1D,$29
-  DEFB $01,$89,$1B,$55,$00,$89,$00,$AA,$0D,$D2,$06,$D4,$00,$24,$01,$B8
-; This guardian (page B8, sprites 0-7) appears in Under the MegaTree, On the
-; Roof, Ballroom West and Tree Root.
-  DEFB $00,$00,$06,$00,$08,$00,$38,$00,$50,$00,$F0,$00,$F8,$00,$3C,$00
-  DEFB $3E,$00,$7E,$00,$9F,$00,$1F,$00,$1F,$C0,$0E,$C0,$18,$00,$60,$00
-  DEFB $00,$00,$00,$00,$0F,$00,$14,$80,$3C,$00,$0E,$00,$3F,$00,$0F,$80
-  DEFB $1F,$80,$2F,$C0,$0F,$C0,$07,$F0,$03,$B0,$01,$00,$02,$00,$04,$00
-  DEFB $00,$00,$00,$60,$00,$80,$03,$80,$0D,$00,$07,$00,$03,$80,$07,$C0
-  DEFB $0B,$E0,$07,$E0,$09,$F0,$01,$F0,$01,$FC,$00,$EC,$01,$80,$06,$00
-  DEFB $00,$00,$00,$00,$00,$04,$00,$08,$00,$70,$00,$A0,$01,$E0,$00,$70
-  DEFB $01,$F8,$00,$78,$01,$FC,$00,$7C,$00,$7C,$00,$7F,$00,$3B,$00,$F0
-  DEFB $04,$00,$04,$00,$0C,$00,$0C,$00,$16,$00,$1E,$00,$3E,$00,$6C,$00
-  DEFB $9E,$00,$3F,$00,$3F,$00,$3F,$00,$7F,$00,$56,$00,$1C,$00,$06,$00
-  DEFB $04,$80,$08,$40,$13,$20,$13,$20,$17,$A0,$13,$20,$1F,$E0,$1B,$60
-  DEFB $27,$90,$0F,$C0,$0F,$C0,$0F,$C0,$0F,$C0,$1D,$80,$03,$80,$01,$00
-  DEFB $00,$80,$00,$80,$00,$C0,$00,$C0,$01,$A0,$01,$E0,$01,$F0,$00,$D8
-  DEFB $01,$E4,$03,$F0,$03,$F0,$03,$F0,$03,$F8,$01,$A8,$00,$E0,$01,$80
-  DEFB $00,$48,$00,$84,$01,$32,$01,$02,$01,$7A,$01,$7A,$01,$FE,$01,$B6
-  DEFB $02,$79,$00,$FC,$00,$FC,$00,$FC,$00,$FC,$00,$6E,$00,$70,$00,$20
-; This guardian (page B9, sprites 0-3) appears in On a Branch Over the Drive,
-; To the Kitchens    Main Stairway and The Bathroom.
-  DEFB $3C,$00,$6E,$00,$A7,$00,$A5,$00,$77,$00,$A3,$00,$62,$00,$2C,$00
-  DEFB $34,$00,$46,$00,$C5,$00,$EE,$00,$A5,$00,$E5,$00,$76,$00,$3C,$00
-  DEFB $00,$00,$00,$00,$00,$B0,$01,$48,$03,$FC,$00,$44,$02,$0C,$02,$7C
-  DEFB $35,$D8,$46,$F0,$C5,$00,$EE,$00,$A5,$00,$E5,$00,$76,$00,$3C,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $34,$34,$46,$46,$C5,$C5,$EE,$EE,$A5,$A5,$E5,$E5,$76,$76,$3C,$3C
-  DEFB $00,$00,$00,$00,$0F,$00,$1B,$80,$3E,$40,$30,$40,$22,$00,$3F,$C0
-  DEFB $12,$B4,$0D,$46,$00,$C5,$00,$EE,$00,$A5,$00,$E5,$00,$76,$00,$3C
-; This guardian (page B9, sprites 4-7) appears in The Bridge.
-  DEFB $03,$C0,$06,$60,$0D,$F0,$1A,$D8,$35,$5C,$20,$04,$7F,$FE,$D7,$75
-  DEFB $B2,$27,$D7,$75,$7F,$FE,$15,$78,$25,$A4,$02,$40,$11,$88,$00,$00
-  DEFB $03,$C0,$06,$60,$0D,$F0,$1A,$B8,$35,$5C,$20,$04,$7F,$FE,$AE,$EB
-  DEFB $E4,$4D,$AE,$EB,$7F,$FE,$15,$78,$0A,$50,$01,$80,$04,$20,$01,$00
-  DEFB $03,$C0,$06,$60,$0D,$F0,$1A,$D8,$35,$5C,$20,$04,$7F,$FE,$ED,$DB
-  DEFB $A8,$93,$ED,$DB,$7F,$FE,$15,$78,$25,$A4,$02,$40,$11,$88,$04,$20
-  DEFB $03,$C0,$06,$60,$0D,$F0,$1A,$E8,$35,$5C,$20,$04,$7F,$FE,$DB,$B7
-  DEFB $C9,$15,$DB,$B7,$7F,$FE,$15,$78,$0A,$42,$41,$90,$04,$00,$11,$44
-; This guardian (page BA, sprites 0-3) appears in The Off Licence, Under the
-; MegaTree, Inside the MegaTrunk, Out on a limb, Ballroom East, Ballroom West,
-; East Wall Base and Tree Root.
-  DEFB $07,$E0,$0F,$F0,$DF,$FB,$3F,$FC,$1F,$F8,$1F,$F8,$31,$8C,$6A,$56
-  DEFB $B1,$8D,$9E,$F9,$0D,$F0,$1D,$B8,$36,$6C,$59,$9A,$8C,$31,$07,$E0
-  DEFB $07,$E0,$0F,$F0,$1F,$F8,$FF,$FF,$1F,$F8,$1F,$F8,$31,$8C,$2A,$54
-  DEFB $71,$8E,$9E,$F9,$8D,$F1,$1D,$B8,$32,$4C,$58,$1A,$4C,$32,$07,$E0
-  DEFB $07,$E0,$0F,$F0,$1F,$F8,$DF,$FB,$3F,$FC,$1F,$F8,$31,$8C,$2A,$54
-  DEFB $30,$8C,$5D,$FA,$8D,$B1,$9A,$59,$12,$48,$18,$18,$2C,$34,$C7,$E3
-  DEFB $07,$E0,$8F,$F1,$5F,$FA,$3F,$FC,$1F,$F8,$11,$88,$2E,$74,$2A,$54
-  DEFB $71,$8E,$5E,$FA,$8D,$F1,$1D,$B8,$12,$48,$78,$1E,$8C,$31,$07,$E0
-; This guardian (page BA, sprites 4-7) appears in Entrance to Hades, The Chapel
-; and Priests' Hole.
-  DEFB $15,$03,$2A,$BE,$15,$5E,$4A,$A8,$35,$5C,$8A,$AE,$6D,$5C,$99,$F9
-  DEFB $6E,$BF,$DD,$63,$2E,$49,$59,$81,$04,$82,$2B,$C6,$12,$FC,$0C,$FD
-  DEFB $40,$A8,$FD,$54,$7A,$A8,$15,$52,$3A,$AC,$75,$51,$3A,$B6,$9F,$99
-  DEFB $FD,$76,$C6,$BB,$92,$74,$81,$9A,$41,$20,$63,$D4,$3F,$48,$BF,$30
-  DEFB $FD,$BF,$BF,$EF,$EA,$D7,$AA,$45,$68,$D4,$48,$84,$40,$04,$40,$01
-  DEFB $50,$00,$12,$0A,$40,$0C,$2A,$22,$14,$A8,$20,$84,$14,$28,$05,$20
-  DEFB $FD,$BF,$FF,$FB,$AC,$D7,$AA,$D1,$2A,$54,$82,$44,$42,$01,$08,$04
-  DEFB $4A,$10,$22,$82,$08,$A8,$14,$04,$0A,$90,$01,$40,$00,$00,$00,$00
-; This guardian (page BB, sprites 0-3) appears in Cold Store and Under the
-; Roof.
-  DEFB $0C,$00,$36,$80,$7F,$40,$7E,$80,$FD,$00,$FE,$80,$FF,$80,$FF,$00
-  DEFB $55,$00,$2A,$00,$14,$00,$2A,$00,$14,$00,$08,$00,$14,$00,$08,$00
-  DEFB $03,$00,$0D,$A0,$1F,$D0,$1F,$A0,$3F,$40,$3F,$A0,$3F,$E0,$3F,$C0
-  DEFB $35,$40,$2A,$80,$05,$00,$0A,$80,$05,$00,$02,$00,$05,$00,$02,$00
-  DEFB $00,$C0,$03,$68,$07,$F4,$07,$E8,$0F,$D0,$0F,$E8,$0F,$F8,$0F,$F0
-  DEFB $05,$50,$0A,$A0,$01,$40,$02,$A0,$09,$40,$00,$80,$01,$40,$00,$80
-  DEFB $00,$30,$00,$DA,$01,$FD,$01,$FA,$03,$F4,$03,$FA,$03,$FE,$03,$FC
-  DEFB $03,$54,$02,$A8,$00,$50,$00,$A8,$00,$50,$00,$20,$00,$50,$00,$20
-; This guardian (page BB, sprites 4-7) appears in Inside the MegaTrunk, Tree
-; Top and Watch Tower.
-  DEFB $04,$00,$2A,$80,$55,$40,$2B,$80,$44,$40,$AF,$A0,$5F,$40,$20,$80
-  DEFB $55,$40,$2A,$80,$04,$00,$04,$00,$08,$00,$3E,$00,$41,$00,$81,$00
-  DEFB $02,$00,$15,$40,$2A,$A0,$15,$C0,$22,$20,$5F,$50,$2A,$A0,$10,$40
-  DEFB $2A,$A0,$15,$40,$02,$00,$02,$00,$0E,$00,$11,$80,$20,$40,$00,$00
-  DEFB $00,$40,$02,$A8,$05,$54,$03,$A8,$04,$44,$0B,$EA,$05,$F4,$02,$08
-  DEFB $05,$54,$02,$A8,$00,$40,$00,$40,$00,$70,$01,$88,$02,$04,$00,$00
-  DEFB $00,$20,$01,$54,$02,$AA,$01,$D4,$02,$22,$05,$7D,$02,$FA,$01,$54
-  DEFB $02,$AA,$01,$54,$00,$20,$00,$20,$00,$10,$00,$7C,$00,$82,$00,$81
-; This guardian (page BC, sprites 0-7) appears in The Bridge, The Drive, Inside
-; the MegaTrunk, The Hall, Tree Top, Out on a limb, Rescue Esmerelda, I'm sure
-; I've seen this before.., We must perform a Quirkafleeg, Ballroom East, To the
-; Kitchens    Main Stairway, A bit of tree, Priests' Hole, Under the Drive,
-; Nomen Luni, Watch Tower, West  Wing and West Wing Roof.
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$6F,$40,$BB,$80,$75,$40
-  DEFB $1A,$80,$05,$00,$00,$80,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$A0,$01,$40,$02,$80,$01,$50,$36,$A0,$5D,$70
-  DEFB $37,$E0,$03,$C0,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$F4,$19,$B8,$2F,$54
-  DEFB $19,$A8,$00,$50,$00,$08,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$3D,$03,$7E,$05,$D7
-  DEFB $03,$6A,$00,$14,$00,$28,$00,$14,$00,$0A,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$BC,$00,$7E,$C0,$EB,$A0
-  DEFB $56,$C0,$28,$00,$14,$00,$28,$00,$50,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$2F,$00,$1D,$98,$2A,$F4
-  DEFB $15,$98,$0A,$00,$10,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$05,$00,$02,$80,$01,$40,$0A,$80,$05,$6C,$0E,$BA
-  DEFB $07,$EC,$03,$C0,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$02,$F6,$01,$DD,$02,$AE
-  DEFB $01,$58,$00,$A0,$01,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-; This guardian (page BD, sprites 0-7) appears in Cold Store.
-  DEFB $18,$00,$3C,$00,$D4,$00,$2E,$00,$3A,$00,$3A,$00,$5A,$00,$5D,$00
-  DEFB $4F,$00,$43,$00,$21,$80,$22,$00,$1E,$00,$14,$00,$13,$00,$3C,$00
-  DEFB $06,$00,$0F,$00,$3F,$00,$0B,$80,$0E,$80,$0E,$80,$1F,$00,$17,$80
-  DEFB $11,$C0,$10,$60,$08,$40,$08,$80,$07,$80,$02,$00,$02,$00,$07,$00
-  DEFB $01,$80,$0B,$C0,$05,$40,$0A,$E0,$03,$A0,$03,$A0,$05,$A0,$05,$D0
-  DEFB $04,$F0,$04,$30,$02,$18,$02,$20,$01,$E0,$01,$40,$06,$30,$01,$40
-  DEFB $00,$60,$00,$B0,$03,$50,$00,$B8,$00,$E8,$00,$E8,$01,$68,$01,$74
-  DEFB $01,$3C,$01,$0C,$00,$86,$00,$88,$00,$78,$00,$25,$00,$22,$00,$74
-  DEFB $06,$00,$0D,$00,$0A,$C0,$1D,$00,$17,$00,$17,$00,$16,$80,$2E,$80
-  DEFB $3C,$80,$30,$80,$61,$00,$11,$00,$1E,$00,$A4,$00,$44,$00,$2E,$00
-  DEFB $01,$80,$03,$D0,$02,$A0,$07,$50,$05,$C0,$05,$C0,$05,$A0,$0B,$A0
-  DEFB $0F,$20,$0C,$20,$18,$40,$04,$40,$07,$80,$02,$80,$0C,$60,$02,$80
-  DEFB $00,$60,$00,$F0,$00,$FC,$01,$D0,$01,$70,$01,$70,$00,$F8,$01,$E8
-  DEFB $03,$88,$06,$08,$02,$10,$01,$10,$01,$E0,$00,$40,$00,$40,$00,$E0
-  DEFB $00,$18,$00,$3C,$00,$2B,$00,$74,$00,$5C,$00,$5C,$00,$5A,$00,$BA
-  DEFB $00,$F2,$00,$C2,$01,$84,$00,$44,$00,$78,$00,$50,$01,$90,$00,$78
-; This guardian (page BE, sprites 0-3) appears in The Off Licence, To the
-; Kitchens    Main Stairway, Nomen Luni and The Bow.
-  DEFB $0C,$00,$12,$00,$21,$00,$2D,$00,$21,$00,$12,$00,$0C,$00,$0C,$00
-  DEFB $1E,$00,$00,$00,$37,$00,$40,$00,$0D,$40,$AC,$40,$40,$80,$2E,$00
-  DEFB $0E,$C0,$1D,$A0,$1F,$00,$1F,$E0,$1F,$00,$1D,$A0,$0E,$C0,$03,$00
-  DEFB $07,$80,$00,$00,$0E,$C0,$00,$20,$2B,$00,$23,$50,$10,$60,$07,$00
-  DEFB $04,$08,$06,$18,$07,$38,$0F,$FC,$07,$38,$06,$D8,$04,$C8,$00,$C0
-  DEFB $01,$E0,$00,$00,$01,$D0,$04,$08,$08,$D4,$0A,$C0,$00,$08,$03,$B0
-  DEFB $00,$DC,$01,$6E,$00,$3E,$01,$FE,$00,$3E,$01,$6E,$00,$DC,$00,$30
-  DEFB $00,$78,$00,$00,$00,$B8,$01,$02,$02,$B1,$00,$35,$01,$00,$00,$DC
-; This guardian (page BE, sprites 4-7) appears in The Off Licence.
-  DEFB $00,$00,$00,$00,$07,$E0,$1F,$B8,$3D,$EC,$7F,$FE,$7D,$F6,$FB,$F7
-  DEFB $FB,$F7,$7F,$EE,$7F,$DE,$3F,$FC,$1F,$F8,$07,$E0,$00,$00,$00,$00
-  DEFB $00,$00,$01,$80,$07,$E0,$0D,$70,$1F,$F8,$3F,$FC,$3F,$F4,$7D,$FE
-  DEFB $7B,$F6,$3B,$EC,$3F,$DC,$1F,$38,$0F,$F0,$07,$E0,$01,$80,$00,$00
-  DEFB $01,$80,$07,$E0,$0F,$F0,$1E,$F8,$1F,$78,$3F,$7C,$3B,$FC,$37,$F4
-  DEFB $37,$FC,$3F,$EC,$3F,$EC,$1F,$D8,$1F,$38,$0F,$F0,$07,$E0,$01,$80
-  DEFB $00,$00,$01,$80,$07,$E0,$0F,$F0,$1E,$B8,$3F,$FC,$3F,$F4,$7B,$FE
-  DEFB $77,$F6,$37,$EC,$3F,$DC,$1F,$38,$0F,$F0,$07,$E0,$01,$80,$00,$00
-; This guardian (page BF, sprites 0-3) appears in At the Foot of the MegaTree,
-; Inside the MegaTrunk, On a Branch Over the Drive, Dr Jones will never believe
-; this and Nomen Luni.
-  DEFB $80,$00,$40,$00,$A3,$60,$53,$60,$29,$C0,$16,$A0,$0B,$E0,$07,$70
-  DEFB $02,$A8,$05,$D4,$02,$2A,$03,$E5,$03,$E2,$03,$61,$03,$62,$07,$70
-  DEFB $00,$00,$00,$00,$06,$30,$56,$30,$A9,$C0,$56,$A0,$0B,$E0,$06,$30
-  DEFB $03,$E8,$05,$D4,$02,$2A,$03,$E4,$03,$EA,$17,$64,$0E,$60,$04,$70
-  DEFB $00,$00,$00,$00,$03,$60,$03,$60,$01,$C0,$1E,$A0,$2B,$E0,$56,$B4
-  DEFB $A3,$6A,$45,$D5,$82,$22,$03,$E1,$03,$E2,$03,$60,$03,$60,$07,$70
-  DEFB $00,$00,$00,$00,$06,$30,$56,$30,$A9,$C0,$56,$A0,$0B,$E0,$07,$F4
-  DEFB $02,$2A,$05,$D5,$02,$22,$03,$E1,$03,$E0,$03,$74,$03,$38,$07,$10
-; This guardian (page BF, sprites 4-5) appears in The Security Guard, I'm sure
-; I've seen this before.. and Up on the Battlements.
-  DEFB $02,$04,$05,$0E,$0A,$84,$15,$C4,$17,$44,$2B,$E4,$2F,$E0,$12,$44
-  DEFB $08,$82,$07,$2C,$15,$50,$2A,$A4,$55,$44,$AA,$84,$45,$00,$1D,$C0
-  DEFB $02,$00,$05,$00,$0A,$84,$15,$CE,$17,$44,$2B,$E4,$2F,$E4,$12,$44
-  DEFB $08,$80,$07,$04,$15,$52,$2A,$AC,$55,$40,$AA,$84,$45,$04,$1D,$C4
-; This guardian (page BF, sprites 6-7) appears in Rescue Esmerelda and Above
-; the West Bedroom.
-  DEFB $00,$04,$07,$06,$2F,$A4,$5F,$D4,$30,$64,$42,$14,$32,$60,$1F,$C4
-  DEFB $08,$82,$07,$2C,$15,$50,$2A,$A4,$55,$44,$AA,$84,$45,$00,$0C,$C0
-  DEFB $00,$00,$07,$00,$2F,$A4,$50,$56,$22,$24,$52,$54,$3F,$E4,$17,$44
-  DEFB $08,$80,$07,$04,$15,$52,$2A,$AC,$55,$40,$AA,$84,$45,$04,$19,$84
+FATTR:  EQU $DC00
+RATTR:  EQU $DE00
+FPIXL:  EQU $E000
+RPIXL:  EQU $F000
+
+  ORG $6800
 
 ; Room 0x00: The Off Licence (teleport: 9)
 ;
@@ -10416,6 +4428,5986 @@ ROOMS:
   DEFB $00,$00            ; Nothing (ENTITYDEFS)
   DEFB $00,$00            ; Nothing (ENTITYDEFS)
   DEFB $00,$00            ; Nothing (ENTITYDEFS)
+
+; Room layout
+;
+; Initialised upon entry to a room and then used by the routine at STARTGAME,
+; and also used by the routine at ROOMATTRS.
+ROOMLAYOUT:
+  DEFS $80
+
+; Room name
+;
+; Initialised upon entry to a room and then used by the routine at STARTGAME.
+ROOMNAME:
+  DEFS $20
+
+; Room tiles
+;
+; Initialised upon entry to a room by the routine at STARTGAME.
+BACKGROUND:
+  DEFS $09                ; Background tile (used by the routines at DRAWROOM,
+                          ; ROOMATTR, MOVEWILLY and WILLYATTR, and also by the
+                          ; unused routine at U_SETATTRS)
+FLOOR:
+  DEFS $09                ; Floor tile (used by the routines at DRAWROOM and
+                          ; ROOMATTR)
+WALL:
+  DEFS $09                ; Wall tile (used by the routines at DRAWROOM,
+                          ; ROOMATTR, MOVEWILLY and MOVEWILLY3)
+NASTY:
+  DEFS $09                ; Nasty tile (used by the routines at DRAWROOM,
+                          ; ROOMATTR, MOVEWILLY and WILLYATTR)
+RAMP:
+  DEFS $09                ; Ramp tile (used by the routines at DRAWROOM,
+                          ; ROOMATTRS, MOVEWILLY3 and WILLYATTRS)
+CONVEYOR:
+  DEFS $09                ; Conveyor tile (used by the routines at DRAWROOM,
+                          ; ROOMATTRS and MOVEWILLY2)
+
+; Conveyor definition
+;
+; Initialised upon entry to a room by the routine at STARTGAME.
+CONVDIR:
+  DEFB $00                ; Direction (0=left, 1=right; used by the routines at
+                          ; MOVEWILLY2 and MVCONVEYOR)
+CONVLOC:
+  DEFW $0000              ; Address of the conveyor's location in the attribute
+                          ; buffer at RATTR (used by the routines at ROOMATTRS
+                          ; and MVCONVEYOR)
+CONVLEN:
+  DEFB $00                ; Length (used by the routines at ROOMATTRS and
+                          ; MVCONVEYOR)
+
+; Ramp definition
+;
+; Initialised upon entry to a room by the routine at STARTGAME.
+RAMPDIR:
+  DEFB $00                ; Direction (0=up to the left, 1=up to the right;
+                          ; used by the routines at ROOMATTRS, MOVEWILLY3 and
+                          ; WILLYATTRS)
+RAMPLOC:
+  DEFW $0000              ; Address of the location of the bottom of the ramp
+                          ; in the attribute buffer at RATTR (used by the
+                          ; routine at ROOMATTRS)
+RAMPLEN:
+  DEFB $00                ; Length (used by the routine at ROOMATTRS)
+
+; Border colour
+;
+; Initialised upon entry to a room and then used by the routine at STARTGAME,
+; and also used by the routines at ENDPAUSE, MOVEWILLY, DRAWTHINGS and
+; DRAWITEMS.
+BORDER:
+  DEFB $00
+
+; Unused
+;
+; These bytes are overwritten upon entry to a room by the routine at STARTGAME,
+; but not used.
+XROOM223:
+  DEFS $02
+
+; Item graphic
+;
+; Initialised upon entry to a room by the routine at STARTGAME, and used by the
+; routine at DRAWITEMS.
+ITEM:
+  DEFS $08
+
+; Room exits
+;
+; Initialised upon entry to a room by the routine at STARTGAME.
+LEFT:
+  DEFB $00                ; Room to the left (used by the routine at ROOMLEFT)
+RIGHT:
+  DEFB $00                ; Room to the right (used by the routine at
+                          ; ROOMRIGHT)
+ABOVE:
+  DEFB $00                ; Room above (used by the routines at DRAWTHINGS and
+                          ; ROOMABOVE)
+BELOW:
+  DEFB $00                ; Room below (used by the routine at ROOMBELOW)
+
+; Unused
+;
+; These bytes are overwritten upon entry to a room by the routine at STARTGAME,
+; but not used.
+XROOM237:
+  DEFS $03
+
+; Entity specifications
+;
+; Initialised upon entry to a room and then used by the routine at STARTGAME.
+;
+; There are eight pairs of bytes here that hold the entity specifications for
+; the current room. The first byte in each pair identifies one of the entity
+; definitions at ENTITYDEFS. The meaning of the second byte depends on the
+; entity type: it determines the base sprite index and x-coordinate of a
+; guardian, the y-coordinate of an arrow, or the x-coordinate of the top of a
+; rope.
+ENTITIES:
+  DEFS $02                ; Entity 1
+  DEFS $02                ; Entity 2
+  DEFS $02                ; Entity 3
+  DEFS $02                ; Entity 4
+  DEFS $02                ; Entity 5
+  DEFS $02                ; Entity 6
+  DEFS $02                ; Entity 7
+  DEFS $02                ; Entity 8
+
+; Entity buffers
+;
+; Initialised by the routine at STARTGAME, and used by the routines at
+; MOVETHINGS and DRAWTHINGS. There are eight buffers here, each one eight bytes
+; long, used to hold the state of the entities (rope, arrows and guardians) in
+; the current room.
+;
+; For a horizontal guardian, the eight bytes are used as follows:
+;
+; +------+-----------------------------------------------------------+
+; | Byte | Contents                                                  |
+; +------+-----------------------------------------------------------+
+; | 0    | Bit 7: direction (0=left, 1=right)                        |
+; |      | Bits 5-6: animation frame index                           |
+; |      | Bits 3-4: unused                                          |
+; |      | Bits 0-2: entity type (001)                               |
+; | 1    | Bits 5-7: animation frame index mask                      |
+; |      | Bit 4: unused                                             |
+; |      | Bit 3: BRIGHT value                                       |
+; |      | Bits 0-2: INK colour                                      |
+; | 2    | Bits 5-7: base sprite index                               |
+; |      | Bits 0-4: x-coordinate                                    |
+; | 3    | Pixel y-coordinate x2 (index into the table at SBUFADDRS) |
+; | 4    | Unused                                                    |
+; | 5    | Page containing the sprite graphic data (see GUARDIANS)   |
+; | 6    | Minimum x-coordinate                                      |
+; | 7    | Maximum x-coordinate                                      |
+; +------+-----------------------------------------------------------+
+;
+; For a vertical guardian, the eight bytes are used as follows:
+;
+; +------+-----------------------------------------------------------+
+; | Byte | Contents                                                  |
+; +------+-----------------------------------------------------------+
+; | 0    | Bits 5-7: animation frame index                           |
+; |      | Bits 3-4: animation frame update flags (see MOVETHINGS_9) |
+; |      | Bits 0-2: entity type (010)                               |
+; | 1    | Bits 5-7: animation frame index mask                      |
+; |      | Bit 4: unused                                             |
+; |      | Bit 3: BRIGHT value                                       |
+; |      | Bits 0-2: INK colour                                      |
+; | 2    | Bits 5-7: base sprite index                               |
+; |      | Bits 0-4: x-coordinate                                    |
+; | 3    | Pixel y-coordinate x2 (index into the table at SBUFADDRS) |
+; | 4    | Pixel y-coordinate increment                              |
+; | 5    | Page containing the sprite graphic data (see GUARDIANS)   |
+; | 6    | Minimum y-coordinate                                      |
+; | 7    | Maximum y-coordinate                                      |
+; +------+-----------------------------------------------------------+
+;
+; For an arrow, the eight bytes are used as follows:
+;
+; +------+-----------------------------------------------------------+
+; | Byte | Contents                                                  |
+; +------+-----------------------------------------------------------+
+; | 0    | Bit 7: direction (0=left, 1=right)                        |
+; |      | Bits 3-6: unused                                          |
+; |      | Bits 0-2: entity type (100)                               |
+; | 1    | Unused                                                    |
+; | 2    | Pixel y-coordinate x2 (index into the table at SBUFADDRS) |
+; | 3    | Unused                                                    |
+; | 4    | x-coordinate                                              |
+; | 5    | Collision detection byte (0=off, 255=on)                  |
+; | 6    | Top/bottom pixel row (drawn either side of the shaft)     |
+; | 7    | Unused                                                    |
+; +------+-----------------------------------------------------------+
+;
+; The rope uses the second and fourth bytes of the following buffer in addition
+; to its own; these ten bytes are used as follows:
+;
+; +------+----------------------------------------------------------+
+; | Byte | Contents                                                 |
+; +------+----------------------------------------------------------+
+; | 0    | Bit 7: direction (0=left, 1=right)                       |
+; |      | Bits 3-6: unused                                         |
+; |      | Bits 0-2: entity type (011)                              |
+; | 1    | Animation frame index                                    |
+; | 2    | x-coordinate of the top of the rope                      |
+; | 3    | x-coordinate of the segment of rope being drawn          |
+; | 4    | Length (32)                                              |
+; | 5    | Segment drawing byte                                     |
+; | 6    | Unused                                                   |
+; | 7    | Animation frame at which the rope changes direction (54) |
+; | 9    | Index of the segment of rope being drawn (0-32)          |
+; | 11   | Bits 1-7: unused                                         |
+; |      | Bit 0: Willy is on the rope (set), or not (reset)        |
+; +------+----------------------------------------------------------+
+;
+; Note that if a rope were the eighth entity specified in a room, its buffer
+; would use the first and third bytes in the otherwise unused area at
+; EBOVERFLOW.
+ENTITYBUF:
+  DEFS $08                ; Entity 1
+  DEFS $08                ; Entity 2
+  DEFS $08                ; Entity 3
+  DEFS $08                ; Entity 4
+  DEFS $08                ; Entity 5
+  DEFS $08                ; Entity 6
+  DEFS $08                ; Entity 7
+  DEFS $08                ; Entity 8
+  DEFB $FF                ; Terminator
+
+; Unused
+;
+; This area is not used, but if a rope were the eighth entity specified in a
+; room, its buffer would spill over from the eighth slot at ENTITYBUF and use
+; the first and third bytes here.
+EBOVERFLOW:
+  DEFS $BF
+
+; Screen buffer address lookup table
+;
+; Used by the routines at GAMEOVER, DRAWTHINGS and DRAWWILLY. The value of the
+; Nth entry (0<=N<=127) in this lookup table is the screen buffer address for
+; the point with pixel coordinates (x,y)=(0,N), with the origin (0,0) at the
+; top-left corner.
+SBUFADDRS:
+  DEFW FPIXL+$0000        ; y=0
+  DEFW FPIXL+$0100        ; y=1
+  DEFW FPIXL+$0200        ; y=2
+  DEFW FPIXL+$0300        ; y=3
+  DEFW FPIXL+$0400        ; y=4
+  DEFW FPIXL+$0500        ; y=5
+  DEFW FPIXL+$0600        ; y=6
+  DEFW FPIXL+$0700        ; y=7
+  DEFW FPIXL+$0020        ; y=8
+  DEFW FPIXL+$0120        ; y=9
+  DEFW FPIXL+$0220        ; y=10
+  DEFW FPIXL+$0320        ; y=11
+  DEFW FPIXL+$0420        ; y=12
+  DEFW FPIXL+$0520        ; y=13
+  DEFW FPIXL+$0620        ; y=14
+  DEFW FPIXL+$0720        ; y=15
+  DEFW FPIXL+$0040        ; y=16
+  DEFW FPIXL+$0140        ; y=17
+  DEFW FPIXL+$0240        ; y=18
+  DEFW FPIXL+$0340        ; y=19
+  DEFW FPIXL+$0440        ; y=20
+  DEFW FPIXL+$0540        ; y=21
+  DEFW FPIXL+$0640        ; y=22
+  DEFW FPIXL+$0740        ; y=23
+  DEFW FPIXL+$0060        ; y=24
+  DEFW FPIXL+$0160        ; y=25
+  DEFW FPIXL+$0260        ; y=26
+  DEFW FPIXL+$0360        ; y=27
+  DEFW FPIXL+$0460        ; y=28
+  DEFW FPIXL+$0560        ; y=29
+  DEFW FPIXL+$0660        ; y=30
+  DEFW FPIXL+$0760        ; y=31
+  DEFW FPIXL+$0080        ; y=32
+  DEFW FPIXL+$0180        ; y=33
+  DEFW FPIXL+$0280        ; y=34
+  DEFW FPIXL+$0380        ; y=35
+  DEFW FPIXL+$0480        ; y=36
+  DEFW FPIXL+$0580        ; y=37
+  DEFW FPIXL+$0680        ; y=38
+  DEFW FPIXL+$0780        ; y=39
+  DEFW FPIXL+$00A0        ; y=40
+  DEFW FPIXL+$01A0        ; y=41
+  DEFW FPIXL+$02A0        ; y=42
+  DEFW FPIXL+$03A0        ; y=43
+  DEFW FPIXL+$04A0        ; y=44
+  DEFW FPIXL+$05A0        ; y=45
+  DEFW FPIXL+$06A0        ; y=46
+  DEFW FPIXL+$07A0        ; y=47
+  DEFW FPIXL+$00C0        ; y=48
+  DEFW FPIXL+$01C0        ; y=49
+  DEFW FPIXL+$02C0        ; y=50
+  DEFW FPIXL+$03C0        ; y=51
+  DEFW FPIXL+$04C0        ; y=52
+  DEFW FPIXL+$05C0        ; y=53
+  DEFW FPIXL+$06C0        ; y=54
+  DEFW FPIXL+$07C0        ; y=55
+  DEFW FPIXL+$00E0        ; y=56
+  DEFW FPIXL+$01E0        ; y=57
+  DEFW FPIXL+$02E0        ; y=58
+  DEFW FPIXL+$03E0        ; y=59
+  DEFW FPIXL+$04E0        ; y=60
+  DEFW FPIXL+$05E0        ; y=61
+  DEFW FPIXL+$06E0        ; y=62
+  DEFW FPIXL+$07E0        ; y=63
+  DEFW FPIXL+$0800        ; y=64
+  DEFW FPIXL+$0900        ; y=65
+  DEFW FPIXL+$0A00        ; y=66
+  DEFW FPIXL+$0B00        ; y=67
+  DEFW FPIXL+$0C00        ; y=68
+  DEFW FPIXL+$0D00        ; y=69
+  DEFW FPIXL+$0E00        ; y=70
+  DEFW FPIXL+$0F00        ; y=71
+  DEFW FPIXL+$0820        ; y=72
+  DEFW FPIXL+$0920        ; y=73
+  DEFW FPIXL+$0A20        ; y=74
+  DEFW FPIXL+$0B20        ; y=75
+  DEFW FPIXL+$0C20        ; y=76
+  DEFW FPIXL+$0D20        ; y=77
+  DEFW FPIXL+$0E20        ; y=78
+  DEFW FPIXL+$0F20        ; y=79
+  DEFW FPIXL+$0840        ; y=80
+  DEFW FPIXL+$0940        ; y=81
+  DEFW FPIXL+$0A40        ; y=82
+  DEFW FPIXL+$0B40        ; y=83
+  DEFW FPIXL+$0C40        ; y=84
+  DEFW FPIXL+$0D40        ; y=85
+  DEFW FPIXL+$0E40        ; y=86
+  DEFW FPIXL+$0F40        ; y=87
+  DEFW FPIXL+$0860        ; y=88
+  DEFW FPIXL+$0960        ; y=89
+  DEFW FPIXL+$0A60        ; y=90
+  DEFW FPIXL+$0B60        ; y=91
+  DEFW FPIXL+$0C60        ; y=92
+  DEFW FPIXL+$0D60        ; y=93
+  DEFW FPIXL+$0E60        ; y=94
+  DEFW FPIXL+$0F60        ; y=95
+  DEFW FPIXL+$0880        ; y=96
+  DEFW FPIXL+$0980        ; y=97
+  DEFW FPIXL+$0A80        ; y=98
+  DEFW FPIXL+$0B80        ; y=99
+  DEFW FPIXL+$0C80        ; y=100
+  DEFW FPIXL+$0D80        ; y=101
+  DEFW FPIXL+$0E80        ; y=102
+  DEFW FPIXL+$0F80        ; y=103
+  DEFW FPIXL+$08A0        ; y=104
+  DEFW FPIXL+$09A0        ; y=105
+  DEFW FPIXL+$0AA0        ; y=106
+  DEFW FPIXL+$0BA0        ; y=107
+  DEFW FPIXL+$0CA0        ; y=108
+  DEFW FPIXL+$0DA0        ; y=109
+  DEFW FPIXL+$0EA0        ; y=110
+  DEFW FPIXL+$0FA0        ; y=111
+  DEFW FPIXL+$08C0        ; y=112
+  DEFW FPIXL+$09C0        ; y=113
+  DEFW FPIXL+$0AC0        ; y=114
+  DEFW FPIXL+$0BC0        ; y=115
+  DEFW FPIXL+$0CC0        ; y=116
+  DEFW FPIXL+$0DC0        ; y=117
+  DEFW FPIXL+$0EC0        ; y=118
+  DEFW FPIXL+$0FC0        ; y=119
+  DEFW FPIXL+$08E0        ; y=120
+  DEFW FPIXL+$09E0        ; y=121
+  DEFW FPIXL+$0AE0        ; y=122
+  DEFW FPIXL+$0BE0        ; y=123
+  DEFW FPIXL+$0CE0        ; y=124
+  DEFW FPIXL+$0DE0        ; y=125
+  DEFW FPIXL+$0EE0        ; y=126
+  DEFW FPIXL+$0FE0        ; y=127
+
+; Rope animation table
+;
+; Used by the routine at DRAWTHINGS. The first half of this table controls the
+; x-coordinates at which the segments of rope are drawn, and the second half
+; controls the y-coordinates. For a given rope animation frame F (0<=F<=54),
+; the 32 entries from F to F+31 inclusive (one for each of the 32 segments of
+; rope below the topmost one) in each half of the table are used; thus the
+; batch of entries used 'slides' up and down the table as F increases and
+; decreases.
+ROPEANIM:
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00 ; These values determine how much to
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00 ; rotate the rope drawing byte (which in
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00 ; turn determines the x-coordinate at
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00 ; which each segment of rope is drawn)
+  DEFB $01,$01,$01,$01,$01,$01,$01,$01
+  DEFB $01,$01,$01,$01,$02,$02,$02,$02
+  DEFB $02,$02,$02,$02,$02,$02,$02,$02
+  DEFB $02,$02,$02,$02,$02,$02,$02,$02
+  DEFB $02,$02,$01,$02,$02,$01,$01,$02
+  DEFB $01,$01,$02,$02,$03,$02,$03,$02
+  DEFB $03,$03,$03,$03,$03,$03
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00 ; Unused
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00
+  DEFB $06,$06,$06,$06,$06,$06,$06,$06 ; These values determine the
+  DEFB $06,$06,$06,$06,$06,$06,$06,$06 ; y-coordinate of each segment of rope
+  DEFB $06,$06,$06,$06,$06,$06,$06,$06 ; relative to the one above it
+  DEFB $06,$06,$06,$06,$06,$06,$06,$06
+  DEFB $06,$06,$06,$06,$06,$06,$06,$06
+  DEFB $06,$06,$06,$06,$06,$06,$06,$06
+  DEFB $04,$06,$06,$04,$06,$04,$06,$04
+  DEFB $06,$04,$04,$04,$06,$04,$04,$04
+  DEFB $04,$04,$04,$04,$04,$04,$04,$04
+  DEFB $04,$04,$04,$04,$04,$04,$04,$04
+  DEFB $04,$04,$04,$04,$04,$04
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00 ; Unused
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00
+
+; Current room number
+;
+; Initialised to 33 (The Bathroom) by the routine at TITLESCREEN, checked by
+; the routines at STARTGAME, DRAWTHINGS, DRAWITEMS, BEDANDBATH, CHKTOILET,
+; DRAWTOILET and DRAWWILLY, and updated by the routines at ENDPAUSE, ROOMLEFT,
+; ROOMRIGHT, ROOMABOVE and ROOMBELOW.
+ROOM:
+  DEFB $00
+
+; Left-right movement table
+;
+; Used by the routine at MOVEWILLY2. The entries in this table are used to map
+; the existing value (V) of Willy's direction and movement flags at DMFLAGS to
+; a new value (V'), depending on the direction Willy is facing and how he is
+; moving or being moved (by 'left' and 'right' keypresses and joystick input,
+; or by a conveyor, or by an urge to visit the toilet).
+;
+; One of the first four entries is used when Willy is not moving.
+LRMOVEMENT:
+  DEFB $00                ; V=0 (facing right, no movement) + no movement: V'=0
+                          ; (no change)
+  DEFB $01                ; V=1 (facing left, no movement) + no movement: V'=1
+                          ; (no change)
+  DEFB $00                ; V=2 (facing right, moving) + no movement: V'=0
+                          ; (facing right, no movement) (i.e. stop)
+  DEFB $01                ; V=3 (facing left, moving) + no movement: V'=1
+                          ; (facing left, no movement) (i.e. stop)
+; One of the next four entries is used when Willy is moving left.
+  DEFB $01                ; V=0 (facing right, no movement) + move left: V'=1
+                          ; (facing left, no movement) (i.e. turn around)
+  DEFB $03                ; V=1 (facing left, no movement) + move left: V'=3
+                          ; (facing left, moving)
+  DEFB $01                ; V=2 (facing right, moving) + move left: V'=1
+                          ; (facing left, no movement) (i.e. turn around)
+  DEFB $03                ; V=3 (facing left, moving) + move left: V'=3 (no
+                          ; change)
+; One of the next four entries is used when Willy is moving right.
+  DEFB $02                ; V=0 (facing right, no movement) + move right: V'=2
+                          ; (facing right, moving)
+  DEFB $00                ; V=1 (facing left, no movement) + move right: V'=0
+                          ; (facing right, no movement) (i.e. turn around)
+  DEFB $02                ; V=2 (facing right, moving) + move right: V'=2 (no
+                          ; change)
+  DEFB $00                ; V=3 (facing left, moving) + move right: V'=0
+                          ; (facing right, no movement) (i.e. turn around)
+; One of the final four entries is used when Willy is being pulled both left
+; and right; each entry leaves the flags at DMFLAGS unchanged (so Willy carries
+; on moving in the direction he's already moving, or remains stationary).
+  DEFB $00                ; V=V'=0 (facing right, no movement)
+  DEFB $01                ; V=V'=1 (facing left, no movement)
+  DEFB $02                ; V=V'=2 (facing right, moving)
+  DEFB $03                ; V=V'=3 (facing left, moving)
+
+; Triangle UDGs
+;
+; Used by the routine at TITLESCREEN.
+TRIANGLE0:
+  DEFB $C0,$F0,$FC,$FF,$FF,$FF,$FF,$FF
+TRIANGLE1:
+  DEFB $00,$00,$00,$00,$C0,$F0,$FC,$FF
+TRIANGLE2:
+  DEFB $FF,$FF,$FF,$FF,$FC,$F0,$C0,$00
+TRIANGLE3:
+  DEFB $FC,$F0,$C0,$00,$00,$00,$00,$00
+
+; '+++++ Press ENTER to Start +++++...'
+;
+; Used by the routine at TITLESCREEN.
+MSG_INTRO:
+  DEFM "+++++ Press ENTER to Start +++++"
+  DEFM "  JET-SET WILLY by Matthew Smith  "
+  DEFM $7F," 1984 SOFTWARE PROJECTS Ltd . . . . ."
+  DEFM "Guide Willy to collect all the items around "
+  DEFM "the house before Midnight "
+  DEFM "so Maria will let you get to your bed. . . . . . ."
+  DEFM "+++++ Press ENTER to Start +++++"
+
+; 'Game'
+;
+; Used by the routine at GAMEOVER.
+MSG_GAME:
+  DEFM "Game"
+
+; 'Over'
+;
+; Used by the routine at GAMEOVER.
+MSG_OVER:
+  DEFM "Over"
+
+; 'Items collected 000 Time 00:00 m'
+;
+; Used by the routine at STARTGAME.
+MSG_STATUS:
+  DEFM "Items collected "
+
+; Number of items collected
+;
+; Initialised by the routine at TITLESCREEN, printed by the routine at
+; MAINLOOP, and updated by the routine at DRAWITEMS.
+MSG_ITEMS:
+  DEFM "000 Time "
+
+; Current time
+;
+; Initialised by the routine at STARTGAME, and printed and updated by the
+; routine at MAINLOOP.
+MSG_CURTIME:
+  DEFM " 7:00am"
+
+; ' 7:00a'
+;
+; Copied by the routine at STARTGAME to MSG_CURTIME.
+MSG_7AM:
+  DEFM " 7:00a"
+
+; Minute counter
+;
+; Initialised by the routine at TITLESCREEN; incremented on each pass through
+; the main loop by the routine at MAINLOOP (which moves the game clock forward
+; by a minute when the counter reaches 0); reset to zero by the routine at
+; CHKTOILET when Willy sticks his head down the toilet; and used by the
+; routines at DRAWITEMS (to cycle the colours of the items in the room),
+; BEDANDBATH (to determine Maria's animation frame in Master Bedroom) and
+; DRAWTOILET (to determine the animation frame for the toilet in The Bathroom).
+TICKS:
+  DEFB $00
+
+; Lives remaining
+;
+; Initialised to 7 by the routine at TITLESCREEN, decremented by the routine at
+; LOSELIFE, and used by the routines at DRAWLIVES (when drawing the remaining
+; lives) and ENDPAUSE (to adjust the speed and pitch of the in-game music).
+LIVES:
+  DEFB $00
+
+; Kempston joystick indicator
+;
+; Initialised by the routine at TITLESCREEN, and checked by the routines at
+; MOVEWILLY2 and CHECKENTER. Holds 1 if a joystick is present, 0 otherwise.
+JOYSTICK:
+  DEFB $00
+
+; Willy's pixel y-coordinate (x2)
+;
+; Initialised to 208 by the routine at TITLESCREEN, and used by the routines at
+; MAINLOOP, ENDPAUSE, MOVEWILLY, MOVEWILLY2, MOVEWILLY3, DRAWTHINGS, ROOMABOVE,
+; ROOMBELOW, BEDANDBATH, WILLYATTRS and DRAWWILLY. Holds the LSB of the address
+; of the entry in the screen buffer address lookup table at SBUFADDRS that
+; corresponds to Willy's pixel y-coordinate; in practice, this is twice Willy's
+; actual pixel y-coordinate. Note that when Willy is standing on a ramp, this
+; holds his pixel y-coordinate rounded down to the nearest value of 16 (8x2).
+PIXEL_Y:
+  DEFB $00
+
+; Willy's direction and movement flags
+;
+; +--------+---------------------------+------------------------------------+
+; | Bit(s) | Meaning                   | Used by                            |
+; +--------+---------------------------+------------------------------------+
+; | 0      | Direction Willy is facing | MOVEWILLY2, MOVEWILLY3, DRAWWILLY  |
+; |        | (reset=right, set=left)   |                                    |
+; | 1      | Willy's movement flag     | MOVEWILLY2, MOVEWILLY3, DRAWTHINGS |
+; |        | (set=moving)              |                                    |
+; | 2-7    | Unused (always reset)     |                                    |
+; +--------+---------------------------+------------------------------------+
+DMFLAGS:
+  DEFB $00
+
+; Airborne status indicator
+;
+; Initialised by the routine at TITLESCREEN, checked by the routines at
+; ENDPAUSE and WILLYATTRS, updated by the routines at KILLWILLY, DRAWTHINGS and
+; ROOMABOVE, and checked and updated by the routines at MOVEWILLY, MOVEWILLY2
+; and ROOMBELOW. Possible values are:
+;
+; +-------+-----------------------------------------------------------------+
+; | Value | Meaning                                                         |
+; +-------+-----------------------------------------------------------------+
+; | 0     | Willy is neither falling nor jumping                            |
+; | 1     | Willy is jumping                                                |
+; | 2-11  | Willy is falling, and can land safely                           |
+; | 12-15 | Willy is falling, and has fallen too far to land safely         |
+; | 255   | Willy has collided with a nasty, an arrow, a guardian, or Maria |
+; |       | (see KILLWILLY)                                                 |
+; +-------+-----------------------------------------------------------------+
+AIRBORNE:
+  DEFB $00
+
+; Willy's animation frame
+;
+; Used by the routines at WILLYATTRS and DRAWWILLY, and updated by the routines
+; at MAINLOOP, MOVEWILLY3 and DRAWTHINGS. Possible values are 0, 1, 2 and 3.
+FRAME:
+  DEFB $00
+
+; Address of Willy's location in the attribute buffer at 5C00
+;
+; Initialised by the routine at TITLESCREEN, and used by the routines at
+; MOVEWILLY, MOVEWILLY3, DRAWTHINGS, ROOMLEFT, ROOMRIGHT, ROOMABOVE, ROOMBELOW,
+; BEDANDBATH, CHKTOILET, WILLYATTRS and DRAWWILLY.
+LOCATION:
+  DEFW $0000
+
+; Jumping animation counter
+;
+; Used by the routines at MOVEWILLY and MOVEWILLY2.
+JUMPING:
+  DEFB $00
+
+; Rope status indicator
+;
+; Initialised by the routine at STARTGAME, checked by the routine at MOVEWILLY,
+; and checked and updated by the routines at MOVEWILLY2 and DRAWTHINGS.
+; Possible values are:
+;
+; +---------+-----------------------------------------------------------------+
+; | Value   | Meaning                                                         |
+; +---------+-----------------------------------------------------------------+
+; | 0       | Willy is not on the rope                                        |
+; | 2-32    | Willy is on the rope, with the centre of his sprite anchored at |
+; |         | this segment                                                    |
+; | 240-255 | Willy has just jumped or fallen off the rope                    |
+; +---------+-----------------------------------------------------------------+
+ROPE:
+  DEFB $00
+
+; Willy's state on entry to the room
+;
+; Initialised by the routine at STARTGAME, and copied back into 85CF-85D5 by
+; the routine at LOSELIFE.
+INITSTATE:
+  DEFB $00                ; Willy's pixel y-coordinate (copied from PIXEL_Y)
+  DEFB $00                ; Willy's direction and movement flags (copied from
+                          ; DMFLAGS)
+  DEFB $00                ; Airborne status indicator (copied from AIRBORNE)
+  DEFB $00                ; Willy's animation frame (copied from FRAME)
+  DEFW $0000              ; Address of Willy's location in the attribute buffer
+                          ; at FATTR (copied from LOCATION)
+  DEFB $00                ; Jumping animation counter (copied from JUMPING)
+
+; 256 minus the number of items remaining
+;
+; Initialised by the routine at TITLESCREEN, and updated by the routine at
+; DRAWITEMS when an item is collected.
+ITEMS:
+  DEFB $00
+
+; Game mode indicator
+;
+; Initialised by the routine at TITLESCREEN, checked by the routines at
+; MAINLOOP, MOVEWILLY2 and DRAWTOILET, and updated by the routines at
+; DRAWITEMS, BEDANDBATH and CHKTOILET.
+;
+; +-------+---------------------------------+
+; | Value | Meaning                         |
+; +-------+---------------------------------+
+; | 0     | Normal                          |
+; | 1     | All items collected             |
+; | 2     | Willy is running to the toilet  |
+; | 3     | Willy's head is down the toilet |
+; +-------+---------------------------------+
+MODE:
+  DEFB $00
+
+; Inactivity timer
+;
+; Initialised by the routine at TITLESCREEN, and updated by the routines at
+; MAINLOOP, ENDPAUSE and MOVEWILLY2.
+INACTIVE:
+  DEFB $00
+
+; In-game music note index
+;
+; Initialised by the routine at TITLESCREEN, used by the routine at DRAWLIVES,
+; and used and updated by the routine at ENDPAUSE.
+NOTEINDEX:
+  DEFB $00
+
+; Music flags
+;
+; The keypress flag in bit 0 is initialised by the routine at TITLESCREEN; bits
+; 0 and 1 are checked and updated by the routine at ENDPAUSE.
+;
+; +--------+-----------------------------------------------------------------+
+; | Bit(s) | Meaning                                                         |
+; +--------+-----------------------------------------------------------------+
+; | 0      | Keypress flag (set=H-ENTER being pressed, reset=no key pressed) |
+; | 1      | In-game music flag (set=music off, reset=music on)              |
+; | 2-7    | Unused                                                          |
+; +--------+-----------------------------------------------------------------+
+MUSICFLAGS:
+  DEFB $00
+
+; WRITETYPER key counter
+;
+; Checked by the routine at MAINLOOP, and updated by the routine at ENDPAUSE.
+TELEPORT:
+  DEFB $00
+
+; Temporary variable
+;
+; Used by the routines at CODESCREEN and READCODE to hold the entry code, by
+; the routine at TITLESCREEN to hold the index into the message scrolled across
+; the screen after the theme tune has finished playing, and by the routine at
+; GAMEOVER to hold the distance of the foot from the top of the screen as it
+; descends onto Willy.
+TEMPVAR:
+  DEFB $00
+
+; WRITETYPER
+;
+; Used by the routine at ENDPAUSE. In each pair of bytes here, bits 0-4 of the
+; first byte correspond to keys Q-W-E-R-T, and bits 0-4 of the second byte
+; correspond to keys P-O-I-U-Y; among those bits, a zero indicates a key being
+; pressed.
+  DEFB %00011111,%00011111 ; (no keys pressed)
+WRITETYPER:
+  DEFB %00011101,%00011111 ; W
+  DEFB %00010111,%00011111 ; R
+  DEFB %00011111,%00011011 ; I
+  DEFB %00001111,%00011111 ; T
+  DEFB %00011011,%00011111 ; E
+  DEFB %00001111,%00011111 ; T
+  DEFB %00011111,%00001111 ; Y
+  DEFB %00011111,%00011110 ; P
+  DEFB %00011011,%00011111 ; E
+  DEFB %00010111,%00011111 ; R
+
+; Title screen tune data (Moonlight Sonata)
+;
+; Used by the routine at PLAYTUNE.
+THEMETUNE:
+  DEFB $51,$3C,$33,$51,$3C,$33,$51,$3C,$33,$51,$3C,$33,$51,$3C,$33,$51
+  DEFB $3C,$33,$51,$3C,$33,$51,$3C,$33,$4C,$3C,$33,$4C,$3C,$33,$4C,$39
+  DEFB $2D,$4C,$39,$2D,$51,$40,$2D,$51,$3C,$33,$51,$3C,$36,$5B,$40,$36
+  DEFB $66,$51,$3C,$51,$3C,$33,$51,$3C,$33,$28,$3C,$28,$28,$36,$2D,$51
+  DEFB $36,$2D,$51,$36,$2D,$28,$36,$28,$28,$3C,$33,$51,$3C,$33,$26,$3C
+  DEFB $2D,$4C,$3C,$2D,$28,$40,$33,$51,$40,$33,$2D,$40,$36,$20,$40,$36
+  DEFB $3D,$79,$3D,$FF
+
+; In-game tune data (If I Were a Rich Man)
+;
+; Used by the routine at ENDPAUSE.
+GAMETUNE:
+  DEFB $56,$60,$56,$60,$66,$66,$80,$80,$80,$80,$66,$60,$56,$60,$56,$60
+  DEFB $66,$60,$56,$4C,$48,$4C,$48,$4C,$56,$56,$56,$56,$56,$56,$56,$56
+  DEFB $40,$40,$40,$40,$44,$44,$4C,$4C,$56,$60,$66,$60,$56,$56,$66,$66
+  DEFB $51,$56,$60,$56,$51,$51,$60,$60,$40,$40,$40,$40,$40,$40,$40,$40
+
+; The game has just loaded
+;
+; After the game has loaded, this is where it all starts.
+BEGIN:
+  DI                      ; Disable interrupts
+  LD SP,$5C00             ; Place stack in printer buffer
+                          ; Drop through to TITLESCREEN
+
+; Display the title screen and play the theme tune
+;
+; Used by the routines at BEGIN, MAINLOOP and GAMEOVER.
+;
+; The first thing this routine does is initialise some game status buffer
+; variables in preparation for the next game.
+TITLESCREEN:
+  XOR A                   ; A=0
+  LD (JOYSTICK),A         ; Initialise the Kempston joystick indicator at
+                          ; JOYSTICK
+  LD (NOTEINDEX),A        ; Initialise the in-game music note index at
+                          ; NOTEINDEX
+  LD (AIRBORNE),A         ; Initialise the airborne status indicator at
+                          ; AIRBORNE
+  LD (TICKS),A            ; Initialise the minute counter at TICKS
+  LD (INACTIVE),A         ; Initialise the inactivity timer at INACTIVE
+  LD (MODE),A             ; Initialise the game mode indicator at MODE
+  LD A,$07                ; Initialise the number of lives remaining at LIVES
+  LD (LIVES),A
+  LD A,$D0                ; Initialise Willy's pixel y-coordinate at PIXEL_Y
+  LD (PIXEL_Y),A
+  LD A,$21                ; Initialise the current room number at ROOM to 33
+  LD (ROOM),A             ; (The Bathroom)
+  LD HL,FATTR+$01B4       ; Initialise Willy's coordinates at LOCATION to
+  LD (LOCATION),HL        ; (13,20)
+  LD HL,MSG_ITEMS         ; Initialise the number of items collected at
+  LD (HL),$30             ; MSG_ITEMS to "000"
+  INC HL
+  LD (HL),$30
+  INC HL
+  LD (HL),$30
+  LD HL,ITEMTABLE1        ; Page A4 holds the first byte of each entry in the
+                          ; item table
+  LD A,(HL)               ; Pick up the index of the first item from there
+  LD L,A                  ; Point HL at the entry for the first used item
+  LD (ITEMS),A            ; Initialise the counter of items remaining at ITEMS
+TITLESCREEN_0:
+  SET 6,(HL)              ; Set the collection flag for every item in the item
+  INC L                   ; table at ITEMTABLE1
+  JR NZ,TITLESCREEN_0
+  LD HL,MUSICFLAGS        ; Initialise the keypress flag in bit 0 at MUSICFLAGS
+  SET 0,(HL)
+; Next, prepare the screen.
+TITLESCREEN_1:
+  LD HL,$4000             ; Clear the entire display file
+  LD DE,$4001
+  LD BC,$17FF
+  LD (HL),$00
+  LDIR
+  LD HL,ATTRSUPPER        ; Copy the attribute bytes for the title screen from
+  LD BC,$0300             ; ATTRSUPPER and ATTRSLOWER to the attribute file
+  LDIR
+  LD HL,$5A60             ; Copy the attribute value 70 (INK 6: PAPER 0: BRIGHT
+  LD DE,$5A61             ; 1) into the row of 32 cells from (19,0) to (19,31)
+  LD BC,$001F             ; on the screen
+  LD (HL),$46
+  LDIR
+  LD IX,MSG_INTRO         ; Print "+++++ Press ENTER to Start +++++" (see
+  LD DE,$5060             ; MSG_INTRO) at (19,0)
+  LD C,$20
+  CALL PRINTMSG
+  LD DE,$5800             ; Point DE at the first byte of the attribute file
+; The following loop scans the top two-thirds of the attribute file, which
+; contains values 0, 4, 5, 8, 9, 36, 37, 40, 41, 44, 45 and 211 (copied from
+; ATTRSUPPER). Whenever a value other than 0, 9, 36, 45 or 211 is found, a
+; triangle UDG is drawn at the corresponding location in the display file.
+TITLESCREEN_2:
+  LD A,(DE)               ; Pick up a byte from the attribute file
+  OR A                    ; Is it 0 (INK 0: PAPER 0)?
+  JR Z,TITLESCREEN_6      ; If so, jump to consider the next byte in the
+                          ; attribute file
+  CP $D3                  ; Is it 211 (INK 3: PAPER 2: BRIGHT 1: FLASH 1)?
+  JR Z,TITLESCREEN_6      ; If so, jump to consider the next byte in the
+                          ; attribute file
+  CP $09                  ; Is it 9 (INK 1: PAPER 1)?
+  JR Z,TITLESCREEN_6      ; If so, jump to consider the next byte in the
+                          ; attribute file
+  CP $2D                  ; Is it 45 (INK 5: PAPER 5)?
+  JR Z,TITLESCREEN_6      ; If so, jump to consider the next byte in the
+                          ; attribute file
+  CP $24                  ; Is it 36 (INK 4: PAPER 4)?
+  JR Z,TITLESCREEN_6      ; If so, jump to consider the next byte in the
+                          ; attribute file
+  LD C,$00                ; C=0; this will be used as an offset from the
+                          ; triangle UDG base address (TRIANGLE0)
+  CP $08                  ; Is the attribute value 8 (INK 0: PAPER 1)?
+  JR Z,TITLESCREEN_4      ; Jump if so
+  CP $29                  ; Is it 41 (INK 1: PAPER 5)?
+  JR Z,TITLESCREEN_4      ; Jump if so
+  CP $2C                  ; Is it 44 (INK 4: PAPER 5)?
+  JR Z,TITLESCREEN_3      ; Jump if so
+  CP $05                  ; Is it 5 (INK 5: PAPER 0)?
+  JR Z,TITLESCREEN_4      ; Jump if so
+  LD C,$10                ; Set the triangle UDG offset to 16
+  JR TITLESCREEN_4
+TITLESCREEN_3:
+  LD A,$25                ; Change the attribute byte here from 44 (INK 4:
+  LD (DE),A               ; PAPER 5) to 37 (INK 5: PAPER 4)
+TITLESCREEN_4:
+  LD A,E                  ; Point HL at the triangle UDG to draw (TRIANGLE0,
+  AND $01                 ; TRIANGLE1, TRIANGLE2 or TRIANGLE3)
+  RLCA
+  RLCA
+  RLCA
+  OR C
+  LD C,A
+  LD B,$00
+  LD HL,TRIANGLE0
+  ADD HL,BC
+  PUSH DE                 ; Save the attribute file address briefly
+  BIT 0,D                 ; Set the zero flag if we're still in the top third
+                          ; of the attribute file
+  LD D,$40                ; Point DE at the top third of the display file
+  JR Z,TITLESCREEN_5      ; Jump if we're still in the top third of the
+                          ; attribute file
+  LD D,$48                ; Point DE at the middle third of the display file
+TITLESCREEN_5:
+  LD B,$08                ; There are eight pixel rows in a triangle UDG
+  CALL PRINTCHAR_0        ; Draw a triangle UDG on the screen
+  POP DE                  ; Restore the attribute file address to DE
+TITLESCREEN_6:
+  INC DE                  ; Point DE at the next byte in the attribute file
+  LD A,D                  ; Have we finished scanning the top two-thirds of the
+  CP $5A                  ; attribute file yet?
+  JP NZ,TITLESCREEN_2     ; If not, jump back to examine the next byte
+; Now check whether there is a joystick connected.
+  LD BC,$001F             ; B=0, C=31 (joystick port)
+  XOR A                   ; A=0
+TITLESCREEN_7:
+  IN E,(C)                ; Combine 256 readings of the joystick port in A; if
+  OR E                    ; no joystick is connected, some of these readings
+  DJNZ TITLESCREEN_7      ; will have bit 5 set
+  AND $20                 ; Is a joystick connected (bit 5 reset)?
+  JR NZ,TITLESCREEN_8     ; Jump if not
+  LD A,$01                ; Set the Kempston joystick indicator at JOYSTICK to
+  LD (JOYSTICK),A         ; 1
+; And finally, play the theme tune and check for keypresses.
+TITLESCREEN_8:
+  LD HL,THEMETUNE         ; Point HL at the theme tune data at THEMETUNE
+  CALL PLAYTUNE           ; Play the theme tune
+  JP NZ,STARTGAME         ; Start the game if ENTER, 0 or the fire button was
+                          ; pressed
+  XOR A                   ; Initialise the temporary game status buffer
+  LD (TEMPVAR),A          ; variable at TEMPVAR to 0; this will be used as an
+                          ; index for the message scrolled across the screen
+                          ; (see MSG_INTRO)
+TITLESCREEN_9:
+  CALL CYCLEATTRS         ; Cycle the INK and PAPER colours
+  LD HL,$5A60             ; Copy the attribute value 79 (INK 7: PAPER 1: BRIGHT
+  LD DE,$5A61             ; 1) into the row of 32 cells from (19,0) to (19,31)
+  LD BC,$001F             ; on the screen
+  LD (HL),$4F
+  LDIR
+  LD A,(TEMPVAR)          ; Pick up the message index from TEMPVAR
+  LD IX,MSG_INTRO         ; Point IX at the corresponding location in the
+  LD E,A                  ; message at MSG_INTRO
+  LD D,$00
+  ADD IX,DE
+  LD DE,$5060             ; Print 32 characters of the message at (19,0)
+  LD C,$20
+  CALL PRINTMSG
+  LD A,(TEMPVAR)          ; Prepare a value between 50 and 81 in A (for the
+  AND $1F                 ; routine at INTROSOUND)
+  ADD A,$32
+  CALL INTROSOUND         ; Make a sound effect
+  LD BC,$AFFE             ; Read keys H-J-K-L-ENTER and 6-7-8-9-0
+  IN A,(C)
+  AND $01                 ; Keep only bit 0 of the result (ENTER, 0)
+  CP $01                  ; Was ENTER or 0 pressed?
+  JR NZ,STARTGAME         ; Jump if so to start the game
+  LD A,(TEMPVAR)          ; Pick up the message index from TEMPVAR
+  INC A                   ; Increment it
+  CP $E0                  ; Set the zero flag if we've reached the end of the
+                          ; message
+  LD (TEMPVAR),A          ; Store the new message index at TEMPVAR
+  JR NZ,TITLESCREEN_9     ; Jump back unless we've finished scrolling the
+                          ; message across the screen
+  JP TITLESCREEN_1        ; Jump back to prepare the screen and play the theme
+                          ; tune again
+
+; Start the game
+;
+; Used by the routine at TITLESCREEN.
+STARTGAME:
+  LD HL,MSG_7AM           ; Initialise the time by copying the text at MSG_7AM
+  LD DE,MSG_CURTIME       ; (" 7:00a") to MSG_CURTIME
+  LD BC,$0006
+  LDIR
+  LD HL,ATTRSLOWER        ; Copy the attribute bytes from ATTRSLOWER to the
+  LD DE,$5A00             ; bottom third of the screen
+  LD BC,$0100
+  LDIR
+; This routine continues into the one at INITROOM.
+
+; Initialise the current room
+;
+; Used by the routines at ENDPAUSE (to teleport into a room), LOSELIFE (to
+; reinitialise the room after Willy has lost a life), ROOMLEFT (when Willy has
+; entered the room from the right), ROOMRIGHT (when Willy has entered the room
+; from the left), ROOMABOVE (when Willy has entered the room from below) and
+; ROOMBELOW (when Willy has entered the room from above). The routine at
+; STARTGAME also continues here.
+INITROOM:
+  LD A,(ROOM)             ; Pick up the current room number from ROOM
+  ADD A,ROOMS/$100        ; Point HL at the first byte of the room definition
+  LD H,A
+  LD L,$00
+  LD DE,ROOMLAYOUT        ; Copy the room definition into the game status
+  LD BC,$0100             ; buffer at 8000
+  LDIR
+  LD IX,ENTITIES          ; Point IX at the first byte of the first entity
+                          ; specification for the current room at ENTITIES
+  LD DE,ENTITYBUF         ; Point DE at the first byte of the first entity
+                          ; buffer at ENTITYBUF
+  LD A,$08                ; There are at most eight entities in a room
+INITROOM_0:
+  LD L,(IX+$00)           ; Pick up the first byte of the entity specification
+  RES 7,L                 ; Point HL at the corresponding entry in the table of
+  LD H,ENTITYDEFS/$800    ; entity definitions at ENTITYDEFS
+  ADD HL,HL
+  ADD HL,HL
+  ADD HL,HL
+  LD BC,$0002             ; Copy the first two bytes of the entity definition
+  LDIR                    ; into the entity buffer
+  LD C,(IX+$01)           ; Copy the second byte of the entity specification
+  LD (HL),C               ; into the third byte of the entity definition
+  LD BC,$0006             ; Copy the remaining six bytes of the entity
+  LDIR                    ; definition into the entity buffer
+  INC IX                  ; Point IX at the first byte of the next entity
+  INC IX                  ; specification
+  DEC A                   ; Have we copied all eight entity definitions into
+                          ; the entity buffers yet?
+  JR NZ,INITROOM_0        ; If not, jump back to copy the next one
+  LD HL,PIXEL_Y           ; Copy the seven bytes that define Willy's state
+  LD DE,INITSTATE         ; (position, animation frame etc.) on entry to this
+  LD BC,$0007             ; room from 85CF-85D5 to INITSTATE
+  LDIR
+  LD HL,$5000             ; Clear the bottom third of the display file
+  LD DE,$5001
+  LD BC,$07FF
+  LD (HL),$00
+  LDIR
+  LD IX,ROOMNAME          ; Print the room name (see ROOMNAME) at (16,0)
+  LD C,$20
+  LD DE,$5000
+  CALL PRINTMSG
+  LD IX,MSG_STATUS        ; Print "Items collected 000 Time 00:00 m" (see
+  LD DE,$5060             ; MSG_STATUS) at (19,0)
+  LD C,$20
+  CALL PRINTMSG
+  LD A,(BORDER)           ; Pick up the border colour for the current room from
+                          ; BORDER
+  LD C,$FE                ; Set the border colour
+  OUT (C),A
+  XOR A                   ; Initialise the rope status indicator at ROPE to 0
+  LD (ROPE),A
+  CALL DRAWROOM           ; Draw the current room to the screen buffer at RPIXL
+                          ; and the attribute buffer at RATTR
+  JP MAINLOOP             ; Enter the main loop
+
+; Draw the remaining lives
+;
+; Used by the routine at MAINLOOP.
+DRAWLIVES:
+  LD A,(LIVES)            ; Pick up the number of lives remaining from LIVES
+  LD HL,$50A0             ; Set HL to the display file address at which to draw
+                          ; the first Willy sprite
+  OR A                    ; Are there any lives remaining?
+  RET Z                   ; Return if not
+  LD B,A                  ; Initialise B to the number of lives remaining
+; The sprite-drawing loop begins.
+DRAWLIVES_0:
+  LD C,$00                ; C=0; this tells the sprite-drawing routine at
+                          ; DRAWSPRITE to overwrite any existing graphics
+  PUSH HL                 ; Save HL and BC briefly
+  PUSH BC
+  LD A,(NOTEINDEX)        ; Pick up the in-game music note index from
+                          ; NOTEINDEX; this will determine the animation frame
+                          ; for the Willy sprites
+  RLCA                    ; Now A=0 (frame 0), 32 (frame 1), 64 (frame 2) or 96
+  RLCA                    ; (frame 3)
+  RLCA
+  AND $60
+  LD E,A                  ; Point DE at the corresponding Willy sprite (at
+  LD D,MANDAT/256         ; MANDAT+A)
+  CALL DRAWSPRITE         ; Draw the Willy sprite on the screen
+  POP BC                  ; Restore HL and BC
+  POP HL
+  INC HL                  ; Move HL along to the location at which to draw the
+  INC HL                  ; next Willy sprite
+  DJNZ DRAWLIVES_0        ; Jump back to draw any remaining sprites
+  RET
+
+; Main loop (1)
+;
+; Used by the routines at STARTGAME and ENDPAUSE.
+MAINLOOP:
+  CALL DRAWLIVES          ; Draw the remaining lives
+  LD HL,RATTR             ; Copy the contents of the attribute buffer at RATTR
+  LD DE,FATTR             ; (the attributes for the empty room) into the
+  LD BC,$0200             ; attribute buffer at FATTR
+  LDIR
+  LD HL,RPIXL             ; Copy the contents of the screen buffer at RPIXL
+  LD DE,FPIXL             ; (the tiles for the empty room) into the screen
+  LD BC,$1000             ; buffer at FPIXL
+  LDIR
+  CALL MOVETHINGS         ; Move the rope and guardians in the current room
+  LD A,(MODE)             ; Pick up the game mode indicator from MODE
+  CP $03                  ; Is Willy's head down the toilet?
+  CALL NZ,MOVEWILLY       ; If not, move Willy
+AFTERMOVE1:
+  LD A,(PIXEL_Y)          ; Pick up Willy's pixel y-coordinate from PIXEL_Y
+  CP $E1                  ; Has Willy just moved up a ramp or a rope past the
+                          ; top of the screen?
+  CALL NC,ROOMABOVE       ; If so, move Willy into the room above
+AFTERMOVE2:
+  LD A,(MODE)             ; Pick up the game mode indicator from MODE
+  CP $03                  ; Is Willy's head down the toilet?
+  CALL NZ,WILLYATTRS      ; If not, check and set the attribute bytes for
+                          ; Willy's sprite in the buffer at FATTR, and draw
+                          ; Willy to the screen buffer at FPIXL
+  LD A,(MODE)             ; Pick up the game mode indicator from MODE
+  CP $02                  ; Is Willy on his way to the toilet?
+  CALL Z,CHKTOILET        ; If so, check whether he's reached it yet
+  CALL BEDANDBATH         ; Deal with special rooms (Master Bedroom, The
+                          ; Bathroom)
+  CALL DRAWTHINGS         ; Draw the rope, arrows and guardians in the current
+                          ; room
+  CALL MVCONVEYOR         ; Move the conveyor in the current room (if there is
+                          ; one)
+  CALL DRAWITEMS          ; Draw the items in the current room (if there are
+                          ; any) and collect any that Willy is touching
+; This entry point is used by the routine at KILLWILLY.
+MAINLOOP_0:
+  LD HL,FPIXL             ; Copy the contents of the screen buffer at FPIXL to
+  LD DE,$4000             ; the display file
+  LD BC,$1000
+  LDIR
+  LD HL,FATTR             ; Copy the contents of the attribute buffer at FATTR
+  LD DE,$5800             ; to the attribute file
+  LD BC,$0200
+  LDIR
+  LD A,(MODE)             ; Pick up the game mode indicator from MODE
+  AND $02                 ; Now A=1 if Willy is running to the toilet or
+  RRCA                    ; already has his head down it, 0 otherwise
+  LD HL,FRAME             ; Set Willy's animation frame at FRAME to 1 or 3 if
+  OR (HL)                 ; Willy is running to the toilet or already has his
+  LD (HL),A               ; head down it; this has the effect of moving Willy
+                          ; at twice his normal speed as he makes his way to
+                          ; the toilet (using animation frames 2 and 0)
+  LD IX,MSG_CURTIME       ; Print the current time (see MSG_CURTIME) at (19,25)
+  LD DE,$5079
+  LD C,$06
+  CALL PRINTMSG
+  LD IX,MSG_ITEMS         ; Print the number of items collected (see MSG_ITEMS)
+  LD DE,$5070             ; at (19,16)
+  LD C,$03
+  CALL PRINTMSG
+  LD A,(TICKS)            ; Increment the minute counter at TICKS
+  INC A
+  LD (TICKS),A
+  JR NZ,MAINLOOP_3        ; Jump unless the minute counter has ticked over to 0
+; A minute of game time has passed. Update the game clock accordingly.
+  LD IX,MSG_CURTIME       ; Point IX at the current time at MSG_CURTIME
+  INC (IX+$04)            ; Increment the units digit of the minute
+  LD A,(IX+$04)           ; Pick up the new units digit
+  CP $3A                  ; Was it '9' before?
+  JR NZ,MAINLOOP_3        ; Jump if not
+  LD (IX+$04),$30         ; Set the units digit of the minute to '0'
+  INC (IX+$03)            ; Increment the tens digit of the minute
+  LD A,(IX+$03)           ; Pick up the new tens digit
+  CP $36                  ; Was it '5' before?
+  JR NZ,MAINLOOP_3        ; Jump if not
+  LD (IX+$03),$30         ; Set the tens digit of the minute to '0'
+  LD A,(IX+$00)           ; Pick up the tens digit of the hour
+  CP $31                  ; Is it currently '1'?
+  JR NZ,MAINLOOP_2        ; Jump if not
+  INC (IX+$01)            ; Increment the units digit of the hour
+  LD A,(IX+$01)           ; Pick up the new units digit
+  CP $33                  ; Was it '2' before?
+  JR NZ,MAINLOOP_3        ; Jump if not
+  LD A,(IX+$05)           ; Pick up the 'a' or 'p' of 'am/pm'
+  CP $70                  ; Is it 'p'?
+  JP Z,TITLESCREEN        ; If so, quit the game (it's 1am)
+  LD (IX+$00),$20         ; Set the tens digit of the hour to ' ' (space)
+  LD (IX+$01),$31         ; Set the units digit of the hour to '1'
+  LD (IX+$05),$70         ; Change the 'a' of 'am' to 'p'
+  JR MAINLOOP_3
+MAINLOOP_2:
+  INC (IX+$01)            ; Increment the units digit of the hour
+  LD A,(IX+$01)           ; Pick up the new units digit
+  CP $3A                  ; Was it '9' before?
+  JR NZ,MAINLOOP_3        ; Jump if not
+  LD (IX+$01),$30         ; Set the units digit of the hour to '0'
+  LD (IX+$00),$31         ; Set the tens digit of the hour to '1'
+; Now check whether any non-movement keys are being pressed.
+MAINLOOP_3:
+  LD BC,$FEFE             ; Read keys SHIFT-Z-X-C-V
+  IN A,(C)
+  LD E,A                  ; Save the result in E
+  LD B,$7F                ; Read keys B-N-M-SS-SPACE
+  IN A,(C)
+  OR E                    ; Combine the results
+  AND $01                 ; Are SHIFT and SPACE being pressed?
+  JP Z,TITLESCREEN        ; If so, quit the game
+  LD A,(INACTIVE)         ; Increment the inactivity timer at INACTIVE
+  INC A
+  LD (INACTIVE),A
+  JR Z,PAUSE              ; Jump if the inactivity timer is now 0 (no keys have
+                          ; been pressed for a while)
+  LD B,$FD                ; Read keys A-S-D-F-G
+  IN A,(C)
+  AND $1F                 ; Are any of these keys being pressed?
+  CP $1F
+  JR Z,ENDPAUSE_0         ; Jump if not
+  LD DE,$0000             ; Prepare the delay counters in D and E for the pause
+                          ; loop that follows
+; The following loop pauses the game until any key except A, S, D, F or G is
+; pressed.
+PAUSE:
+  LD B,$02                ; Read every half-row of keys except A-S-D-F-G
+  IN A,(C)
+  AND $1F                 ; Are any of these keys being pressed?
+  CP $1F
+SEE39936:
+  JR NZ,ENDPAUSE          ; If so, resume the game
+  INC E                   ; Increment the delay counter in E
+  JR NZ,PAUSE             ; Jump back unless it's zero
+  INC D                   ; Increment the delay counter in D
+  JR NZ,PAUSE             ; Jump back unless it's zero
+  LD A,(TELEPORT)         ; Pick up the WRITETYPER key counter from TELEPORT
+  CP $0A                  ; Has WRITETYPER been keyed in yet?
+  CALL NZ,CYCLEATTRS      ; If not, cycle the INK and PAPER colours
+  JR PAUSE                ; Jump back to the beginning of the pause loop
+
+; Cycle the INK and PAPER colours
+;
+; Used by the routines at TITLESCREEN (while scrolling the instructions across
+; the screen) and MAINLOOP (while the game is paused).
+CYCLEATTRS:
+  LD HL,$5800             ; Point HL at the first byte of the attribute file
+  LD A,(HL)               ; Pick up this byte
+  AND $07                 ; Keep only bits 0-2 (the INK colour)
+  OUT ($FE),A             ; Set the border colour to match
+; Now we loop over every byte in the attribute file.
+CYCLEATTRS_0:
+  LD A,(HL)               ; Pick up an attribute file byte
+  ADD A,$03               ; Cycle the INK colour forward by three
+  AND $07
+  LD D,A                  ; Save the new INK colour in D
+  LD A,(HL)               ; Pick up the attribute file byte again
+  ADD A,$18               ; Cycle the PAPER colour forward by three (and turn
+  AND $B8                 ; off any BRIGHT colours)
+  OR D                    ; Merge in the new INK colour
+  LD (HL),A               ; Save the new attribute byte
+  INC HL                  ; Point HL at the next byte in the attribute file
+  LD A,H                  ; Have we reached the end of the attribute file yet?
+  CP $5B
+  JR NZ,CYCLEATTRS_0      ; If not, jump back to modify the next byte
+  RET
+
+; Main loop (2)
+;
+; Used by the routine at MAINLOOP. The main entry point is used when resuming
+; the game after it has been paused.
+ENDPAUSE:
+  LD HL,ATTRSLOWER        ; Copy the attribute bytes from ATTRSLOWER to the
+  LD DE,$5A00             ; bottom third of the screen
+  LD BC,$0100
+  LDIR
+  LD A,(BORDER)           ; Pick up the border colour for the current room from
+                          ; BORDER
+  OUT ($FE),A             ; Restore the border colour
+; This entry point is used by the routine at MAINLOOP.
+ENDPAUSE_0:
+  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
+  CP $FF                  ; Has Willy landed after falling from too great a
+                          ; height, or collided with a nasty, an arrow, a
+                          ; guardian, or Maria?
+  JP Z,LOSELIFE           ; If so, lose a life
+; Now read the keys H, J, K, L and ENTER (which toggle the in-game music).
+  LD B,$BF                ; Prepare B for reading keys H-J-K-L-ENTER
+  LD HL,MUSICFLAGS        ; Point HL at the music flags at MUSICFLAGS
+  IN A,(C)                ; Read keys H-J-K-L-ENTER; note that if the game has
+                          ; just resumed after being paused, C holds 0 instead
+                          ; of 254, which is a bug
+  AND $1F                 ; Are any of these keys being pressed?
+  CP $1F
+  JR Z,ENDPAUSE_1         ; Jump if not
+  BIT 0,(HL)              ; Were any of these keys being pressed the last time
+                          ; we checked?
+  JR NZ,ENDPAUSE_2        ; Jump if so
+  LD A,(HL)               ; Set bit 0 (the keypress flag) and flip bit 1 (the
+  XOR $03                 ; in-game music flag) at MUSICFLAGS
+  LD (HL),A
+  JR ENDPAUSE_2
+ENDPAUSE_1:
+  RES 0,(HL)              ; Reset bit 0 (the keypress flag) at MUSICFLAGS
+ENDPAUSE_2:
+  BIT 1,(HL)              ; Has the in-game music been switched off?
+  JR NZ,ENDPAUSE_5        ; Jump if so
+; The next section of code plays a note of the in-game music.
+  XOR A                   ; Reset the inactivity timer at INACTIVE (the game
+  LD (INACTIVE),A         ; does not automatically pause after a period of
+                          ; inactivity if the in-game music is playing)
+  LD A,(NOTEINDEX)        ; Increment the in-game music note index at NOTEINDEX
+  INC A
+  LD (NOTEINDEX),A
+  AND $7E                 ; Point HL at the appropriate entry in the tune data
+  RRCA                    ; table at GAMETUNE
+  LD E,A
+  LD D,$00
+  LD HL,GAMETUNE
+  ADD HL,DE
+  LD A,(LIVES)            ; Pick up the number of lives remaining (0-7) from
+                          ; LIVES
+  RLCA                    ; A=28-4A; this value adjusts the pitch of the note
+  RLCA                    ; that is played depending on how many lives are
+  SUB $1C                 ; remaining (the more lives remaining, the higher the
+  NEG                     ; pitch)
+  ADD A,(HL)              ; Add the entry from the tune data table for the
+                          ; current note
+  LD D,A                  ; Copy this value to D (which determines the pitch of
+                          ; the note)
+  LD A,(BORDER)           ; Pick up the border colour for the current room from
+                          ; BORDER
+  LD E,D                  ; Initialise the pitch delay counter in E
+  LD BC,$0003             ; Initialise the duration delay counters in B (0) and
+                          ; C (3)
+ENDPAUSE_3:
+  OUT ($FE),A             ; Produce a note of the in-game music
+  DEC E
+  JR NZ,ENDPAUSE_4
+  LD E,D
+  XOR $18
+ENDPAUSE_4:
+  DJNZ ENDPAUSE_3
+  DEC C
+  JR NZ,ENDPAUSE_3
+; Here we check the teleport keys.
+ENDPAUSE_5:
+  LD BC,$EFFE             ; Read keys 6-7-8-9-0
+  IN A,(C)
+  BIT 1,A                 ; Is '9' (the activator key) being pressed?
+  JP NZ,ENDPAUSE_6        ; Jump if not
+  AND $10                 ; Keep only bit 4 (corresponding to the '6' key),
+  XOR $10                 ; flip it, and move it into bit 5
+  RLCA
+  LD D,A                  ; Now bit 5 of D is set if '6' is being pressed
+  LD A,(TELEPORT)         ; Pick up the WRITETYPER key counter from TELEPORT
+  CP $0A                  ; Has WRITETYPER been keyed in yet?
+  JP NZ,ENDPAUSE_6        ; Jump if not
+  LD BC,$F7FE             ; Read keys 1-2-3-4-5
+  IN A,(C)
+  CPL                     ; Keep only bits 0-4 and flip them
+  AND $1F
+  OR D                    ; Copy bit 5 of D into A; now A holds the number of
+                          ; the room to teleport to
+  LD (ROOM),A             ; Store the room number at ROOM
+  JP INITROOM             ; Teleport into the room
+; Finally, check the WRITETYPER keys.
+ENDPAUSE_6:
+  LD A,(TELEPORT)         ; Pick up the WRITETYPER key counter from TELEPORT
+  CP $0A                  ; Has WRITETYPER been keyed in yet?
+  JP Z,MAINLOOP           ; If so, jump back to the start of the main loop
+  LD A,(ROOM)             ; Pick up the current room number from ROOM
+  CP $1C                  ; Are we in First Landing?
+  JP NZ,MAINLOOP          ; If not, jump back to the start of the main loop
+  LD A,(PIXEL_Y)          ; Pick up Willy's pixel y-coordinate from PIXEL_Y
+  CP $D0                  ; Is Willy on the floor at the bottom of the
+                          ; staircase?
+  JP NZ,MAINLOOP          ; If not, jump back to the start of the main loop
+  LD A,(TELEPORT)         ; Pick up the WRITETYPER key counter (0-9) from
+                          ; TELEPORT
+  RLCA                    ; Point IX at the corresponding entry in the
+  LD E,A                  ; WRITETYPER table at WRITETYPER
+  LD D,$00
+  LD IX,WRITETYPER
+  ADD IX,DE
+  LD BC,$FBFE             ; Read keys Q-W-E-R-T
+  IN A,(C)
+  AND $1F                 ; Keep only bits 0-4
+  CP (IX+$00)             ; Does this match the first byte of the entry in the
+                          ; WRITETYPER table?
+  JR Z,ENDPAUSE_7         ; Jump if so
+  CP $1F                  ; Are any of the keys Q-W-E-R-T being pressed?
+  JP Z,MAINLOOP           ; If not, jump back to the start of the main loop
+  CP (IX-$02)             ; Does the keyboard reading match the first byte of
+                          ; the previous entry in the WRITETYPER table?
+  JP Z,MAINLOOP           ; If so, jump back to the start of the main loop
+  XOR A                   ; Reset the WRITETYPER key counter at TELEPORT to 0
+  LD (TELEPORT),A         ; (an incorrect key was pressed)
+  JP MAINLOOP             ; Jump back to the start of the main loop
+ENDPAUSE_7:
+  LD B,$DF                ; Read keys Y-U-I-O-P
+  IN A,(C)
+  AND $1F                 ; Keep only bits 0-4
+  CP (IX+$01)             ; Does this match the second byte of the entry in the
+                          ; WRITETYPER table?
+  JR Z,ENDPAUSE_8         ; If so, jump to increment the WRITETYPER key counter
+  CP $1F                  ; Are any of the keys Y-U-I-O-P being pressed?
+  JP Z,MAINLOOP           ; If not, jump back to the start of the main loop
+  CP (IX-$01)             ; Does the keyboard reading match the second byte of
+                          ; the previous entry in the WRITETYPER table?
+  JP Z,MAINLOOP           ; If so, jump back to the start of the main loop
+  XOR A                   ; Reset the WRITETYPER key counter at TELEPORT to 0
+  LD (TELEPORT),A         ; (an incorrect key was pressed)
+  JP MAINLOOP             ; Jump back to the start of the main loop
+ENDPAUSE_8:
+  LD A,(TELEPORT)         ; Increment the WRITETYPER key counter at TELEPORT
+  INC A
+  LD (TELEPORT),A
+  JP MAINLOOP             ; Jump back to the start of the main loop
+
+; Lose a life
+;
+; Used by the routine at ENDPAUSE.
+LOSELIFE:
+  LD A,$47                ; A=71 (INK 7: PAPER 0: BRIGHT 1)
+; The following loop fills the top two thirds of the attribute file with a
+; single value (71 TO 64 STEP -1) and makes a sound effect.
+LOSELIFE_0:
+  LD HL,$5800             ; Fill the top two thirds of the attribute file with
+  LD DE,$5801             ; the value in A
+  LD BC,$01FF
+  LD (HL),A
+  LDIR
+  LD E,A                  ; Save the attribute byte (64-71) in E for later
+                          ; retrieval
+  CPL                     ; D=63-8*(E AND 7); this value determines the pitch
+  AND $07                 ; of the short note that will be played
+  RLCA
+  RLCA
+  RLCA
+  OR $07
+  LD D,A
+  LD C,E                  ; C=8+32*(E AND 7); this value determines the
+  RRC C                   ; duration of the short note that will be played
+  RRC C
+  RRC C
+  OR $10                  ; Set bit 4 of A (for no apparent reason)
+  XOR A                   ; Set A=0 (this will make the border black)
+LOSELIFE_1:
+  OUT ($FE),A             ; Produce a short note whose pitch is determined by D
+  XOR $18                 ; and whose duration is determined by C
+  LD B,D
+LOSELIFE_2:
+  DJNZ LOSELIFE_2
+  DEC C
+  JR NZ,LOSELIFE_1
+  LD A,E                  ; Restore the attribute byte (originally 71) to A
+  DEC A                   ; Decrement it (effectively decrementing the INK
+                          ; colour)
+  CP $3F                  ; Have we used attribute value 64 (INK 0) yet?
+  JR NZ,LOSELIFE_0        ; If not, jump back to update the INK colour in the
+                          ; top two thirds of the screen and make another sound
+                          ; effect
+; Now check whether any lives remain.
+  LD HL,LIVES             ; Pick up the number of lives remaining from LIVES
+  LD A,(HL)
+  OR A                    ; Are there any lives remaining?
+  JP Z,GAMEOVER           ; If not, display the game over sequence
+  DEC (HL)                ; Decrease the number of lives remaining by one
+  LD HL,INITSTATE         ; Restore Willy's state upon entry to the room by
+  LD DE,PIXEL_Y           ; copying the seven bytes at INITSTATE back into
+  LD BC,$0007             ; 85CF-85D5
+  LDIR
+  JP INITROOM             ; Reinitialise the room and resume the game
+
+; Display the game over sequence
+;
+; Used by the routine at LOSELIFE.
+GAMEOVER:
+  LD HL,$4000             ; Clear the top two-thirds of the display file
+  LD DE,$4001
+  LD BC,$0FFF
+  LD (HL),$00
+  LDIR
+  XOR A                   ; Initialise the temporary game status buffer
+  LD (TEMPVAR),A          ; variable at TEMPVAR; this variable will determine
+                          ; the distance of the foot from the top of the screen
+  LD DE,WILLYR2           ; Draw Willy at (12,15)
+  LD HL,$488F
+  LD C,$00
+  CALL DRAWSPRITE
+  LD DE,BARREL            ; Draw the barrel underneath Willy at (14,15)
+  LD HL,$48CF
+  LD C,$00
+  CALL DRAWSPRITE
+; The following loop draws the foot's descent onto the barrel that supports
+; Willy.
+GAMEOVER_0:
+  LD A,(TEMPVAR)          ; Pick up the distance variable from TEMPVAR
+  LD C,A                  ; Point BC at the corresponding entry in the screen
+  LD B,SBUFADDRS/256      ; buffer address lookup table at SBUFADDRS
+  LD A,(BC)               ; Point HL at the corresponding location in the
+  OR $0F                  ; display file
+  LD L,A
+  INC BC
+  LD A,(BC)
+  SUB FPIXL/$100-$40
+  LD H,A
+  LD DE,FOOT              ; Draw the foot at this location, without erasing the
+  LD C,$00                ; foot at the previous location; this leaves the
+  CALL DRAWSPRITE         ; portion of the foot sprite that's above the ankle
+                          ; in place, and makes the foot appear as if it's at
+                          ; the end of a long, extending leg
+  LD A,(TEMPVAR)          ; Pick up the distance variable from TEMPVAR
+  CPL                     ; A=255-A
+  LD E,A                  ; Store this value (63-255) in E; it determines the
+                          ; (rising) pitch of the sound effect that will be
+                          ; made
+  XOR A                   ; A=0 (black border)
+  LD BC,$0040             ; C=64; this value determines the duration of the
+                          ; sound effect
+GAMEOVER_1:
+  OUT ($FE),A             ; Produce a short note whose pitch is determined by E
+  XOR $18
+  LD B,E
+GAMEOVER_2:
+  DJNZ GAMEOVER_2
+  DEC C
+  JR NZ,GAMEOVER_1
+  LD HL,$5800             ; Prepare BC, DE and HL for setting the attribute
+  LD DE,$5801             ; bytes in the top two-thirds of the screen
+  LD BC,$01FF
+  LD A,(TEMPVAR)          ; Pick up the distance variable from TEMPVAR
+  AND $0C                 ; Keep only bits 2 and 3
+  RLCA                    ; Shift bits 2 and 3 into bits 3 and 4; these bits
+                          ; determine the PAPER colour: 0, 1, 2 or 3
+  OR $47                  ; Set bits 0-2 (INK 7) and 6 (BRIGHT 1)
+  LD (HL),A               ; Copy this attribute value into the top two-thirds
+  LDIR                    ; of the screen
+  AND $FA                 ; Reset bits 0 and 2, and retain all other bits
+  OR $02                  ; Set bit 1 (INK 2)
+  LD ($59CF),A            ; Copy this attribute value to the cells at (14,15),
+  LD ($59D0),A            ; (14,16), (15, 15) and (15, 16) (where the barrel
+  LD ($59EF),A            ; is, so that it remains red)
+  LD ($59F0),A
+  LD A,(TEMPVAR)          ; Add 4 to the distance variable at TEMPVAR; this
+  ADD A,$04               ; will move the foot sprite down two pixel rows
+  LD (TEMPVAR),A
+  CP $C4                  ; Has the foot met the barrel yet?
+  JR NZ,GAMEOVER_0        ; Jump back if not
+; Now print the "Game Over" message, just to drive the point home.
+  LD IX,MSG_GAME          ; Print "Game" (see MSG_GAME) at (6,10)
+  LD C,$04
+  LD DE,$40CA
+  CALL PRINTMSG
+  LD IX,MSG_OVER          ; Print "Over" (see MSG_OVER) at (6,18)
+  LD C,$04
+  LD DE,$40D2
+  CALL PRINTMSG
+  LD BC,$0000             ; Prepare the delay counters for the following loop;
+  LD D,$06                ; the counter in C will also determine the INK
+                          ; colours to use for the "Game Over" message
+; The following loop makes the "Game Over" message glisten for about 1.57s.
+GAMEOVER_3:
+  DJNZ GAMEOVER_3         ; Delay for about a millisecond
+  LD A,C                  ; Change the INK colour of the "G" in "Game" at
+  AND $07                 ; (6,10)
+  OR $40
+  LD ($58CA),A
+  INC A                   ; Change the INK colour of the "a" in "Game" at
+  AND $07                 ; (6,11)
+  OR $40
+  LD ($58CB),A
+  INC A                   ; Change the INK colour of the "m" in "Game" at
+  AND $07                 ; (6,12)
+  OR $40
+  LD ($58CC),A
+  INC A                   ; Change the INK colour of the "e" in "Game" at
+  AND $07                 ; (6,13)
+  OR $40
+  LD ($58CD),A
+  INC A                   ; Change the INK colour of the "O" in "Over" at
+  AND $07                 ; (6,18)
+  OR $40
+  LD ($58D2),A
+  INC A                   ; Change the INK colour of the "v" in "Over" at
+  AND $07                 ; (6,19)
+  OR $40
+  LD ($58D3),A
+  INC A                   ; Change the INK colour of the "e" in "Over" at
+  AND $07                 ; (6,20)
+  OR $40
+  LD ($58D4),A
+  INC A                   ; Change the INK colour of the "r" in "Over" at
+  AND $07                 ; (6,21)
+  OR $40
+  LD ($58D5),A
+  DEC C                   ; Decrement the counter in C
+  JR NZ,GAMEOVER_3        ; Jump back unless it's zero
+  DEC D                   ; Decrement the counter in D (initially 6)
+  JR NZ,GAMEOVER_3        ; Jump back unless it's zero
+  JP TITLESCREEN          ; Display the title screen and play the theme tune
+
+; Draw the current room to the screen buffer at 7000
+;
+; Used by the routine at STARTGAME.
+DRAWROOM:
+  CALL ROOMATTRS          ; Fill the buffer at RATTR with attribute bytes for
+                          ; the current room
+  LD IX,RATTR             ; Point IX at the first byte of the attribute buffer
+                          ; at RATTR
+  LD A,RPIXL/$100         ; Set the operand of the 'LD D,n' instruction at
+  LD (BUFMSB+1),A         ; BUFMSB (below) to $70
+  CALL DRAWROOM_0         ; Draw the tiles for the top half of the room to the
+                          ; screen buffer at RPIXL
+  LD A,RPIXL/$100+$08     ; Set the operand of the 'LD D,n' instruction at
+  LD (BUFMSB+1),A         ; BUFMSB (below) to $78
+DRAWROOM_0:
+  LD C,$00                ; C will count 256 tiles
+; The following loop draws 256 tiles (for either the top half or the bottom
+; half of the room) to the screen buffer at RPIXL.
+DRAWROOM_1:
+  LD E,C                  ; E holds the LSB of the screen buffer address
+  LD A,(IX+$00)           ; Pick up an attribute byte from the buffer at RATTR;
+                          ; this identifies the type of tile (background,
+                          ; floor, wall, nasty, ramp or conveyor) to be drawn
+  LD HL,BACKGROUND        ; Move HL through the attribute bytes and graphic
+  LD BC,$0036             ; data of the background, floor, wall, nasty, ramp
+  CPIR                    ; and conveyor tiles starting at BACKGROUND until we
+                          ; find a byte that matches the attribute byte of the
+                          ; tile to be drawn; note that if a graphic data byte
+                          ; matches the attribute byte being searched for, the
+                          ; CPIR instruction can exit early, which is a bug
+  LD C,E                  ; Restore the value of the tile counter in C
+  LD B,$08                ; There are eight bytes in the tile
+BUFMSB:
+  LD D,$00                ; This instruction is set to either 'LD D,$70' or 'LD
+                          ; D,$78' above; now DE holds the appropriate address
+                          ; in the screen buffer at RPIXL
+DRAWROOM_2:
+  LD A,(HL)               ; Copy the tile graphic data to the screen buffer at
+  LD (DE),A               ; RPIXL
+  INC HL
+  INC D
+  DJNZ DRAWROOM_2
+  INC IX                  ; Move IX along to the next byte in the attribute
+                          ; buffer
+  INC C                   ; Have we drawn 256 tiles yet?
+  JP NZ,DRAWROOM_1        ; If not, jump back to draw the next one
+  RET
+
+; Fill the buffer at 5E00 with attribute bytes for the current room
+;
+; Used by the routine at DRAWROOM. Fills the buffer at RATTR with attribute
+; bytes for the background, floor, wall, nasty, conveyor and ramp tiles in the
+; current room.
+ROOMATTRS:
+  LD HL,ROOMLAYOUT        ; Point HL at the first room layout byte at
+                          ; ROOMLAYOUT
+  LD IX,RATTR             ; Point IX at the first byte of the attribute buffer
+                          ; at RATTR
+; The following loop copies the attribute bytes for the background, floor, wall
+; and nasty tiles into the buffer at RATTR.
+ROOMATTRS_0:
+  LD A,(HL)               ; Pick up a room layout byte
+  RLCA                    ; Move bits 6 and 7 into bits 0 and 1
+  RLCA
+  CALL ROOMATTR           ; Copy the attribute byte for this tile into the
+                          ; buffer at RATTR
+  LD A,(HL)               ; Pick up the room layout byte again
+  RRCA                    ; Move bits 4 and 5 into bits 0 and 1
+  RRCA
+  RRCA
+  RRCA
+  CALL ROOMATTR           ; Copy the attribute byte for this tile into the
+                          ; buffer at RATTR
+  LD A,(HL)               ; Pick up the room layout byte again
+  RRCA                    ; Move bits 2 and 3 into bits 0 and 1
+  RRCA
+  CALL ROOMATTR           ; Copy the attribute byte for this tile into the
+                          ; buffer at RATTR
+  LD A,(HL)               ; Pick up the room layout byte again; this time the
+                          ; required bit-pair is already in bits 0 and 1
+  CALL ROOMATTR           ; Copy the attribute byte for this tile into the
+                          ; buffer at RATTR
+  INC HL                  ; Point HL at the next room layout byte
+  LD A,L                  ; Have we processed all 128 room layout bytes yet?
+  AND $80
+  JR Z,ROOMATTRS_0        ; If not, jump back to process the next one
+; Next consider the conveyor tiles (if any).
+  LD A,(CONVLEN)          ; Pick up the length of the conveyor from CONVLEN
+  OR A                    ; Is there a conveyor in the room?
+  JR Z,ROOMATTRS_2        ; Jump if not
+  LD HL,(CONVLOC)         ; Pick up the address of the conveyor's location in
+                          ; the attribute buffer at RATTR from CONVLOC
+  LD B,A                  ; B will count the conveyor tiles
+  LD A,(CONVEYOR)         ; Pick up the attribute byte for the conveyor tile
+                          ; from CONVEYOR
+ROOMATTRS_1:
+  LD (HL),A               ; Copy the attribute bytes for the conveyor tiles
+  INC HL                  ; into the buffer at RATTR
+  DJNZ ROOMATTRS_1
+; And finally consider the ramp tiles (if any).
+ROOMATTRS_2:
+  LD A,(RAMPLEN)          ; Pick up the length of the ramp from RAMPLEN
+  OR A                    ; Is there a ramp in the room?
+  RET Z                   ; Return if not
+  LD HL,(RAMPLOC)         ; Pick up the address of the ramp's location in the
+                          ; attribute buffer at RATTR from RAMPLOC
+  LD A,(RAMPDIR)          ; Pick up the ramp direction from RAMPDIR; A=0 (ramp
+  AND $01                 ; goes up to the left) or 1 (ramp goes up to the
+                          ; right)
+  RLCA                    ; Now DE=-33 (ramp goes up to the left) or -31 (ramp
+  ADD A,$DF               ; goes up to the right)
+  LD E,A
+  LD D,$FF
+  LD A,(RAMPLEN)          ; Pick up the length of the ramp from RAMPLEN
+  LD B,A                  ; B will count the ramp tiles
+  LD A,(RAMP)             ; Pick up the attribute byte for the ramp tile from
+                          ; RAMP
+ROOMATTRS_3:
+  LD (HL),A               ; Copy the attribute bytes for the ramp tiles into
+  ADD HL,DE               ; the buffer at RATTR
+  DJNZ ROOMATTRS_3
+  RET
+
+; Copy a room attribute byte into the buffer at 5E00
+;
+; Used by the routine at ROOMATTRS. On entry, A holds a room layout byte,
+; rotated such that the bit-pair corresponding to the tile of interest is in
+; bits 0 and 1.
+;
+; A Room layout byte (rotated)
+; IX Attribute buffer address (5E00-5FFF)
+ROOMATTR:
+  AND $03                 ; Keep only bits 0 and 1; A=0 (background), 1
+                          ; (floor), 2 (wall) or 3 (nasty)
+  LD C,A                  ; Multiply by 9 and add 160; now A=160 (background),
+  RLCA                    ; 169 (floor), 178 (wall) or 187 (nasty)
+  RLCA
+  RLCA
+  ADD A,C
+  ADD A,$A0
+  LD E,A                  ; Point DE at the attribute byte for the background,
+  LD D,ROOMLAYOUT/256     ; floor, wall or nasty tile (see BACKGROUND)
+  LD A,(DE)               ; Copy the attribute byte into the buffer at RATTR
+  LD (IX+$00),A
+  INC IX                  ; Move IX along to the next byte in the attribute
+                          ; buffer
+  RET
+
+; Move Willy (1)
+;
+; Used by the routine at MAINLOOP. This routine deals with Willy if he's
+; jumping or falling.
+MOVEWILLY:
+  LD A,(ROPE)             ; Pick up the rope status indicator from ROPE
+  DEC A                   ; Is Willy on a rope?
+  BIT 7,A
+  JP Z,MOVEWILLY2         ; Jump if so
+  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
+  CP $01                  ; Is Willy jumping?
+  JR NZ,MOVEWILLY_3       ; Jump if not
+; Willy is currently jumping.
+  LD A,(JUMPING)          ; Pick up the jumping animation counter (0-17) from
+                          ; JUMPING
+  AND $FE                 ; Discard bit 0
+  SUB $08                 ; Now -8<=A<=8 (and A is even)
+  LD HL,PIXEL_Y           ; Adjust Willy's pixel y-coordinate at PIXEL_Y
+  ADD A,(HL)              ; depending on where Willy is in the jump
+  LD (HL),A
+  CP $F0                  ; Is the new value negative (above the top of the
+                          ; screen)?
+  JP NC,ROOMABOVE         ; If so, move Willy into the room above
+  CALL MOVEWILLY_8        ; Adjust Willy's attribute buffer location at
+                          ; LOCATION depending on his pixel y-coordinate
+  LD A,(WALL)             ; Pick up the attribute byte of the wall tile for the
+                          ; current room from WALL
+  CP (HL)                 ; Is the top-left cell of Willy's sprite overlapping
+                          ; a wall tile?
+  JP Z,MOVEWILLY_11       ; Jump if so
+  INC HL                  ; Point HL at the top-right cell occupied by Willy's
+                          ; sprite
+  CP (HL)                 ; Is the top-right cell of Willy's sprite overlapping
+                          ; a wall tile?
+  JP Z,MOVEWILLY_11       ; Jump if so
+  LD A,(JUMPING)          ; Increment the jumping animation counter at JUMPING
+  INC A
+  LD (JUMPING),A
+  SUB $08                 ; A=J-8, where J (1-18) is the new value of the
+                          ; jumping animation counter
+  JP P,MOVEWILLY_0        ; Jump if J>=8
+  NEG                     ; A=8-J (1<=J<=7, 1<=A<=7)
+MOVEWILLY_0:
+  INC A                   ; A=1+ABS(J-8)
+  RLCA                    ; D=8*(1+ABS(J-8)); this value determines the pitch
+  RLCA                    ; of the jumping sound effect (rising as Willy rises,
+  RLCA                    ; falling as Willy falls)
+  LD D,A
+  LD C,$20                ; C=32; this value determines the duration of the
+                          ; jumping sound effect
+  LD A,(BORDER)           ; Pick up the border colour for the current room from
+                          ; BORDER
+MOVEWILLY_1:
+  OUT ($FE),A             ; Make a jumping sound effect
+  XOR $18
+  LD B,D
+MOVEWILLY_2:
+  DJNZ MOVEWILLY_2
+  DEC C
+  JR NZ,MOVEWILLY_1
+  LD A,(JUMPING)          ; Pick up the jumping animation counter (1-18) from
+                          ; JUMPING
+  CP $12                  ; Has Willy reached the end of the jump?
+  JP Z,MOVEWILLY_9        ; Jump if so
+  CP $10                  ; Is the jumping animation counter now 16?
+  JR Z,MOVEWILLY_3        ; Jump if so
+  CP $0D                  ; Is the jumping animation counter now 13?
+  JP NZ,MOVEWILLY3        ; Jump if not
+; If we get here, then Willy is standing on the floor or a ramp, or he's
+; falling, or his jumping animation counter is 13 (at which point Willy is on
+; his way down and is exactly two cell-heights above where he started the jump)
+; or 16 (at which point Willy is on his way down and is exactly one cell-height
+; above where he started the jump).
+MOVEWILLY_3:
+  LD A,(PIXEL_Y)          ; Pick up Willy's pixel y-coordinate from PIXEL_Y
+  AND $0E                 ; Is Willy either on a ramp, or occupying only four
+                          ; cells?
+  JR NZ,MOVEWILLY_4       ; Jump if not
+  LD HL,(LOCATION)        ; Pick up Willy's attribute buffer coordinates from
+                          ; LOCATION
+  LD DE,$0040             ; Point HL at the left-hand cell below Willy's sprite
+  ADD HL,DE
+  LD A,FATTR/$100+$02     ; Is this location below the floor of the current
+                          ; room?
+  CP H
+  JP Z,ROOMBELOW          ; If so, move Willy into the room below
+  LD A,(NASTY)            ; Pick up the attribute byte of the nasty tile for
+                          ; the current room from NASTY
+  CP (HL)                 ; Does the left-hand cell below Willy's sprite
+                          ; contain a nasty?
+  JR Z,MOVEWILLY_4        ; Jump if so
+  INC HL                  ; Point HL at the right-hand cell below Willy's
+                          ; sprite
+  LD A,(NASTY)            ; Pick up the attribute byte of the nasty tile for
+                          ; the current room from NASTY (again, redundantly)
+  CP (HL)                 ; Does the right-hand cell below Willy's sprite
+                          ; contain a nasty?
+  JR Z,MOVEWILLY_4        ; Jump if so
+  LD A,(BACKGROUND)       ; Pick up the attribute byte of the background tile
+                          ; for the current room from BACKGROUND
+  CP (HL)                 ; Set the zero flag if the right-hand cell below
+                          ; Willy's sprite is empty
+  DEC HL                  ; Point HL at the left-hand cell below Willy's sprite
+  JP NZ,MOVEWILLY2        ; Jump if the right-hand cell below Willy's sprite is
+                          ; not empty
+  CP (HL)                 ; Is the left-hand cell below Willy's sprite empty?
+  JP NZ,MOVEWILLY2        ; Jump if not
+MOVEWILLY_4:
+  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
+  CP $01                  ; Is Willy jumping?
+  JP Z,MOVEWILLY3         ; Jump if so
+; If we get here, then Willy is either in the process of falling or just about
+; to start falling.
+  LD HL,DMFLAGS           ; Reset bit 1 at DMFLAGS: Willy is not moving left or
+  RES 1,(HL)              ; right
+  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
+  OR A                    ; Is Willy already falling?
+  JP Z,MOVEWILLY_10       ; Jump if not
+  INC A                   ; Increment the airborne status indicator
+  CP $10                  ; Is it 16 now?
+  JR NZ,MOVEWILLY_5       ; Jump if not
+  LD A,$0C                ; Decrease the airborne status indicator from 16 to
+                          ; 12
+MOVEWILLY_5:
+  LD (AIRBORNE),A         ; Update the airborne status indicator at AIRBORNE
+  RLCA                    ; D=16*A; this value determines the pitch of the
+  RLCA                    ; falling sound effect
+  RLCA
+  RLCA
+  LD D,A
+  LD C,$20                ; C=32; this value determines the duration of the
+                          ; falling sound effect
+  LD A,(BORDER)           ; Pick up the border colour for the current room from
+                          ; BORDER
+MOVEWILLY_6:
+  OUT ($FE),A             ; Make a falling sound effect
+  XOR $18
+  LD B,D
+MOVEWILLY_7:
+  DJNZ MOVEWILLY_7
+  DEC C
+  JR NZ,MOVEWILLY_6
+  LD A,(PIXEL_Y)          ; Add 8 to Willy's pixel y-coordinate at PIXEL_Y;
+  ADD A,$08               ; this moves Willy downwards by 4 pixels
+  LD (PIXEL_Y),A
+; This entry point is used by the routine at DRAWTHINGS to update Willy's
+; attribute buffer location when he's on a rope.
+MOVEWILLY_8:
+  AND $F0                 ; L=16*Y, where Y is Willy's screen y-coordinate
+  LD L,A                  ; (0-14)
+  XOR A                   ; Clear A and the carry flag
+  RL L                    ; Now L=32*(Y-8*INT(Y/8)), and the carry flag is set
+                          ; if Willy is in the lower half of the room (Y>=8)
+  ADC A,FATTR/$100        ; H=92 or 93 (MSB of the address of Willy's location
+  LD H,A                  ; in the attribute buffer)
+  LD A,(LOCATION)         ; Pick up Willy's screen x-coordinate (0-30) from
+  AND $1F                 ; bits 0-4 at LOCATION
+  OR L                    ; Now L holds the LSB of Willy's attribute buffer
+  LD L,A                  ; address
+  LD (LOCATION),HL        ; Store Willy's updated attribute buffer location at
+                          ; LOCATION
+  RET
+; Willy has just finished a jump.
+MOVEWILLY_9:
+  LD A,$06                ; Set the airborne status indicator at AIRBORNE to 6:
+  LD (AIRBORNE),A         ; Willy will continue to fall unless he's landed on a
+                          ; wall or floor block
+  RET
+; Willy has just started falling.
+MOVEWILLY_10:
+  LD A,$02                ; Set the airborne status indicator at AIRBORNE to 2
+  LD (AIRBORNE),A
+  RET
+; The top-left or top-right cell of Willy's sprite is overlapping a wall tile.
+MOVEWILLY_11:
+  LD A,(PIXEL_Y)          ; Adjust Willy's pixel y-coordinate at PIXEL_Y so
+  ADD A,$10               ; that the top row of cells of his sprite is just
+  AND $F0                 ; below the wall tile
+  LD (PIXEL_Y),A
+  CALL MOVEWILLY_8        ; Adjust Willy's attribute buffer location at
+                          ; LOCATION to account for this new pixel y-coordinate
+  LD A,$02                ; Set the airborne status indicator at AIRBORNE to 2:
+  LD (AIRBORNE),A         ; Willy has started falling
+  LD HL,DMFLAGS           ; Reset bit 1 at DMFLAGS: Willy is not moving left or
+  RES 1,(HL)              ; right
+  RET
+
+; Move Willy (2)
+;
+; Used by the routine at MOVEWILLY. This routine checks the keyboard and
+; joystick.
+;
+; HL Attribute buffer address of the left-hand cell below Willy's sprite (if
+;    Willy is not on a rope)
+MOVEWILLY2:
+  LD E,$FF                ; Initialise E to 255 (all bits set); it will be used
+                          ; to hold keyboard and joystick readings
+  LD A,(ROPE)             ; Pick up the rope status indicator from ROPE
+  DEC A                   ; Is Willy on a rope?
+  BIT 7,A
+  JR Z,MOVEWILLY2_1       ; Jump if so
+  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
+  CP $0C                  ; Has Willy just landed after falling from too great
+                          ; a height?
+  JP NC,KILLWILLY_0       ; If so, kill him
+  XOR A                   ; Reset the airborne status indicator at AIRBORNE
+  LD (AIRBORNE),A         ; (Willy has landed safely)
+  LD A,(CONVEYOR)         ; Pick up the attribute byte of the conveyor tile for
+                          ; the current room from CONVEYOR
+  CP (HL)                 ; Does the attribute byte of the left-hand cell below
+                          ; Willy's sprite match that of the conveyor tile?
+  JR Z,MOVEWILLY2_0       ; Jump if so
+  INC HL                  ; Point HL at the right-hand cell below Willy's
+                          ; sprite
+  CP (HL)                 ; Does the attribute byte of the right-hand cell
+                          ; below Willy's sprite match that of the conveyor
+                          ; tile?
+  JR NZ,MOVEWILLY2_1      ; Jump if not
+MOVEWILLY2_0:
+  LD A,(CONVDIR)          ; Pick up the direction byte of the conveyor
+                          ; definition from CONVDIR (0=left, 1=right)
+  SUB $03                 ; Now E=253 (bit 1 reset) if the conveyor is moving
+  LD E,A                  ; left, or 254 (bit 0 reset) if it's moving right
+MOVEWILLY2_1:
+  LD BC,$DFFE             ; Read keys P-O-I-U-Y (right, left, right, left,
+  IN A,(C)                ; right) into bits 0-4 of A
+  AND $1F                 ; Set bit 5 and reset bits 6 and 7
+  OR $20
+  AND E                   ; Reset bit 0 if the conveyor is moving right, or bit
+                          ; 1 if it's moving left
+  LD E,A                  ; Save the result in E
+  LD A,(MODE)             ; Pick up the game mode indicator (0, 1 or 2) from
+                          ; MODE
+  AND $02                 ; Now A=1 if Willy is running to the toilet, 0
+  RRCA                    ; otherwise
+  XOR E                   ; Flip bit 0 of E if Willy is running to the toilet,
+  LD E,A                  ; forcing him to move right (unless he's jumped onto
+                          ; the bed, in which case bit 0 of E is now set,
+                          ; meaning that the conveyor does not move him, and
+                          ; the 'P' key has no effect; this is a bug)
+  LD BC,$FBFE             ; Read keys Q-W-E-R-T (left, right, left, right,
+  IN A,(C)                ; left) into bits 0-4 of A
+  AND $1F                 ; Keep only bits 0-4, shift them into bits 1-5, and
+  RLC A                   ; set bit 0
+  OR $01
+  AND E                   ; Merge this keyboard reading into bits 1-5 of E
+  LD E,A
+  LD B,$E7                ; Read keys 1-2-3-4-5 ('5' is left) and 0-9-8-7-6
+  IN A,(C)                ; (jump, nothing, right, right, left) into bits 0-4
+                          ; of A
+  RRCA                    ; Rotate the result right and set bits 0-2 and 4-7;
+  OR $F7                  ; this ignores every key except '5' and '6' (left)
+  AND E                   ; Merge this reading of the '5' and '6' keys into bit
+  LD E,A                  ; 3 of E
+  LD B,$EF                ; Read keys 0-9-8-7-6 (jump, nothing, right, right,
+  IN A,(C)                ; left) into bits 0-4 of A
+  OR $FB                  ; Set bits 0, 1 and 3-7; this ignores every key
+                          ; except '8' (right)
+  AND E                   ; Merge this reading of the '8' key into bit 2 of E
+  LD E,A
+  IN A,(C)                ; Read keys 0-9-8-7-6 (jump, nothing, right, right,
+                          ; left) into bits 0-4 of A
+  RRCA                    ; Rotate the result right and set bits 0, 1 and 3-7;
+  OR $FB                  ; this ignores every key except '7' (right)
+  AND E                   ; Merge this reading of the '7' key into bit 2 of E
+  LD E,A
+  LD A,(JOYSTICK)         ; Collect the Kempston joystick indicator from
+                          ; JOYSTICK
+  OR A                    ; Is the joystick connected?
+  JR Z,MOVEWILLY2_2       ; Jump if not
+  LD BC,$001F             ; Collect input from the joystick
+  IN A,(C)
+  AND $03                 ; Keep only bits 0 (right) and 1 (left) and flip them
+  CPL
+  AND E                   ; Merge this reading of the joystick right and left
+  LD E,A                  ; buttons into bits 0 and 1 of E
+; At this point, bits 0-5 in E indicate the direction in which Willy is being
+; moved or trying to move. If bit 0, 2 or 4 is reset, Willy is being moved or
+; trying to move right; if bit 1, 3 or 5 is reset, Willy is being moved or
+; trying to move left.
+MOVEWILLY2_2:
+  LD C,$00                ; Initialise C to 0 (no movement)
+  LD A,E                  ; Copy the movement bits into A
+  AND $2A                 ; Keep only bits 1, 3 and 5 (the 'left' bits)
+  CP $2A                  ; Are any of these bits reset?
+  JR Z,MOVEWILLY2_3       ; Jump if not
+  LD C,$04                ; Set bit 2 of C: Willy is moving left
+  XOR A                   ; Reset the inactivity timer at INACTIVE
+  LD (INACTIVE),A
+MOVEWILLY2_3:
+  LD A,E                  ; Copy the movement bits into A
+  AND $15                 ; Keep only bits 0, 2 and 4 (the 'right' bits)
+  CP $15                  ; Are any of these bits reset?
+  JR Z,MOVEWILLY2_4       ; Jump if not
+  SET 3,C                 ; Set bit 3 of C: Willy is moving right
+  XOR A                   ; Reset the inactivity timer at INACTIVE
+  LD (INACTIVE),A
+MOVEWILLY2_4:
+  LD A,(DMFLAGS)          ; Pick up Willy's direction and movement flags from
+                          ; DMFLAGS
+  ADD A,C                 ; Point HL at the entry in the left-right movement
+  LD C,A                  ; table at LRMOVEMENT that corresponds to the
+  LD B,$00                ; direction Willy is facing, and the direction in
+  LD HL,LRMOVEMENT        ; which he is being moved or trying to move
+  ADD HL,BC
+  LD A,(HL)               ; Update Willy's direction and movement flags at
+  LD (DMFLAGS),A          ; DMFLAGS with the entry from the left-right movement
+                          ; table
+; That is left-right movement taken care of. Now check the jump keys.
+  LD BC,$7EFE             ; Read keys SHIFT-Z-X-C-V and B-N-M-SS-SPACE
+  IN A,(C)
+  AND $1F                 ; Are any of these keys being pressed?
+  CP $1F
+  JR NZ,MOVEWILLY2_5      ; Jump if so
+  LD B,$EF                ; Read keys 6-7-8-9-0
+  IN A,(C)
+  BIT 0,A                 ; Is '0' being pressed?
+  JR Z,MOVEWILLY2_5       ; Jump if so
+  LD A,(JOYSTICK)         ; Collect the Kempston joystick indicator from
+                          ; JOYSTICK
+  OR A                    ; Is the joystick connected?
+  JR Z,MOVEWILLY3         ; Jump if not
+  LD BC,$001F             ; Collect input from the joystick
+  IN A,(C)
+  BIT 4,A                 ; Is the fire button being pressed?
+  JR Z,MOVEWILLY3         ; Jump if not
+; A jump key or the fire button is being pressed. Time to make Willy jump.
+MOVEWILLY2_5:
+  LD A,(MODE)             ; Pick up the game mode indicator from MODE
+  BIT 1,A                 ; Is Willy running to the toilet?
+  JR NZ,MOVEWILLY3        ; Jump if so
+  XOR A                   ; Initialise the jumping animation counter at JUMPING
+  LD (JUMPING),A          ; to 0
+  LD (INACTIVE),A         ; Reset the inactivity timer at INACTIVE
+  INC A                   ; Set the airborne status indicator at AIRBORNE to 1:
+  LD (AIRBORNE),A         ; Willy is jumping
+  LD A,(ROPE)             ; Pick up the rope status indicator from ROPE
+  DEC A                   ; Is Willy on a rope?
+  BIT 7,A
+  JR NZ,MOVEWILLY3        ; Jump if not
+  LD A,$F0                ; Set the rope status indicator at ROPE to 240
+  LD (ROPE),A
+  LD A,(PIXEL_Y)          ; Round down Willy's pixel y-coordinate at PIXEL_Y to
+  AND $F0                 ; the nearest multiple of 16; this might move him
+  LD (PIXEL_Y),A          ; upwards a little, but ensures that his actual pixel
+                          ; y-coordinate is a multiple of 8 (making his sprite
+                          ; cell-aligned) before he begins the jump off the
+                          ; rope
+  LD HL,DMFLAGS           ; Set bit 1 at DMFLAGS: during this jump off the
+  SET 1,(HL)              ; rope, Willy will move in the direction he's facing
+  RET
+
+; Move Willy (3)
+;
+; Used by the routines at MOVEWILLY and MOVEWILLY2. This routine moves Willy
+; left or right if necessary.
+MOVEWILLY3:
+  LD A,(DMFLAGS)          ; Pick up Willy's direction and movement flags from
+                          ; DMFLAGS
+  AND $02                 ; Is Willy moving?
+  RET Z                   ; Return if not
+  LD A,(ROPE)             ; Pick up the rope status indicator from ROPE
+  DEC A                   ; Is Willy on a rope?
+  BIT 7,A
+  RET Z                   ; Return if so (Willy's movement along a rope is
+                          ; handled at DRAWTHINGS_19)
+  LD A,(DMFLAGS)          ; Pick up Willy's direction and movement flags from
+                          ; DMFLAGS
+  AND $01                 ; Is Willy facing right?
+  JP Z,MOVEWILLY3_3       ; Jump if so
+; Willy is moving left.
+  LD A,(FRAME)            ; Pick up Willy's animation frame from FRAME
+  OR A                    ; Is it 0?
+  JR Z,MOVEWILLY3_0       ; If so, jump to move Willy's sprite left across a
+                          ; cell boundary
+  DEC A                   ; Decrement Willy's animation frame at FRAME
+  LD (FRAME),A
+  RET
+; Willy's sprite is moving left across a cell boundary. In the comments that
+; follow, (x,y) refers to the coordinates of the top-left cell currently
+; occupied by Willy's sprite.
+MOVEWILLY3_0:
+  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
+  LD BC,$0000             ; Prepare BC for later addition
+  CP $00                  ; Is Willy jumping?
+  JR NZ,MOVEWILLY3_1      ; Jump if so
+  LD HL,(LOCATION)        ; Collect Willy's attribute buffer coordinates from
+                          ; LOCATION
+  LD BC,$0000             ; Prepare BC for later addition (again, redundantly)
+  LD A,(RAMPDIR)          ; Pick up the direction byte of the ramp definition
+                          ; for the current room from RAMPDIR
+  DEC A                   ; Now A=31 if the ramp goes up to the left, or 65 if
+  OR $A1                  ; it goes up to the right
+  XOR $E0
+  LD E,A                  ; Point HL at the cell at (x-1,y+1) if the ramp goes
+  LD D,$00                ; up to the left, or at the cell at (x+1,y+2) if the
+  ADD HL,DE               ; ramp goes up to the right
+  LD A,(RAMP)             ; Pick up the attribute byte of the ramp tile for the
+                          ; current room from RAMP
+  CP (HL)                 ; Is there a ramp tile in the cell pointed to by HL?
+  JR NZ,MOVEWILLY3_1      ; Jump if not
+  LD BC,$0020             ; Prepare BC for later addition
+  LD A,(RAMPDIR)          ; Pick up the direction byte of the ramp definition
+                          ; for the current room from RAMPDIR
+  OR A                    ; Does the ramp go up to the right?
+  JR NZ,MOVEWILLY3_1      ; Jump if so
+  LD BC,$FFE0             ; BC=-32 (the ramp goes up to the left)
+MOVEWILLY3_1:
+  LD HL,(LOCATION)        ; Collect Willy's attribute buffer coordinates from
+                          ; LOCATION
+  LD A,L                  ; Is Willy's screen x-coordinate 0 (on the far left)?
+  AND $1F
+  JP Z,ROOMLEFT           ; If so, move Willy into the room to the left
+  ADD HL,BC               ; Point HL at the cell at (x-1,y+1), or at the cell
+  DEC HL                  ; at (x-1,y) if Willy is on or approaching a ramp
+  LD DE,$0020             ; that goes up to the left, or at the cell at
+  ADD HL,DE               ; (x-1,y+2) if Willy is walking down a ramp
+  LD A,(WALL)             ; Pick up the attribute byte of the wall tile for the
+                          ; current room from WALL
+  CP (HL)                 ; Is there a wall tile in the cell pointed to by HL?
+  RET Z                   ; Return if so without moving Willy (his path is
+                          ; blocked)
+  LD A,(PIXEL_Y)          ; Pick up Willy's pixel y-coordinate (Y) from PIXEL_Y
+  SRA C                   ; Now B=Y (if Willy is neither on nor approaching a
+  ADD A,C                 ; ramp), or Y+16 (if Willy is walking down a ramp),
+  LD B,A                  ; or Y-16 (if Willy is on or approaching a ramp that
+                          ; goes up to the left); this will be Willy's new
+                          ; pixel y-coordinate
+  AND $0F                 ; Does Willy's sprite currently occupy only two rows
+                          ; of cells?
+  JR Z,MOVEWILLY3_2       ; Jump if so
+  LD A,(WALL)             ; Pick up the attribute byte of the wall tile for the
+                          ; current room from WALL
+  ADD HL,DE               ; Point HL at the cell at (x-1,y+2), or at the cell
+                          ; at (x-1,y+1) if Willy is on or approaching a ramp
+                          ; that goes up to the left, or at the cell at
+                          ; (x-1,y+3) if Willy is on a ramp that goes up to the
+                          ; right
+  CP (HL)                 ; Is there a wall tile in the cell pointed to by HL?
+  RET Z                   ; Return if so without moving Willy (his path is
+                          ; blocked)
+  OR A                    ; Point HL at the cell at (x-1,y+1), or at the cell
+  SBC HL,DE               ; at (x-1,y) if Willy is on or approaching a ramp
+                          ; that goes up to the left, or at the cell at
+                          ; (x-1,y+2) if Willy is walking down a ramp
+MOVEWILLY3_2:
+  OR A                    ; Point HL at the cell at (x-1,y), or at the cell at
+  SBC HL,DE               ; (x-1,y-1) if Willy is on or approaching a ramp that
+                          ; goes up to the left, or at the cell at (x-1,y+1) if
+                          ; Willy is walking down a ramp
+  LD (LOCATION),HL        ; Save Willy's new attribute buffer coordinates (in
+                          ; HL) at LOCATION
+  LD A,B                  ; Save Willy's new pixel y-coordinate at PIXEL_Y
+  LD (PIXEL_Y),A
+  LD A,$03                ; Change Willy's animation frame at FRAME from 0 to 3
+  LD (FRAME),A
+  RET
+; Willy is moving right.
+MOVEWILLY3_3:
+  LD A,(FRAME)            ; Pick up Willy's animation frame from FRAME
+  CP $03                  ; Is it 3?
+  JR Z,MOVEWILLY3_4       ; If so, jump to move Willy's sprite right across a
+                          ; cell boundary
+  INC A                   ; Increment Willy's animation frame at FRAME
+  LD (FRAME),A
+  RET
+; Willy's sprite is moving right across a cell boundary. In the comments that
+; follow, (x,y) refers to the coordinates of the top-left cell currently
+; occupied by Willy's sprite.
+MOVEWILLY3_4:
+  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
+  LD BC,$0000             ; Prepare BC for later addition
+  OR A                    ; Is Willy jumping or falling?
+  JR NZ,MOVEWILLY3_5      ; Jump if so
+  LD HL,(LOCATION)        ; Collect Willy's attribute buffer coordinates from
+                          ; LOCATION
+  LD A,(RAMPDIR)          ; Pick up the direction byte of the ramp definition
+                          ; for the current room from RAMPDIR
+  DEC A                   ; Now A=64 if the ramp goes up to the left, or 34 if
+  OR $9D                  ; it goes up to the right
+  XOR $BF
+  LD E,A                  ; Point HL at the cell at (x,y+2) if the ramp goes up
+  LD D,$00                ; to the left, or at the cell at (x+2,y+1) if the
+  ADD HL,DE               ; ramp goes up to the right
+  LD A,(RAMP)             ; Pick up the attribute byte of the ramp tile for the
+                          ; current room from RAMP
+  CP (HL)                 ; Is there a ramp tile in the cell pointed to by HL?
+  JR NZ,MOVEWILLY3_5      ; Jump if not
+  LD BC,$0020             ; Prepare BC for later addition
+  LD A,(RAMPDIR)          ; Pick up the direction byte of the ramp definition
+                          ; for the current room from RAMPDIR
+  OR A                    ; Does the ramp go up to the left?
+  JR Z,MOVEWILLY3_5       ; Jump if so
+  LD BC,$FFE0             ; BC=-32 (the ramp goes up to the right)
+MOVEWILLY3_5:
+  LD HL,(LOCATION)        ; Collect Willy's attribute buffer coordinates from
+                          ; LOCATION
+  ADD HL,BC               ; Point HL at the cell at (x+2,y), or at the cell at
+  INC HL                  ; (x+2,y+1) if Willy is walking down a ramp, or at
+  INC HL                  ; the cell at (x+2,y-1) if Willy is on or approaching
+                          ; a ramp that goes up to the right
+  LD A,L                  ; Is Willy's screen x-coordinate 30 (on the far
+  AND $1F                 ; right)?
+  JP Z,ROOMRIGHT          ; If so, move Willy into the room on the right
+  LD DE,$0020             ; Prepare DE for addition
+  LD A,(WALL)             ; Pick up the attribute byte of the wall tile for the
+                          ; current room from WALL
+  ADD HL,DE               ; Point HL at the cell at (x+2,y+1), or at the cell
+                          ; at (x+2,y+2) if Willy is walking down a ramp, or at
+                          ; the cell at (x+2,y) if Willy is on or approaching a
+                          ; ramp that goes up to the right
+  CP (HL)                 ; Is there a wall tile in the cell pointed to by HL?
+  RET Z                   ; Return if so without moving Willy (his path is
+                          ; blocked)
+  LD A,(PIXEL_Y)          ; Pick up Willy's pixel y-coordinate (Y) from PIXEL_Y
+  SRA C                   ; Now B=Y (if Willy is neither on nor approaching a
+  ADD A,C                 ; ramp), or Y+16 (if Willy is walking down a ramp),
+  LD B,A                  ; or Y-16 (if Willy is on or approaching a ramp that
+                          ; goes up to the right); this will be Willy's new
+                          ; pixel y-coordinate
+  AND $0F                 ; Does Willy's sprite currently occupy only two rows
+                          ; of cells?
+  JR Z,MOVEWILLY3_6       ; Jump if so
+  LD A,(WALL)             ; Pick up the attribute byte of the wall tile for the
+                          ; current room from WALL
+  ADD HL,DE               ; Point HL at the cell at (x+2,y+2), or at the cell
+                          ; at (x+2,y+3) if Willy is walking down a ramp, or at
+                          ; the cell at (x+2,y+1) if Willy is on or approaching
+                          ; a ramp that goes up to the right
+  CP (HL)                 ; Is there a wall tile in the cell pointed to by HL?
+  RET Z                   ; Return if so without moving Willy (his path is
+                          ; blocked)
+  OR A                    ; Point HL at the cell at (x+2,y+1), or at the cell
+  SBC HL,DE               ; at (x+2,y+2) if Willy is walking down a ramp, or at
+                          ; the cell at (x+2,y) if Willy is on or approaching a
+                          ; ramp that goes up to the right
+MOVEWILLY3_6:
+  LD A,(WALL)             ; Pick up the attribute byte of the wall tile for the
+                          ; current room from WALL
+  OR A                    ; Point HL at the cell at (x+2,y), or at the cell at
+  SBC HL,DE               ; (x+2,y+1) if Willy is walking down a ramp, or at
+                          ; the cell at (x+2,y-1) if Willy is on or approaching
+                          ; a ramp that goes up to the right
+  CP (HL)                 ; Is there a wall tile in the cell pointed to by HL?
+  RET Z                   ; Return if so without moving Willy (his path is
+                          ; blocked)
+  DEC HL                  ; Point HL at the cell at (x+1,y), or at the cell at
+                          ; (x+1,y+1) if Willy is walking down a ramp, or at
+                          ; the cell at (x+1,y-1) if Willy is on or approaching
+                          ; a ramp that goes up to the right
+  LD (LOCATION),HL        ; Save Willy's new attribute buffer coordinates (in
+                          ; HL) at LOCATION
+  XOR A                   ; Change Willy's animation frame at FRAME from 3 to 0
+  LD (FRAME),A
+  LD A,B                  ; Save Willy's new pixel y-coordinate at PIXEL_Y
+  LD (PIXEL_Y),A
+  RET
+
+; Kill Willy
+;
+; Used by the routine at WILLYATTR when Willy hits a nasty.
+KILLWILLY:
+  POP HL                  ; Drop the return address from the stack
+; This entry point is used by the routines at MOVEWILLY2 (when Willy lands
+; after falling from too great a height), DRAWTHINGS (when an arrow or guardian
+; hits Willy) and BEDANDBATH (when Willy gets too close to Maria).
+KILLWILLY_0:
+  POP HL                  ; Drop the return address from the stack
+  LD A,$FF                ; Set the airborne status indicator at AIRBORNE to
+  LD (AIRBORNE),A         ; 255 (meaning Willy has had a fatal accident)
+  JP MAINLOOP_0           ; Jump back into the main loop
+
+; Move the rope and guardians in the current room
+;
+; Used by the routine at MAINLOOP.
+MOVETHINGS:
+  LD IX,ENTITYBUF         ; Point IX at the first byte of the first entity
+                          ; buffer at ENTITYBUF
+; The entity-moving loop begins here.
+MOVETHINGS_0:
+  LD A,(IX+$00)           ; Pick up the first byte of the current entity's
+                          ; buffer
+  CP $FF                  ; Have we already dealt with every entity?
+  RET Z                   ; Return if so
+  AND $03                 ; Keep only bits 0 and 1 (which determine the type of
+                          ; entity)
+  JP Z,MOVETHINGS_13      ; Jump to consider the next entity buffer if this one
+                          ; belongs to an arrow or is unused
+  CP $01                  ; Is this a horizontal guardian?
+  JP Z,MOVETHINGS_5       ; Jump if so
+  CP $02                  ; Is this a vertical guardian?
+  JP Z,MOVETHINGS_9       ; Jump if so
+; We are dealing with a rope.
+  BIT 7,(IX+$00)          ; Is the rope currently swinging right to left?
+  JR Z,MOVETHINGS_2       ; Jump if so
+; The rope is swinging left to right.
+  LD A,(IX+$01)           ; Pick up the animation frame index
+  BIT 7,A                 ; Is the rope currently swinging away from the
+                          ; centre?
+  JR Z,MOVETHINGS_1       ; Jump if so
+; The rope is swinging left to right, towards the centre (132<=A<=182).
+  SUB $02                 ; Subtract 2 from the animation frame index in A
+  CP $94                  ; Is it still 148 or greater?
+  JR NC,MOVETHINGS_4      ; If so, use it as the next animation frame index
+  SUB $02                 ; Subtract 2 from the animation frame index again
+  CP $80                  ; Is it 128 now?
+  JR NZ,MOVETHINGS_4      ; If not, use it as the next animation frame index
+  XOR A                   ; The rope has reached the centre, so the next
+                          ; animation frame index is 0
+  JR MOVETHINGS_4         ; Jump to set it
+; The rope is swinging left to right, away from the centre (0<=A<=52).
+MOVETHINGS_1:
+  ADD A,$02               ; Add 2 to the animation frame index in A
+  CP $12                  ; Is it now 18 or greater?
+  JR NC,MOVETHINGS_4      ; If so, use it as the next animation frame index
+  ADD A,$02               ; Add 2 to the animation frame index again
+  JR MOVETHINGS_4         ; Use this value as the next animation frame index
+; The rope is swinging right to left.
+MOVETHINGS_2:
+  LD A,(IX+$01)           ; Pick up the animation frame index
+  BIT 7,A                 ; Is the rope currently swinging away from the
+                          ; centre?
+  JR NZ,MOVETHINGS_3      ; Jump if so
+; The rope is swinging right to left, towards the centre (4<=A<=54).
+  SUB $02                 ; Subtract 2 from the animation frame index in A
+  CP $14                  ; Is it still 20 or greater?
+  JR NC,MOVETHINGS_4      ; If so, use it as the next animation frame index
+  SUB $02                 ; Subtract 2 from the animation frame index again
+  OR A                    ; Is it 0 now?
+  JR NZ,MOVETHINGS_4      ; If not, use it as the next animation frame index
+  LD A,$80                ; The rope has reached the centre, so the next
+                          ; animation frame index is 128
+  JR MOVETHINGS_4         ; Jump to set it
+; The rope is swinging right to left, away from the centre (128<=A<=180).
+MOVETHINGS_3:
+  ADD A,$02               ; Add 2 to the animation frame index in A
+  CP $92                  ; Is it now 146 or greater?
+  JR NC,MOVETHINGS_4      ; If so, use it as the next animation frame index
+  ADD A,$02               ; Add 2 to the animation frame index again
+; Now A holds the rope's next animation frame index.
+MOVETHINGS_4:
+  LD (IX+$01),A           ; Update the animation frame index
+  AND $7F                 ; Reset bit 7
+  CP (IX+$07)             ; Does A match the eighth byte of the rope's buffer
+                          ; (54)?
+  JP NZ,MOVETHINGS_13     ; If not, jump to consider the next entity
+  LD A,(IX+$00)           ; Flip bit 7 of the first byte of the rope's buffer:
+  XOR $80                 ; the rope has just changed direction and will now
+  LD (IX+$00),A           ; swing back towards the centre
+  JP MOVETHINGS_13        ; Jump to consider the next entity
+; We are dealing with a horizontal guardian.
+MOVETHINGS_5:
+  BIT 7,(IX+$00)          ; Is the guardian currently moving left to right?
+  JR NZ,MOVETHINGS_7      ; Jump if so
+; This guardian is moving right to left.
+  LD A,(IX+$00)           ; Update the guardian's animation frame (in bits 5
+  SUB $20                 ; and 6 of the first byte of its buffer)
+  AND $7F
+  LD (IX+$00),A
+  CP $60                  ; Is it time to update the x-coordinate of the
+                          ; guardian sprite?
+  JR C,MOVETHINGS_13      ; If not, jump to consider the next entity
+  LD A,(IX+$02)           ; Pick up the sprite's current screen x-coordinate
+  AND $1F                 ; (0-31)
+  CP (IX+$06)             ; Has the guardian reached the leftmost point of its
+                          ; path?
+  JR Z,MOVETHINGS_6       ; Jump if so
+  DEC (IX+$02)            ; Decrement the sprite's x-coordinate
+  JR MOVETHINGS_13        ; Jump to consider the next entity
+MOVETHINGS_6:
+  LD (IX+$00),$81         ; The guardian will now start moving left to right
+  JR MOVETHINGS_13        ; Jump to consider the next entity
+; This guardian is moving left to right.
+MOVETHINGS_7:
+  LD A,(IX+$00)           ; Update the guardian's animation frame (in bits 5
+  ADD A,$20               ; and 6 of the first byte of its buffer)
+  OR $80
+  LD (IX+$00),A
+  CP $A0                  ; Is it time to update the x-coordinate of the
+                          ; guardian sprite?
+  JR NC,MOVETHINGS_13     ; If not, jump to consider the next entity
+  LD A,(IX+$02)           ; Pick up the sprite's current screen x-coordinate
+  AND $1F                 ; (0-31)
+  CP (IX+$07)             ; Has the guardian reached the rightmost point of its
+                          ; path?
+  JR Z,MOVETHINGS_8       ; Jump if so
+  INC (IX+$02)            ; Increment the sprite's x-coordinate
+  JR MOVETHINGS_13        ; Jump to consider the next entity
+MOVETHINGS_8:
+  LD (IX+$00),$61         ; The guardian will now start moving right to left
+  JR MOVETHINGS_13        ; Jump to consider the next entity
+; We are dealing with a vertical guardian.
+MOVETHINGS_9:
+  LD A,(IX+$00)           ; Flip bit 3 of the first byte of the guardian's
+  XOR $08                 ; buffer (if bit 4 is set, the guardian's animation
+  LD (IX+$00),A           ; frame is updated on every pass through this
+                          ; routine; otherwise, it is updated on every second
+                          ; pass when bit 3 is set)
+  AND $18                 ; Are bits 3 and 4 both reset now?
+  JR Z,MOVETHINGS_10      ; Jump if so
+  LD A,(IX+$00)           ; Update the guardian's animation frame (in bits 5-7
+  ADD A,$20               ; of the first byte of its buffer)
+  LD (IX+$00),A
+MOVETHINGS_10:
+  LD A,(IX+$03)           ; Update the guardian's y-coordinate
+  ADD A,(IX+$04)
+  LD (IX+$03),A
+  CP (IX+$07)             ; Has the guardian reached the lowest point of its
+                          ; path (maximum y-coordinate)?
+  JR NC,MOVETHINGS_12     ; If so, jump to change its direction of movement
+  CP (IX+$06)             ; Compare the new y-coordinate with the minimum value
+                          ; (the highest point of its path)
+  JR Z,MOVETHINGS_11      ; If they match, jump to change the guardian's
+                          ; direction of movement
+  JR NC,MOVETHINGS_13     ; If the new y-coordinate is above the minimum value,
+                          ; jump to consider the next entity
+MOVETHINGS_11:
+  LD A,(IX+$06)           ; Make sure that the guardian's y-coordinate is set
+  LD (IX+$03),A           ; to its minimum value
+MOVETHINGS_12:
+  LD A,(IX+$04)           ; Negate the y-coordinate increment; this changes the
+  NEG                     ; guardian's direction of movement
+  LD (IX+$04),A
+; The current entity has been dealt with. Time for the next one.
+MOVETHINGS_13:
+  LD DE,$0008             ; Point IX at the first byte of the next entity's
+  ADD IX,DE               ; buffer
+  JP MOVETHINGS_0         ; Jump back to deal with it
+
+; Draw the rope, arrows and guardians in the current room
+;
+; Used by the routine at MAINLOOP. Draws the rope, arrows and guardians in the
+; current room to the screen buffer at FPIXL.
+DRAWTHINGS:
+  LD IX,ENTITYBUF         ; Point IX at the first byte of the first entity
+                          ; buffer at ENTITYBUF
+; The drawing loop begins here.
+DRAWTHINGS_0:
+  LD A,(IX+$00)           ; Pick up the first byte of the current entity's
+                          ; buffer
+  CP $FF                  ; Have we already dealt with every entity?
+  RET Z                   ; Return if so
+  AND $07                 ; Keep only bits 0-2 (which determine the type of
+                          ; entity)
+  JP Z,DRAWTHINGS_22      ; Jump to consider the next entity buffer if this one
+                          ; is not being used
+  CP $03                  ; Is this a rope?
+  JP Z,DRAWTHINGS_9       ; Jump if so
+  CP $04                  ; Is this an arrow?
+  JR Z,DRAWTHINGS_2       ; Jump if so
+; We are dealing with a horizontal or vertical guardian.
+  LD E,(IX+$03)           ; Point DE at the entry in the screen buffer address
+  LD D,SBUFADDRS/256      ; lookup table at SBUFADDRS that corresponds to the
+                          ; guardian's y-coordinate
+  LD A,(DE)               ; Copy the LSB of the screen buffer address to L
+  LD L,A
+  LD A,(IX+$02)           ; Pick up the guardian's x-coordinate from bits 0-4
+  AND $1F                 ; of the third byte of its buffer
+  ADD A,L                 ; Adjust the LSB of the screen buffer address in L
+  LD L,A                  ; for the guardian's x-coordinate
+  LD A,E                  ; Copy the fourth byte of the guardian's buffer to A
+  RLCA                    ; H=92 or 93; now HL holds the address of the
+  AND $01                 ; guardian's current location in the attribute buffer
+  OR FATTR/$100           ; at FATTR
+  LD H,A
+  LD DE,$001F             ; Prepare DE for later addition
+  LD A,(IX+$01)           ; Pick up the second byte of the guardian's buffer
+  AND $0F                 ; Keep only bits 0-2 (INK colour) and 3 (BRIGHT
+                          ; value)
+  ADD A,$38               ; Push bit 3 up to bit 6
+  AND $47                 ; Keep only bits 0-2 (INK colour) and 6 (BRIGHT
+                          ; value)
+  LD C,A                  ; Save this value in C temporarily
+  LD A,(HL)               ; Pick up the room attribute byte at the guardian's
+                          ; location from the buffer at FATTR
+  AND $38                 ; Keep only bits 3-5 (PAPER colour)
+  XOR C                   ; Merge the INK colour and BRIGHT value from C
+  LD C,A                  ; Copy this attribute value to C
+  LD (HL),C               ; Set the attribute bytes in the buffer at FATTR for
+  INC HL                  ; the top two rows of cells occupied by the
+  LD (HL),C               ; guardian's sprite
+  ADD HL,DE
+  LD (HL),C
+  INC HL
+  LD (HL),C
+  LD A,(IX+$03)           ; Pick up the fourth byte of the guardian's buffer
+  AND $0E                 ; Does the guardian's sprite occupy only two rows of
+                          ; cells at the moment?
+  JR Z,DRAWTHINGS_1       ; Jump if so
+  ADD HL,DE               ; Set the attribute bytes in the buffer at FATTR for
+  LD (HL),C               ; the third row of cells occupied by the guardian's
+  INC HL                  ; sprite
+  LD (HL),C
+DRAWTHINGS_1:
+  LD C,$01                ; Prepare C for the call to DRAWSPRITE later on
+  LD A,(IX+$01)           ; Now bits 5-7 of A hold the animation frame mask
+  AND (IX+$00)            ; AND on the current animation frame (bits 5-7)
+  OR (IX+$02)             ; OR on the base sprite index (bits 5-7)
+  AND $E0                 ; Keep only bits 5-7
+  LD E,A                  ; Point DE at the graphic data for the guardian's
+  LD D,(IX+$05)           ; current animation frame (see GUARDIANS)
+  LD H,SBUFADDRS/256      ; Point HL at the guardian's current location in the
+  LD L,(IX+$03)           ; screen buffer at FPIXL
+  LD A,(IX+$02)
+  AND $1F
+  OR (HL)
+  INC HL
+  LD H,(HL)
+  LD L,A
+  CALL DRAWSPRITE         ; Draw the guardian
+  JP NZ,KILLWILLY_0       ; Kill Willy if the guardian collided with him
+  JP DRAWTHINGS_22        ; Jump to consider the next entity
+; We are dealing with an arrow.
+DRAWTHINGS_2:
+  BIT 7,(IX+$00)          ; Is the arrow travelling left to right?
+  JR NZ,DRAWTHINGS_3      ; Jump if so
+  DEC (IX+$04)            ; Decrement the arrow's x-coordinate
+  LD C,$2C                ; The sound effect for an arrow travelling right to
+                          ; left is made when the x-coordinate is 44
+  JR DRAWTHINGS_4
+DRAWTHINGS_3:
+  INC (IX+$04)            ; Increment the arrow's x-coordinate
+  LD C,$F4                ; The sound effect for an arrow travelling left to
+                          ; right is made when the x-coordinate is 244
+DRAWTHINGS_4:
+  LD A,(IX+$04)           ; Pick up the arrow's x-coordinate (0-255)
+  CP C                    ; Is it time to make the arrow sound effect?
+  JR NZ,DRAWTHINGS_7      ; Jump if not
+  LD BC,$0280             ; Prepare the delay counters (B=2, C=128) for the
+                          ; arrow sound effect
+  LD A,(BORDER)           ; Pick up the border colour for the current room from
+                          ; BORDER
+DRAWTHINGS_5:
+  OUT ($FE),A             ; Produce the arrow sound effect
+  XOR $18
+DRAWTHINGS_6:
+  DJNZ DRAWTHINGS_6
+  LD B,C
+  DEC C
+  JR NZ,DRAWTHINGS_5
+  JP DRAWTHINGS_22        ; Jump to consider the next entity
+DRAWTHINGS_7:
+  AND $E0                 ; Is the arrow's x-coordinate in the range 0-31 (i.e.
+                          ; on-screen)?
+  JP NZ,DRAWTHINGS_22     ; If not, jump to consider the next entity
+  LD E,(IX+$02)           ; Point DE at the entry in the screen buffer address
+  LD D,SBUFADDRS/256      ; lookup table at SBUFADDRS that corresponds to the
+                          ; arrow's y-coordinate
+  LD A,(DE)               ; Pick up the LSB of the screen buffer address
+  ADD A,(IX+$04)          ; Adjust it for the arrow's x-coordinate
+  LD L,A                  ; Point HL at the arrow's current location in the
+  LD A,E                  ; attribute buffer at FATTR
+  AND $80
+  RLCA
+  OR FATTR/$100
+  LD H,A
+  LD (IX+$05),$00         ; Initialise the collision detection byte (0=off,
+                          ; 255=on)
+  LD A,(HL)               ; Pick up the room attribute byte at the arrow's
+                          ; location
+  AND $07                 ; Keep only bits 0-2 (INK colour)
+  CP $07                  ; Is the INK white?
+  JR NZ,DRAWTHINGS_8      ; Jump if not
+  DEC (IX+$05)            ; Activate collision detection
+DRAWTHINGS_8:
+  LD A,(HL)               ; Set the INK colour to white at the arrow's location
+  OR $07
+  LD (HL),A
+  INC DE                  ; Pick up the MSB of the screen buffer address for
+  LD A,(DE)               ; the arrow's location
+  LD H,A                  ; Point HL at the top pixel row of the arrow's
+  DEC H                   ; location in the screen buffer at FPIXL
+  LD A,(IX+$06)           ; Draw the top pixel row of the arrow
+  LD (HL),A
+  INC H                   ; Point HL at the middle pixel row of the arrow's
+                          ; location in the screen buffer at FPIXL
+  LD A,(HL)               ; Pick up the graphic byte that's already here
+  AND (IX+$05)            ; Has the arrow hit anything that has white INK (e.g.
+                          ; Willy)?
+  JP NZ,KILLWILLY_0       ; If so, kill Willy
+  LD (HL),$FF             ; Draw the shaft of the arrow
+  INC H                   ; Point HL at the bottom pixel row of the arrow's
+                          ; location in the screen buffer at FPIXL
+  LD A,(IX+$06)           ; Draw the bottom pixel row of the arrow
+  LD (HL),A
+  JP DRAWTHINGS_22        ; Jump to consider the next entity
+; We are dealing with a rope.
+DRAWTHINGS_9:
+  LD IY,SBUFADDRS         ; Point IY at the first byte of the screen buffer
+                          ; address lookup table at SBUFADDRS
+  LD (IX+$09),$00         ; Initialise the second byte in the following entity
+                          ; buffer to zero; this will count the segments of
+                          ; rope to draw
+  LD A,(IX+$02)           ; Initialise the fourth byte of the rope's buffer;
+  LD (IX+$03),A           ; this holds the x-coordinate of the cell in which
+                          ; the segment of rope under consideration will be
+                          ; drawn
+  LD (IX+$05),$80         ; Initialise the sixth byte of the rope's buffer to
+                          ; 128 (bit 7 set); the value held here is used to
+                          ; draw the segment of rope under consideration
+; The following loop draws each segment of the rope from top to bottom.
+DRAWTHINGS_10:
+  LD A,(IY+$00)           ; Point HL at the location of the segment of rope
+  ADD A,(IX+$03)          ; under consideration in the screen buffer at FPIXL
+  LD L,A
+  LD H,(IY+$01)
+  LD A,(ROPE)             ; Pick up the rope status indicator at ROPE
+  OR A                    ; Is Willy on the rope, or has he recently jumped or
+                          ; dropped off it?
+  JR NZ,DRAWTHINGS_11     ; Jump if so
+  LD A,(IX+$05)           ; Pick up the drawing byte
+  AND (HL)                ; Is this segment of rope touching anything else
+                          ; that's been drawn so far (e.g. Willy)?
+  JR Z,DRAWTHINGS_13      ; Jump if not
+  LD A,(IX+$09)           ; Copy the segment counter into the rope status
+  LD (ROPE),A             ; indicator at ROPE
+  SET 0,(IX+$0B)          ; Signal: Willy is on the rope
+DRAWTHINGS_11:
+  CP (IX+$09)             ; Does the rope status indicator at ROPE match the
+                          ; segment counter?
+  JR NZ,DRAWTHINGS_13     ; Jump if not
+  BIT 0,(IX+$0B)          ; Is Willy on the rope (and clinging to this
+                          ; particular segment)?
+  JR Z,DRAWTHINGS_13      ; Jump if not
+  LD B,(IX+$03)           ; Copy the x-coordinate of the cell containing the
+                          ; segment of rope under consideration to B
+  LD A,(IX+$05)           ; Pick up the drawing byte in A
+  LD C,$01                ; The value in C will specify Willy's next animation
+                          ; frame; initialise it to 1
+  CP $04                  ; Is the set bit of the drawing byte in bit 0 or 1?
+  JR C,DRAWTHINGS_12      ; Jump if so
+  LD C,$00                ; Assume that Willy's next animation frame will be 0
+  CP $10                  ; Is the set bit of the drawing byte in bit 2 or 3?
+  JR C,DRAWTHINGS_12      ; Jump if so
+  DEC B                   ; Decrement the x-coordinate
+  LD C,$03                ; Assume that Willy's next animation frame will be 3
+  CP $40                  ; Is the set bit of the drawing byte in bit 4 or 5?
+  JR C,DRAWTHINGS_12      ; Jump if so
+  LD C,$02                ; Willy's next animation frame will be 2 (the set bit
+                          ; of the drawing byte is in bit 6 or 7)
+DRAWTHINGS_12:
+  LD (FRAME),BC           ; Set Willy's animation frame at FRAME, and
+                          ; temporarily store his x-coordinate at LOCATION
+  LD A,IYl                ; Update Willy's pixel y-coordinate at PIXEL_Y to
+  SUB $10                 ; account for his change of location as the rope
+  LD (PIXEL_Y),A          ; moves
+  PUSH HL                 ; Save HL briefly
+  CALL MOVEWILLY_8        ; Update Willy's attribute buffer address at LOCATION
+                          ; to account for his change of location as the rope
+                          ; moves
+  POP HL                  ; Restore the screen buffer address of the segment of
+                          ; rope under consideration to HL
+  JR DRAWTHINGS_13        ; Make a redundant jump to the next instruction
+DRAWTHINGS_13:
+  LD A,(IX+$05)           ; Draw a pixel of the rope to the screen buffer at
+  OR (HL)                 ; FPIXL
+  LD (HL),A
+  LD A,(IX+$09)           ; Point HL at the relevant entry in the second half
+  ADD A,(IX+$01)          ; of the rope animation table at ROPEANIM
+  LD L,A
+  SET 7,L
+  LD H,ROPEANIM/256
+  LD E,(HL)               ; Add its value to IY; now IY points at the entry in
+  LD D,$00                ; the screen buffer address lookup table at SBUFADDRS
+  ADD IY,DE               ; that corresponds to the next segment of rope to
+                          ; consider
+  RES 7,L                 ; Point HL at the relevant entry in the first half of
+                          ; the rope animation table at ROPEANIM
+  LD A,(HL)               ; Pick up its value
+  OR A                    ; Is it zero?
+  JR Z,DRAWTHINGS_18      ; Jump if so
+  LD B,A                  ; Copy the rope animation table entry value to B;
+                          ; this will count the rotations of the drawing byte
+  BIT 7,(IX+$01)          ; Is the rope currently right of centre?
+  JR Z,DRAWTHINGS_16      ; Jump if so
+DRAWTHINGS_14:
+  RLC (IX+$05)            ; Rotate the drawing byte left once
+  BIT 0,(IX+$05)          ; Did that push the set bit from bit 7 into bit 0?
+  JR Z,DRAWTHINGS_15      ; Jump if not
+  DEC (IX+$03)            ; Decrement the x-coordinate for the cell containing
+                          ; this segment of rope
+DRAWTHINGS_15:
+  DJNZ DRAWTHINGS_14      ; Jump back until the drawing byte has been rotated
+                          ; as required
+  JR DRAWTHINGS_18        ; Jump to consider the next segment of rope
+DRAWTHINGS_16:
+  RRC (IX+$05)            ; Rotate the drawing byte right once
+  BIT 7,(IX+$05)          ; Did that push the set bit from bit 0 into bit 7?
+  JR Z,DRAWTHINGS_17      ; Jump if not
+  INC (IX+$03)            ; Increment the x-coordinate for the cell containing
+                          ; this segment of rope
+DRAWTHINGS_17:
+  DJNZ DRAWTHINGS_16      ; Jump back until the drawing byte has been rotated
+                          ; as required
+DRAWTHINGS_18:
+  LD A,(IX+$09)           ; Pick up the segment counter
+  CP (IX+$04)             ; Have we drawn every segment of the rope yet?
+  JR Z,DRAWTHINGS_19      ; Jump if so
+  INC (IX+$09)            ; Increment the segment counter
+  JP DRAWTHINGS_10        ; Jump back to draw the next segment of rope
+; Now that the entire rope has been drawn, deal with Willy's movement along it.
+DRAWTHINGS_19:
+  LD A,(ROPE)             ; Pick up the rope status indicator at ROPE
+  BIT 7,A                 ; Has Willy recently jumped off the rope or dropped
+                          ; off the bottom of it (A>=240)?
+  JR Z,DRAWTHINGS_20      ; Jump if not
+  INC A                   ; Update the rope status indicator at ROPE
+  LD (ROPE),A
+  RES 0,(IX+$0B)          ; Signal: Willy is not on the rope
+  JR DRAWTHINGS_22        ; Jump to consider the next entity
+DRAWTHINGS_20:
+  BIT 0,(IX+$0B)          ; Is Willy on the rope?
+  JR Z,DRAWTHINGS_22      ; If not, jump to consider the next entity
+  LD A,(DMFLAGS)          ; Pick up Willy's direction and movement flags from
+                          ; DMFLAGS
+  BIT 1,A                 ; Is Willy moving up or down the rope?
+  JR Z,DRAWTHINGS_22      ; If not, jump to consider the next entity
+  RRCA                    ; XOR Willy's direction bit (0=facing right, 1=facing
+  XOR (IX+$00)            ; left) with the rope's direction bit (0=swinging
+  RLCA                    ; right to left, 1=swinging left to right)
+  RLCA                    ; Now A=1 if Willy is facing the same direction as
+  AND $02                 ; the rope is swinging (he will move down the rope),
+  DEC A                   ; or -1 otherwise (he will move up the rope)
+  LD HL,ROPE              ; Increment or decrement the rope status indicator at
+  ADD A,(HL)              ; ROPE
+  LD (HL),A
+  LD A,(ABOVE)            ; Pick up the number of the room above from ABOVE and
+  LD C,A                  ; copy it to C
+  LD A,(ROOM)             ; Pick up the number of the current room from ROOM
+  CP C                    ; Is there a room above this one?
+  JR NZ,DRAWTHINGS_21     ; Jump if so
+  LD A,(HL)               ; Pick up the rope status indicator at ROPE
+  CP $0C                  ; Is it 12 or greater?
+  JR NC,DRAWTHINGS_21     ; Jump if so
+  LD (HL),$0C             ; Set the rope status indicator at ROPE to 12 (there
+                          ; is nowhere to go above this rope)
+DRAWTHINGS_21:
+  LD A,(HL)               ; Pick up the rope status indicator at ROPE
+  CP (IX+$04)             ; Compare it with the length of the rope
+  JR C,DRAWTHINGS_22      ; If Willy is at or above the bottom of the rope,
+  JR Z,DRAWTHINGS_22      ; jump to consider the next entity
+  LD (HL),$F0             ; Set the rope status indicator at ROPE to 240 (Willy
+                          ; has just dropped off the bottom of the rope)
+  LD A,(PIXEL_Y)          ; Round down Willy's pixel y-coordinate at PIXEL_Y to
+  AND $F8                 ; the nearest multiple of 8; this might move him
+  LD (PIXEL_Y),A          ; upwards a little, but ensures that his actual pixel
+                          ; y-coordinate is a multiple of 4 before he starts
+                          ; falling
+  XOR A                   ; Initialise the airborne status indicator at
+  LD (AIRBORNE),A         ; AIRBORNE
+  JR DRAWTHINGS_22        ; Make a redundant jump to the next instruction
+; The current entity has been dealt with. Time for the next one.
+DRAWTHINGS_22:
+  LD DE,$0008             ; Point IX at the first byte of the next entity's
+  ADD IX,DE               ; buffer
+  JP DRAWTHINGS_0         ; Jump back to deal with it
+
+; Draw the items in the current room and collect any that Willy is touching
+;
+; Used by the routine at MAINLOOP.
+DRAWITEMS:
+  LD HL,ITEMTABLE1        ; Page 164 holds the first byte of each entry in the
+                          ; item table
+  LD L,(HL)               ; Point HL at the first byte of the first entry in
+                          ; the item table
+; The item-drawing loop begins here.
+DRAWITEMS_0:
+  LD C,(HL)               ; Pick up the first byte of the current entry in the
+                          ; item table
+  RES 7,C                 ; Reset bit 7; bit 6 holds the collection flag, and
+                          ; bits 0-5 hold the room number
+  LD A,(ROOM)             ; Pick up the number of the current room from ROOM
+  OR $40                  ; Set bit 6 (corresponding to the collection flag)
+  CP C                    ; Is the item in the current room and still
+                          ; uncollected?
+  JR NZ,DRAWITEMS_7       ; If not, jump to consider the next entry in the item
+                          ; table
+; This item is in the current room and has not been collected yet.
+  LD A,(HL)               ; Pick up the first byte of the current entry in the
+                          ; item table
+  RLCA                    ; Point DE at the location of the item in the
+  AND $01                 ; attribute buffer at FATTR
+  ADD A,FATTR/$100
+  LD D,A
+  INC H
+  LD E,(HL)
+  DEC H
+  LD A,(DE)               ; Pick up the current attribute byte at the item's
+                          ; location
+  AND $07                 ; Is the INK white (which happens if Willy is
+  CP $07                  ; touching the item, or the room's background tile
+                          ; has white INK, as in Swimming Pool)?
+  JR NZ,DRAWITEMS_6       ; Jump if not
+; Willy is touching this item (or the room's background tile has white INK), so
+; add it to his collection.
+  LD IX,MSG_ITEMS         ; Point IX at the number of items collected at
+                          ; MSG_ITEMS
+DRAWITEMS_1:
+  INC (IX+$02)            ; Increment a digit of the number of items collected
+  LD A,(IX+$02)           ; Was the digit originally '9'?
+  CP $3A
+  JR NZ,DRAWITEMS_2       ; Jump if not
+  LD (IX+$02),$30         ; Set the digit to '0'
+  DEC IX                  ; Move back to the digit on the left
+  JR DRAWITEMS_1          ; Jump back to increment this digit
+DRAWITEMS_2:
+  LD A,(BORDER)           ; Pick up the border colour for the current room from
+                          ; BORDER
+  LD C,$80                ; Produce the sound effect for collecting an item
+DRAWITEMS_3:
+  OUT ($FE),A
+  XOR $18
+  LD E,A
+  LD A,$90
+  SUB C
+  LD B,A
+  LD A,E
+DRAWITEMS_4:
+  DJNZ DRAWITEMS_4
+  DEC C
+  DEC C
+  JR NZ,DRAWITEMS_3
+  LD A,(ITEMS)            ; Update the counter of items remaining at ITEMS, and
+  INC A                   ; set the zero flag if there are no more items to
+  LD (ITEMS),A            ; collect
+  JR NZ,DRAWITEMS_5       ; Jump if there are any items still to be collected
+  LD A,$01                ; Update the game mode indicator at MODE to 1 (all
+  LD (MODE),A             ; items collected)
+DRAWITEMS_5:
+  RES 6,(HL)              ; Reset bit 6 of the first byte of the entry in the
+                          ; item table: the item has been collected
+  JR DRAWITEMS_7          ; Jump to consider the next entry in the item table
+; Willy is not touching this item, so draw it and cycle its INK colour.
+DRAWITEMS_6:
+  LD A,(TICKS)            ; Generate the INK colour for the item from the value
+  ADD A,L                 ; of the minute counter at TICKS (0-255) and the
+  AND $03                 ; index of the item in the item table (173-255)
+  ADD A,$03
+  LD C,A
+  LD A,(DE)               ; Change the INK colour of the item in the attribute
+  AND $F8                 ; buffer at FATTR
+  OR C
+  LD (DE),A
+  LD A,(HL)               ; Point DE at the location of the item in the screen
+  RLCA                    ; buffer at FPIXL
+  RLCA
+  RLCA
+  RLCA
+  AND $08
+  ADD A,FPIXL/$100
+  LD D,A
+  PUSH HL                 ; Save HL briefly
+  LD HL,ITEM              ; Point HL at the item graphic for the current room
+                          ; (at ITEM)
+  LD B,$08                ; There are eight pixel rows to copy
+  CALL PRINTCHAR_0        ; Draw the item to the screen buffer at FPIXL
+  POP HL                  ; Restore the item table pointer to HL
+; The current item has been dealt with (skipped, collected or drawn) as
+; appropriate. Time to consider the next one.
+DRAWITEMS_7:
+  INC L                   ; Point HL at the first byte of the next entry in the
+                          ; item table
+  JR NZ,DRAWITEMS_0       ; Jump back unless we've examined every entry
+  RET
+
+; Draw a sprite
+;
+; Used by the routines at CODESCREEN (to draw the number key graphics on the
+; code entry screen), DRAWLIVES (to draw the remaining lives), GAMEOVER (to
+; draw Willy, the foot and the barrel during the game over sequence),
+; DRAWTHINGS (to draw guardians in the current room) and BEDANDBATH (to draw
+; Maria in Master Bedroom). If C=1 on entry, this routine returns with the zero
+; flag reset if any of the set bits in the sprite being drawn collides with a
+; set bit in the background.
+;
+; C Drawing mode: 0 (overwrite) or 1 (blend)
+; DE Address of sprite graphic data
+; HL Address to draw at
+DRAWSPRITE:
+  LD B,$10                ; There are 16 rows of pixels to draw
+DRAWSPRITE_0:
+  BIT 0,C                 ; Set the zero flag if we're in overwrite mode
+  LD A,(DE)               ; Pick up a sprite graphic byte
+  JR Z,DRAWSPRITE_1       ; Jump if we're in overwrite mode
+  AND (HL)                ; Return with the zero flag reset if any of the set
+  RET NZ                  ; bits in the sprite graphic byte collide with a set
+                          ; bit in the background (e.g. in Willy's sprite)
+  LD A,(DE)               ; Pick up the sprite graphic byte again
+  OR (HL)                 ; Blend it with the background byte
+DRAWSPRITE_1:
+  LD (HL),A               ; Copy the graphic byte to its destination cell
+  INC L                   ; Move HL along to the next cell on the right
+  INC DE                  ; Point DE at the next sprite graphic byte
+  BIT 0,C                 ; Set the zero flag if we're in overwrite mode
+  LD A,(DE)               ; Pick up a sprite graphic byte
+  JR Z,DRAWSPRITE_2       ; Jump if we're in overwrite mode
+  AND (HL)                ; Return with the zero flag reset if any of the set
+  RET NZ                  ; bits in the sprite graphic byte collide with a set
+                          ; bit in the background (e.g. in Willy's sprite)
+  LD A,(DE)               ; Pick up the sprite graphic byte again
+  OR (HL)                 ; Blend it with the background byte
+DRAWSPRITE_2:
+  LD (HL),A               ; Copy the graphic byte to its destination cell
+  DEC L                   ; Move HL to the next pixel row down in the cell on
+  INC H                   ; the left
+  INC DE                  ; Point DE at the next sprite graphic byte
+  LD A,H                  ; Have we drawn the bottom pixel row in this pair of
+  AND $07                 ; cells yet?
+  JR NZ,DRAWSPRITE_3      ; Jump if not
+  LD A,H                  ; Otherwise move HL to the top pixel row in the cell
+  SUB $08                 ; below
+  LD H,A
+  LD A,L
+  ADD A,$20
+  LD L,A
+  AND $E0                 ; Was the last pair of cells at y-coordinate 7 or 15?
+  JR NZ,DRAWSPRITE_3      ; Jump if not
+  LD A,H                  ; Otherwise adjust HL to account for the movement
+  ADD A,$08               ; from the top or middle third of the screen to the
+  LD H,A                  ; next one down
+DRAWSPRITE_3:
+  DJNZ DRAWSPRITE_0       ; Jump back until all 16 rows of pixels have been
+                          ; drawn
+  XOR A                   ; Set the zero flag (to indicate no collision)
+  RET
+
+; Move Willy into the room to the left
+;
+; Used by the routine at MOVEWILLY3.
+ROOMLEFT:
+  LD A,(LEFT)             ; Pick up the number of the room to the left from
+                          ; LEFT
+  LD (ROOM),A             ; Make it the current room number by copying it to
+                          ; ROOM
+  LD A,(LOCATION)         ; Adjust Willy's screen x-coordinate (at LOCATION) to
+  OR $1F                  ; 30 (on the far right)
+  AND $FE
+  LD (LOCATION),A
+  POP HL                  ; Drop the return address (AFTERMOVE1, in the main
+                          ; loop) from the stack
+  JP INITROOM             ; Draw the room and re-enter the main loop
+
+; Move Willy into the room to the right
+;
+; Used by the routine at MOVEWILLY3.
+ROOMRIGHT:
+  LD A,(RIGHT)            ; Pick up the number of the room to the right from
+                          ; RIGHT
+  LD (ROOM),A             ; Make it the current room number by copying it to
+                          ; ROOM
+  LD A,(LOCATION)         ; Adjust Willy's screen x-coordinate (at LOCATION) to
+  AND $E0                 ; 0 (on the far left)
+  LD (LOCATION),A
+  POP HL                  ; Drop the return address (AFTERMOVE1, in the main
+                          ; loop) from the stack
+  JP INITROOM             ; Draw the room and re-enter the main loop
+
+; Move Willy into the room above
+;
+; Used by the routines at MAINLOOP and MOVEWILLY.
+ROOMABOVE:
+  LD A,(ABOVE)            ; Pick up the number of the room above from ABOVE
+  LD (ROOM),A             ; Make it the current room number by copying it to
+                          ; ROOM
+  LD A,(LOCATION)         ; Willy should now appear on the bottom floor of the
+  AND $1F                 ; room, so adjust his attribute buffer coordinates
+  ADD A,$A0               ; (at LOCATION) accordingly
+  LD (LOCATION),A
+  LD A,FATTR/$100+$01
+  LD (LOCATION+1),A
+  LD A,$D0                ; Adjust Willy's pixel y-coordinate (at PIXEL_Y) as
+  LD (PIXEL_Y),A          ; well
+  XOR A                   ; Reset the airborne status indicator at AIRBORNE
+  LD (AIRBORNE),A
+  POP HL                  ; Drop the return address (either AFTERMOVE1 or
+                          ; AFTERMOVE2, in the main loop) from the stack
+  JP INITROOM             ; Draw the room and re-enter the main loop
+
+; Move Willy into the room below
+;
+; Used by the routine at MOVEWILLY.
+ROOMBELOW:
+  LD A,(BELOW)            ; Pick up the number of the room below from BELOW
+  LD (ROOM),A             ; Make it the current room number by copying it to
+                          ; ROOM
+  XOR A                   ; Set Willy's pixel y-coordinate (at PIXEL_Y) to 0
+  LD (PIXEL_Y),A
+  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
+  CP $0B                  ; Is it 11 or greater (meaning Willy has already been
+                          ; falling for a while)?
+  JR NC,ROOMBELOW_0       ; Jump if so
+  LD A,$02                ; Otherwise set the airborne status indicator to 2
+  LD (AIRBORNE),A         ; (Willy will start falling here if there's no floor
+                          ; beneath him)
+ROOMBELOW_0:
+  LD A,(LOCATION)         ; Willy should now appear at the top of the room, so
+  AND $1F                 ; adjust his attribute buffer coordinates (at
+  LD (LOCATION),A         ; LOCATION) accordingly
+  LD A,FATTR/$100
+  LD (LOCATION+1),A
+  POP HL                  ; Drop the return address (AFTERMOVE1, in the main
+                          ; loop) from the stack
+  JP INITROOM             ; Draw the room and re-enter the main loop
+
+; Move the conveyor in the current room
+;
+; Used by the routine at MAINLOOP.
+MVCONVEYOR:
+  LD HL,(CONVLOC)         ; Pick up the address of the conveyor's location in
+                          ; the attribute buffer at RATTR from CONVLOC
+  LD A,H                  ; Point DE and HL at the location of the left end of
+  AND $01                 ; the conveyor in the screen buffer at RPIXL
+  RLCA
+  RLCA
+  RLCA
+  ADD A,RPIXL/$100
+  LD H,A
+  LD E,L
+  LD D,H
+  LD A,(CONVLEN)          ; Pick up the length of the conveyor from CONVLEN
+  OR A                    ; Is there a conveyor in the room?
+  RET Z                   ; Return if not
+  LD B,A                  ; B will count the conveyor tiles
+  LD A,(CONVDIR)          ; Pick up the direction of the conveyor from CONVDIR
+                          ; (0=left, 1=right)
+  OR A                    ; Is the conveyor moving right?
+  JR NZ,MVCONVEYOR_1      ; Jump if so
+; The conveyor is moving left.
+  LD A,(HL)               ; Copy the first pixel row of the conveyor tile to A
+  RLC A                   ; Rotate it left twice
+  RLC A
+  INC H                   ; Point HL at the third pixel row of the conveyor
+  INC H                   ; tile
+  LD C,(HL)               ; Copy this pixel row to C
+  RRC C                   ; Rotate it right twice
+  RRC C
+MVCONVEYOR_0:
+  LD (DE),A               ; Update the first and third pixel rows of every
+  LD (HL),C               ; conveyor tile in the screen buffer at RPIXL
+  INC L
+  INC E
+  DJNZ MVCONVEYOR_0
+  RET
+; The conveyor is moving right.
+MVCONVEYOR_1:
+  LD A,(HL)               ; Copy the first pixel row of the conveyor tile to A
+  RRC A                   ; Rotate it right twice
+  RRC A
+  INC H                   ; Point HL at the third pixel row of the conveyor
+  INC H                   ; tile
+  LD C,(HL)               ; Copy this pixel row to C
+  RLC C                   ; Rotate it left twice
+  RLC C
+  JR MVCONVEYOR_0         ; Jump back to update the first and third pixel rows
+                          ; of every conveyor tile
+
+; Deal with special rooms (Master Bedroom, The Bathroom)
+;
+; Used by the routine at MAINLOOP.
+BEDANDBATH:
+  LD A,(ROOM)             ; Pick up the number of the current room from ROOM
+  CP $23                  ; Are we in Master Bedroom?
+  JR NZ,DRAWTOILET        ; Jump if not
+  LD A,(MODE)             ; Pick up the game mode indicator from MODE
+  OR A                    ; Has Willy collected all the items?
+  JR NZ,BEDANDBATH_1      ; Jump if so
+; Willy hasn't collected all the items yet, so Maria is on guard.
+  LD A,(TICKS)            ; Pick up the minute counter from TICKS; this will
+                          ; determine Maria's animation frame
+  AND $02                 ; Keep only bit 1, move it to bit 5, and set bit 7
+  RRCA
+  RRCA
+  RRCA
+  RRCA
+  OR $80
+  LD E,A                  ; Now E=128 (foot down) or 160 (foot raised)
+  LD A,(PIXEL_Y)          ; Pick up Willy's pixel y-coordinate from PIXEL_Y
+  CP $D0                  ; Is Willy on the floor below the ramp?
+  JR Z,BEDANDBATH_0       ; Jump if so
+  LD E,$C0                ; E=192 (raising arm)
+  CP $C0                  ; Is Willy 8 or fewer pixels above floor level?
+  JR NC,BEDANDBATH_0      ; Jump if so
+  LD E,$E0                ; E=224 (arm raised)
+BEDANDBATH_0:
+  LD D,MARIA0/256         ; Point DE at the sprite graphic data for Maria
+                          ; (MARIA0, MARIA1, MARIA2 or MARIA3)
+  LD HL,FPIXL+$086E       ; Draw Maria at (11,14) in the screen buffer at FPIXL
+  LD C,$01
+  CALL DRAWSPRITE
+  JP NZ,KILLWILLY_0       ; Kill Willy if Maria collided with him
+  LD HL,$4545             ; H=L=69 (INK 5: PAPER 0: BRIGHT 1)
+  LD (FATTR+$016E),HL     ; Set the attribute bytes for the top half of Maria's
+                          ; sprite in the buffer at FATTR
+  LD HL,$0707             ; H=L=7 (INK 7: PAPER 0: BRIGHT 0)
+  LD (FATTR+$018E),HL     ; Set the attribute bytes for the bottom half of
+                          ; Maria's sprite in the buffer at FATTR
+  RET
+; Willy has collected all the items, so Maria is gone.
+BEDANDBATH_1:
+  LD A,(LOCATION)         ; Pick up Willy's screen x-coordinate from LOCATION
+  AND $1F
+  CP $06                  ; Has Willy reached the bed (at x=5) yet?
+  RET NC                  ; Return if not
+  LD A,$02                ; Update the game mode indicator at MODE to 2 (Willy
+  LD (MODE),A             ; is running to the toilet)
+  RET
+
+; Check whether Willy has reached the toilet
+;
+; Called by the routine at MAINLOOP when Willy is on his way to the toilet.
+CHKTOILET:
+  LD A,(ROOM)             ; Pick up the number of the current room from ROOM
+  CP $21                  ; Are we in The Bathroom?
+  RET NZ                  ; Return if not
+  LD A,(LOCATION)         ; Pick up the LSB of Willy's attribute buffer
+                          ; location from LOCATION
+  CP $BC                  ; Is Willy's screen x-coordinate 28 (where the toilet
+                          ; is)?
+  RET NZ                  ; Return if not
+; Willy has reached the toilet.
+  XOR A                   ; Reset the minute counter at TICKS to 0 (so that we
+  LD (TICKS),A            ; get to see Willy's head down the toilet for at
+                          ; least a whole game minute)
+  LD A,$03                ; Update the game mode indicator at MODE to 3
+  LD (MODE),A             ; (Willy's head is down the toilet)
+  RET
+
+; Animate the toilet in The Bathroom
+;
+; Used by the routine at BEDANDBATH.
+DRAWTOILET:
+  LD A,(ROOM)             ; Pick up the number of the current room from ROOM
+  CP $21                  ; Are we in The Bathroom?
+  RET NZ                  ; Return if not
+  LD A,(TICKS)            ; Pick up the minute counter from TICKS; this will
+                          ; determine the animation frame to use for the toilet
+  AND $01                 ; Keep only bit 0 and move it to bit 5
+  RRCA
+  RRCA
+  RRCA
+  LD E,A                  ; Now E=0 or 32
+  LD A,(MODE)             ; Pick up the game mode indicator from MODE
+  CP $03                  ; Is Willy's head down the toilet?
+  JR NZ,DRAWTOILET_0      ; Jump if not
+  SET 6,E                 ; Now E=64 or 96
+DRAWTOILET_0:
+  LD D,TOILET0/256        ; Point DE at the toilet sprite to use (TOILET0,
+                          ; TOILET1, TOILET2 or TOILET3)
+  LD IX,SBUFADDRS+208     ; Draw the toilet at (13,28) in the screen buffer at
+  LD BC,$101C             ; FPIXL
+  CALL DRAWWILLY_1
+  LD HL,$0707             ; H=L=7 (INK 7: PAPER 0)
+  LD (FATTR+$01BC),HL     ; Set the attribute bytes for the toilet in the
+  LD (FATTR+$01DC),HL     ; buffer at FATTR
+  RET
+
+; Check and set the attribute bytes for Willy's sprite in the buffer at 5C00
+;
+; Used by the routine at MAINLOOP. Sets the attribute bytes in the buffer at
+; FATTR for the six cells (in three rows of two) occupied by or under Willy's
+; sprite, or kills Willy if any of the cells contains a nasty.
+WILLYATTRS:
+  LD HL,(LOCATION)        ; Pick up Willy's attribute buffer coordinates from
+                          ; LOCATION
+  LD B,$00                ; Initialise B to 0 (in case Willy is not standing on
+                          ; a ramp)
+  LD A,(RAMPDIR)          ; Pick up the direction byte of the ramp definition
+                          ; for the current room from RAMPDIR
+  AND $01                 ; Point HL at one of the cells under Willy's feet
+  ADD A,$40               ; (the one on the left if the ramp goes up to the
+  LD E,A                  ; left, the one on the right if the ramp goes up to
+  LD D,$00                ; the right)
+  ADD HL,DE
+  LD A,(RAMP)             ; Pick up the ramp's attribute byte from RAMP
+  CP (HL)                 ; Is Willy on or just above the ramp?
+  JR NZ,WILLYATTRS_0      ; Jump if not
+  LD A,(AIRBORNE)         ; Pick up the airborne status indicator from AIRBORNE
+  OR A                    ; Is Willy airborne?
+  JR NZ,WILLYATTRS_0      ; Jump if so
+; Willy is standing on a ramp. Calculate the offset that needs to be added to
+; the y-coordinate stored at PIXEL_Y to obtain Willy's true pixel y-coordinate.
+  LD A,(FRAME)            ; Pick up Willy's current animation frame (0-3) from
+                          ; FRAME
+  AND $03                 ; B=0, 4, 8 or 12
+  RLCA
+  RLCA
+  LD B,A
+  LD A,(RAMPDIR)          ; Pick up the direction byte of the ramp definition
+                          ; for the current room from RAMPDIR
+  AND $01                 ; A=B (if the ramp goes up to the left) or 12-B (if
+  DEC A                   ; the ramp goes up to the right)
+  XOR $0C
+  XOR B
+  AND $0C
+  LD B,A                  ; Copy this value to B
+; Now B holds a y-coordinate offset of 0, 4, 8 or 12 if Willy is standing on a
+; ramp, or 0 otherwise.
+WILLYATTRS_0:
+  LD HL,(LOCATION)        ; Pick up Willy's attribute buffer coordinates from
+                          ; LOCATION
+  LD DE,$001F             ; Prepare DE for later addition
+  LD C,$0F                ; Set C=15 for the top two rows of cells (to make the
+                          ; routine at WILLYATTR force white INK)
+  CALL WILLYATTR          ; Check and set the attribute byte for the top-left
+                          ; cell
+  INC HL                  ; Move HL to the next cell to the right
+  CALL WILLYATTR          ; Check and set the attribute byte for the top-right
+                          ; cell
+  ADD HL,DE               ; Move HL down a row and back one cell to the left
+  CALL WILLYATTR          ; Check and set the attribute byte for the mid-left
+                          ; cell
+  INC HL                  ; Move HL to the next cell to the right
+  CALL WILLYATTR          ; Check and set the attribute byte for the mid-right
+                          ; cell
+  LD A,(PIXEL_Y)          ; Pick up Willy's pixel y-coordinate from PIXEL_Y
+  ADD A,B                 ; Add the y-coordinate offset calculated earlier (to
+  LD C,A                  ; get Willy's true pixel y-coordinate if he's
+                          ; standing on a ramp) and transfer the result to C
+  ADD HL,DE               ; Move HL down a row and back one cell to the left;
+                          ; at this point HL may be pointing at one of the
+                          ; cells in the top row of the buffer at RATTR, which
+                          ; is a bug
+  CALL WILLYATTR          ; Check and set the attribute byte for the
+                          ; bottom-left cell
+  INC HL                  ; Move HL to the next cell to the right
+  CALL WILLYATTR          ; Check and set the attribute byte for the
+                          ; bottom-right cell
+  JR DRAWWILLY            ; Draw Willy to the screen buffer at FPIXL
+
+; Check and set the attribute byte for a cell occupied by Willy's sprite
+;
+; Used by the routine at WILLYATTRS. Sets the attribute byte in the buffer at
+; FATTR for one of the six cells (in three rows of two) occupied by or under
+; Willy's sprite, or kills Willy if the cell contains a nasty. On entry, C
+; holds either 15 if the cell is in the top two rows, or Willy's pixel
+; y-coordinate if the cell is in the bottom row.
+;
+; C 15 or Willy's pixel y-coordinate
+; HL Address of the attribute byte in the buffer at FATTR
+WILLYATTR:
+  LD A,(BACKGROUND)       ; Pick up the attribute byte of the background tile
+                          ; in the current room from BACKGROUND
+  CP (HL)                 ; Does this cell contain a background tile?
+  JR NZ,WILLYATTR_0       ; Jump if not
+  LD A,C                  ; Set the zero flag if we are going to retain the INK
+  AND $0F                 ; colour in this cell; this happens only if the cell
+                          ; is in the bottom row and Willy's sprite is confined
+                          ; to the top two rows
+  JR Z,WILLYATTR_0        ; Jump if we are going to retain the current INK
+                          ; colour in this cell
+  LD A,(BACKGROUND)       ; Pick up the attribute byte of the background tile
+                          ; in the current room from BACKGROUND
+  OR $07                  ; Set bits 0-2, making the INK white
+  LD (HL),A               ; Set the attribute byte for this cell in the buffer
+                          ; at FATTR
+WILLYATTR_0:
+  LD A,(NASTY)            ; Pick up the attribute byte of the nasty tile in the
+                          ; current room from NASTY
+  CP (HL)                 ; Has Willy hit a nasty?
+  JP Z,KILLWILLY          ; Kill Willy if so
+  RET
+
+; Draw Willy to the screen buffer at 6000
+;
+; Used by the routine at WILLYATTRS.
+;
+; B y-coordinate offset (0, 4, 8 or 12)
+DRAWWILLY:
+  LD A,(PIXEL_Y)          ; Pick up Willy's pixel y-coordinate from PIXEL_Y
+  ADD A,B                 ; Add the y-coordinate offset (to get Willy's true
+                          ; pixel y-coordinate if he's standing on a ramp)
+  LD IXh,SBUFADDRS/256    ; Point IX at the entry in the screen buffer address
+  LD IXl,A                ; lookup table at SBUFADDRS that corresponds to
+                          ; Willy's y-coordinate
+  LD A,(DMFLAGS)          ; Pick up Willy's direction and movement flags from
+                          ; DMFLAGS
+  AND $01                 ; Now E=0 if Willy is facing right, or 128 if he's
+  RRCA                    ; facing left
+  LD E,A
+  LD A,(FRAME)            ; Pick up Willy's animation frame (0-3) from FRAME
+  AND $03                 ; Point DE at the sprite graphic data for Willy's
+  RRCA                    ; current animation frame (see MANDAT)
+  RRCA
+  RRCA
+  OR E
+  LD E,A
+  LD D,MANDAT/256
+  LD A,(ROOM)             ; Pick up the number of the current room from ROOM
+  CP $1D                  ; Are we in the The Nightmare Room?
+  JR NZ,DRAWWILLY_0       ; Jump if not
+  LD D,FLYINGPIG0/256     ; Point DE at the graphic data for the flying pig
+  LD A,E                  ; sprite (FLYINGPIG0+E)
+  XOR $80
+  LD E,A
+DRAWWILLY_0:
+  LD B,$10                ; There are 16 rows of pixels to copy
+  LD A,(LOCATION)         ; Pick up Willy's screen x-coordinate (0-31) from
+  AND $1F                 ; LOCATION
+  LD C,A                  ; Copy it to C
+; This entry point is used by the routine at DRAWTOILET to draw the toilet in
+; The Bathroom.
+DRAWWILLY_1:
+  LD A,(IX+$00)           ; Set HL to the address in the screen buffer at FPIXL
+  LD H,(IX+$01)           ; that corresponds to where we are going to draw the
+  OR C                    ; next pixel row of the sprite graphic
+  LD L,A
+  LD A,(DE)               ; Pick up a sprite graphic byte
+  OR (HL)                 ; Merge it with the background
+  LD (HL),A               ; Save the resultant byte to the screen buffer
+  INC HL                  ; Move HL along to the next cell to the right
+  INC DE                  ; Point DE at the next sprite graphic byte
+  LD A,(DE)               ; Pick it up in A
+  OR (HL)                 ; Merge it with the background
+  LD (HL),A               ; Save the resultant byte to the screen buffer
+  INC IX                  ; Point IX at the next entry in the screen buffer
+  INC IX                  ; address lookup table at SBUFADDRS
+  INC DE                  ; Point DE at the next sprite graphic byte
+  DJNZ DRAWWILLY_1        ; Jump back until all 16 rows of pixels have been
+                          ; drawn
+  RET
+
+; Print a message
+;
+; Used by the routines at CODESCREEN, TITLESCREEN, STARTGAME, MAINLOOP and
+; GAMEOVER.
+;
+; IX Address of the message
+; C Length of the message
+; DE Display file address
+PRINTMSG:
+  LD A,(IX+$00)           ; Collect a character from the message
+  CALL PRINTCHAR          ; Print it
+  INC IX                  ; Point IX at the next character in the message
+  INC E                   ; Point DE at the next character cell (subtracting 8
+  LD A,D                  ; from D compensates for the operations performed by
+  SUB $08                 ; the routine at PRINTCHAR)
+  LD D,A
+  DEC C                   ; Have we printed the entire message yet?
+  JR NZ,PRINTMSG          ; If not, jump back to print the next character
+  RET
+
+; Print a single character
+;
+; Used by the routines at CODESCREEN and PRINTMSG.
+;
+; A ASCII code of the character
+; DE Display file address
+PRINTCHAR:
+  LD H,$07                ; Point HL at the bitmap for the character (in the
+  LD L,A                  ; ROM)
+  SET 7,L
+  ADD HL,HL
+  ADD HL,HL
+  ADD HL,HL
+  LD B,$08                ; There are eight pixel rows in a character bitmap
+; This entry point is used by the routine at TITLESCREEN to draw a triangle UDG
+; on the title screen, and by the routine at DRAWITEMS to draw an item in the
+; current room.
+PRINTCHAR_0:
+  LD A,(HL)               ; Copy the character bitmap (or triangle UDG, or item
+  LD (DE),A               ; graphic) to the screen (or screen buffer)
+  INC HL
+  INC D
+  DJNZ PRINTCHAR_0
+  RET
+
+; Play the theme tune (Moonlight Sonata)
+;
+; Used by the routine at TITLESCREEN. For each of the 99 bytes in the tune data
+; table at THEMETUNE, this routine produces two notes, each lasting
+; approximately 0.15s; the second note is played at half the frequency of the
+; first. Returns with the zero flag reset if ENTER, 0 or the fire button is
+; pressed while the tune is being played.
+;
+; HL THEMETUNE
+PLAYTUNE:
+  LD A,(HL)               ; Pick up the next byte of tune data from the table
+                          ; at THEMETUNE
+  CP $FF                  ; Has the tune finished?
+  RET Z                   ; Return (with the zero flag set) if so
+  LD BC,$0064             ; B=0 (short note duration counter), C=100 (short
+                          ; note counter)
+  XOR A                   ; A=0 (border colour and speaker state)
+  LD E,(HL)               ; Save the byte of tune data in E for retrieval
+                          ; during the short note loop
+  LD D,E                  ; Initialise D (pitch delay counter)
+PLAYTUNE_0:
+  OUT ($FE),A             ; Produce a short note (approximately 0.003s) whose
+  DEC D                   ; pitch is determined by the value in E
+  JR NZ,PLAYTUNE_1
+  LD D,E
+  XOR $18
+PLAYTUNE_1:
+  DJNZ PLAYTUNE_0
+  EX AF,AF'               ; Save A briefly
+  LD A,C                  ; Is the short note counter in C (which starts off at
+  CP $32                  ; 100) down to 50 yet?
+  JR NZ,PLAYTUNE_2        ; Jump if not
+  RL E                    ; Otherwise double the value in E (which halves the
+                          ; note frequency)
+PLAYTUNE_2:
+  EX AF,AF'               ; Restore the value of A
+  DEC C                   ; Decrement the short note counter in C
+  JR NZ,PLAYTUNE_0        ; Jump back unless we've finished playing 50 short
+                          ; notes at the lower frequency
+  CALL CHECKENTER         ; Check whether ENTER, 0 or the fire button is being
+                          ; pressed
+  RET NZ                  ; Return (with the zero flag reset) if it is
+  INC HL                  ; Move HL along to the next byte of tune data
+  JR PLAYTUNE             ; Jump back to play the next batch of 100 short notes
+
+; Check whether ENTER, 0 or the fire button is being pressed
+;
+; Used by the routine at PLAYTUNE. Returns with the zero flag reset if ENTER, 0
+; or the fire button on the joystick is being pressed.
+CHECKENTER:
+  LD A,(JOYSTICK)         ; Collect the Kempston joystick indicator from
+                          ; JOYSTICK
+  OR A                    ; Is the joystick connected?
+  JR Z,CHECKENTER_0       ; Jump if not
+  IN A,($1F)              ; Collect input from the joystick
+  BIT 4,A                 ; Is the fire button being pressed?
+  RET NZ                  ; Return (with the zero flag reset) if so
+CHECKENTER_0:
+  LD BC,$AFFE             ; Read keys H-J-K-L-ENTER and 6-7-8-9-0
+  IN A,(C)
+  AND $01                 ; Keep only bit 0 of the result (ENTER, 0)
+  CP $01                  ; Reset the zero flag if ENTER or 0 is being pressed
+  RET
+
+; Play an intro message sound effect
+;
+; Used by the routine at TITLESCREEN.
+;
+; A Value between 50 and 81
+INTROSOUND:
+  LD E,A                  ; Save the value of A in E for later retrieval
+  LD C,$FE                ; We will output to port 254
+INTROSOUND_0:
+  LD D,A                  ; Copy A into D; bits 0-2 of D determine the initial
+                          ; border colour
+  RES 4,D                 ; Reset bit 4 of D (initial speaker state)
+  RES 3,D                 ; Reset bit 3 of D (initial MIC state)
+  LD B,E                  ; Initialise B (delay counter for the inner loop)
+INTROSOUND_1:
+  CP B                    ; Is it time to flip the MIC and speaker and make the
+                          ; border black?
+  JR NZ,INTROSOUND_2      ; Jump if not
+  LD D,$18                ; Set bits 3 (MIC) and 4 (speaker) of D, and reset
+                          ; bits 0-2 (black border)
+INTROSOUND_2:
+  OUT (C),D               ; Set the MIC state, speaker state and border colour
+  DJNZ INTROSOUND_1       ; Jump back until the inner loop is finished
+  DEC A                   ; Is the outer loop finished too?
+  JR NZ,INTROSOUND_0      ; Jump back if not
+  RET
+
+SPARE:
+  DEFS $100-$%$100
+
+; Attributes for the top two-thirds of the title screen
+;
+; Used by the routine at TITLESCREEN.
+ATTRSUPPER:
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$28,$28,$05,$05,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$D3,$D3,$D3,$00,$D3,$D3,$D3,$00,$D3,$D3,$D3,$00
+  DEFB $28,$D3,$D3,$D3,$25,$D3,$D3,$D3,$00,$D3,$D3,$D3,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$D3,$00,$00,$D3,$00,$00,$00,$00,$D3,$28,$28
+  DEFB $2D,$D3,$25,$25,$24,$D3,$00,$00,$00,$00,$D3,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$D3,$00,$00,$D3,$D3,$D3,$00,$28,$D3,$2D,$2D
+  DEFB $25,$D3,$D3,$D3,$24,$D3,$D3,$D3,$00,$00,$D3,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$D3,$00,$00,$D3,$00,$28,$28,$2D,$D3,$25,$25
+  DEFB $24,$24,$04,$D3,$24,$D3,$00,$00,$00,$00,$D3,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$D3,$D3,$00,$00,$D3,$D3,$D3,$2D,$25,$D3,$24,$24
+  DEFB $04,$D3,$D3,$D3,$24,$D3,$D3,$D3,$00,$00,$D3,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$29,$29,$2D,$2D,$2C,$2C,$04,$04
+  DEFB $00,$00,$09,$09,$24,$24,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$09,$09,$29,$29,$2D,$2D,$05,$05
+  DEFB $00,$00,$09,$09,$24,$24,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$D3,$00,$08,$08,$D3,$09,$D3,$29,$D3,$2D
+  DEFB $05,$05,$D3,$09,$24,$D3,$00,$00,$00,$D3,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$D3,$00,$00,$00,$D3,$08,$D3,$09,$D3,$29
+  DEFB $2D,$2D,$D3,$09,$24,$D3,$00,$00,$00,$D3,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$D3,$00,$D3,$00,$D3,$00,$D3,$08,$D3,$09
+  DEFB $29,$29,$D3,$09,$24,$D3,$D3,$D3,$D3,$D3,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$D3,$00,$D3,$00,$D3,$00,$D3,$00,$D3,$08
+  DEFB $09,$09,$D3,$09,$24,$24,$00,$D3,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$D3,$D3,$D3,$D3,$D3,$00,$D3,$00,$D3,$D3
+  DEFB $D3,$08,$D3,$D3,$D3,$24,$00,$D3,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$08,$08,$04,$04,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+
+; Attributes for the bottom third of the screen
+;
+; Used by the routines at TITLESCREEN, STARTGAME and ENDPAUSE.
+ATTRSLOWER:
+  DEFB $46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46
+  DEFB $46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46,$46
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $01,$02,$03,$04,$05,$06,$07,$07,$07,$07,$07,$07,$07,$07,$07,$07
+  DEFB $07,$07,$07,$07,$07,$07,$07,$07,$07,$07,$06,$05,$04,$03,$02,$01
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $45,$45,$06,$06,$04,$04,$41,$41,$05,$05,$43,$43,$44,$44,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $45,$45,$06,$06,$04,$04,$41,$41,$05,$05,$43,$43,$44,$44,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+
+; Item table
+;
+; Used by the routines at TITLESCREEN and DRAWITEMS.
+;
+; The location of item N (173<=N<=255) is defined by the pair of bytes at
+; addresses ITEMTABLE1+N and ITEMTABLE2+N. The meaning of the bits in each
+; byte-pair is as follows:
+;
+; +--------+----------------------------------------------------+
+; | Bit(s) | Meaning                                            |
+; +--------+----------------------------------------------------+
+; | 15     | Most significant bit of the y-coordinate           |
+; | 14     | Collection flag (reset=collected, set=uncollected) |
+; | 8-13   | Room number                                        |
+; | 5-7    | Least significant bits of the y-coordinate         |
+; | 0-4    | x-coordinate                                       |
+; +--------+----------------------------------------------------+
+ITEMTABLE1:
+  DEFB $AD                ; Index of first used item
+  DEFS $AC                ; Unused
+  DEFB $B2                ; Item 173 at (8,25) in Watch Tower
+  DEFB $B2                ; Item 174 at (9,10) in Watch Tower
+  DEFB $B2                ; Item 175 at (9,20) in Watch Tower
+  DEFB $B2                ; Item 176 at (9,24) in Watch Tower
+  DEFB $B8                ; Item 177 at (14,9) in West Wing Roof
+  DEFB $B8                ; Item 178 at (13,19) in West Wing Roof
+  DEFB $B8                ; Item 179 at (11,27) in West Wing Roof
+  DEFB $B8                ; Item 180 at (10,6) in West Wing Roof
+  DEFB $AB                ; Item 181 at (8,31) in Conservatory Roof
+  DEFB $AB                ; Item 182 at (8,25) in Conservatory Roof
+  DEFB $AB                ; Item 183 at (8,28) in Conservatory Roof
+  DEFB $AB                ; Item 184 at (8,22) in Conservatory Roof
+  DEFB $9F                ; Item 185 at (11,4) in Swimming Pool
+  DEFB $92                ; Item 186 at (12,25) in On the Roof
+  DEFB $0F                ; Item 187 at (4,31) in I'm sure I've seen this
+                          ; before..
+  DEFB $10                ; Item 188 at (4,31) in We must perform a Quirkafleeg
+  DEFB $11                ; Item 189 at (4,31) in Up on the Battlements
+  DEFB $BC                ; Item 190 at (8,26) in The Bow
+  DEFB $BB                ; Item 191 at (14,13) in The Yacht
+  DEFB $BA                ; Item 192 at (13,22) in The Beach
+  DEFB $25                ; Item 193 at (1,28) in Orangery
+  DEFB $25                ; Item 194 at (6,16) in Orangery
+  DEFB $A5                ; Item 195 at (13,6) in Orangery
+  DEFB $1B                ; Item 196 at (6,29) in The Chapel
+  DEFB $B9                ; Item 197 at (9,23) in Above the West Bedroom
+  DEFB $BA                ; Item 198 at (13,22) in The Beach
+  DEFB $1C                ; Item 199 at (3,26) in First Landing
+  DEFB $A2                ; Item 200 at (9,2) in Top Landing
+  DEFB $19                ; Item 201 at (2,3) in Cold Store
+  DEFB $19                ; Item 202 at (5,8) in Cold Store
+  DEFB $99                ; Item 203 at (8,6) in Cold Store
+  DEFB $99                ; Item 204 at (11,6) in Cold Store
+  DEFB $B3                ; Item 205 at (14,7) in Tool  Shed
+  DEFB $16                ; Item 206 at (6,9) in To the Kitchens    Main
+                          ; Stairway
+  DEFB $96                ; Item 207 at (9,2) in To the Kitchens    Main
+                          ; Stairway
+  DEFB $28                ; Item 208 at (7,19) in Dr Jones will never believe
+                          ; this
+  DEFB $8C                ; Item 209 at (13,19) in Tree Top
+  DEFB $0C                ; Item 210 at (3,16) in Tree Top
+  DEFB $0C                ; Item 211 at (4,22) in Tree Top
+  DEFB $89                ; Item 212 at (11,5) in On a Branch Over the Drive
+  DEFB $07                ; Item 213 at (7,15) in Cuckoo's Nest
+  DEFB $2E                ; Item 214 at (3,10) in Tree Root
+  DEFB $2E                ; Item 215 at (4,29) in Tree Root
+  DEFB $26                ; Item 216 at (2,9) in Priests' Hole
+  DEFB $95                ; Item 217 at (12,17) in Ballroom West
+  DEFB $95                ; Item 218 at (12,18) in Ballroom West
+  DEFB $95                ; Item 219 at (12,20) in Ballroom West
+  DEFB $95                ; Item 220 at (12,22) in Ballroom West
+  DEFB $95                ; Item 221 at (12,23) in Ballroom West
+  DEFB $0E                ; Item 222 at (2,26) in Rescue Esmerelda
+  DEFB $0A                ; Item 223 at (4,11) in The Front Door
+  DEFB $95                ; Item 224 at (12,25) in Ballroom West
+  DEFB $95                ; Item 225 at (12,27) in Ballroom West
+  DEFB $0E                ; Item 226 at (3,26) in Rescue Esmerelda
+  DEFB $0D                ; Item 227 at (6,2) in Out on a limb
+  DEFB $0D                ; Item 228 at (1,5) in Out on a limb
+  DEFB $2C                ; Item 229 at (4,18) in On top of the house
+  DEFB $13                ; Item 230 at (3,2) in The Forgotten Abbey
+  DEFB $83                ; Item 231 at (11,1) in At the Foot of the MegaTree
+  DEFB $83                ; Item 232 at (10,4) in At the Foot of the MegaTree
+  DEFB $83                ; Item 233 at (11,7) in At the Foot of the MegaTree
+  DEFB $31                ; Item 234 at (4,28) in The Wine Cellar
+  DEFB $31                ; Item 235 at (7,4) in The Wine Cellar
+  DEFB $31                ; Item 236 at (7,28) in The Wine Cellar
+  DEFB $B1                ; Item 237 at (10,2) in The Wine Cellar
+  DEFB $B1                ; Item 238 at (10,28) in The Wine Cellar
+  DEFB $B1                ; Item 239 at (13,4) in The Wine Cellar
+  DEFB $00                ; Item 240 at (4,19) in The Off Licence
+  DEFB $00                ; Item 241 at (4,20) in The Off Licence
+  DEFB $00                ; Item 242 at (4,21) in The Off Licence
+  DEFB $00                ; Item 243 at (4,22) in The Off Licence
+  DEFB $00                ; Item 244 at (4,23) in The Off Licence
+  DEFB $00                ; Item 245 at (4,24) in The Off Licence
+  DEFB $00                ; Item 246 at (4,25) in The Off Licence
+  DEFB $00                ; Item 247 at (4,26) in The Off Licence
+  DEFB $00                ; Item 248 at (4,27) in The Off Licence
+  DEFB $00                ; Item 249 at (4,28) in The Off Licence
+  DEFB $00                ; Item 250 at (4,29) in The Off Licence
+  DEFB $00                ; Item 251 at (4,30) in The Off Licence
+  DEFB $02                ; Item 252 at (0,22) in Under the MegaTree
+  DEFB $9D                ; Item 253 at (9,26) in The Nightmare Room
+  DEFB $9E                ; Item 254 at (14,8) in The Banyan Tree
+  DEFB $A1                ; Item 255 at (13,23) in The Bathroom
+ITEMTABLE2:
+  DEFS $AD                ; Unused
+  DEFB $19                ; Item 173 at (8,25) in Watch Tower
+  DEFB $2A                ; Item 174 at (9,10) in Watch Tower
+  DEFB $34                ; Item 175 at (9,20) in Watch Tower
+  DEFB $38                ; Item 176 at (9,24) in Watch Tower
+  DEFB $C9                ; Item 177 at (14,9) in West Wing Roof
+  DEFB $B3                ; Item 178 at (13,19) in West Wing Roof
+  DEFB $7B                ; Item 179 at (11,27) in West Wing Roof
+  DEFB $46                ; Item 180 at (10,6) in West Wing Roof
+  DEFB $1F                ; Item 181 at (8,31) in Conservatory Roof
+  DEFB $19                ; Item 182 at (8,25) in Conservatory Roof
+  DEFB $1C                ; Item 183 at (8,28) in Conservatory Roof
+  DEFB $16                ; Item 184 at (8,22) in Conservatory Roof
+  DEFB $64                ; Item 185 at (11,4) in Swimming Pool
+  DEFB $99                ; Item 186 at (12,25) in On the Roof
+  DEFB $9F                ; Item 187 at (4,31) in I'm sure I've seen this
+                          ; before..
+  DEFB $9F                ; Item 188 at (4,31) in We must perform a Quirkafleeg
+  DEFB $9F                ; Item 189 at (4,31) in Up on the Battlements
+  DEFB $1A                ; Item 190 at (8,26) in The Bow
+  DEFB $CD                ; Item 191 at (14,13) in The Yacht
+  DEFB $B6                ; Item 192 at (13,22) in The Beach
+  DEFB $3C                ; Item 193 at (1,28) in Orangery
+  DEFB $D0                ; Item 194 at (6,16) in Orangery
+  DEFB $A6                ; Item 195 at (13,6) in Orangery
+  DEFB $DD                ; Item 196 at (6,29) in The Chapel
+  DEFB $37                ; Item 197 at (9,23) in Above the West Bedroom
+  DEFB $B6                ; Item 198 at (13,22) in The Beach
+  DEFB $7A                ; Item 199 at (3,26) in First Landing
+  DEFB $22                ; Item 200 at (9,2) in Top Landing
+  DEFB $43                ; Item 201 at (2,3) in Cold Store
+  DEFB $A8                ; Item 202 at (5,8) in Cold Store
+  DEFB $06                ; Item 203 at (8,6) in Cold Store
+  DEFB $66                ; Item 204 at (11,6) in Cold Store
+  DEFB $C7                ; Item 205 at (14,7) in Tool  Shed
+  DEFB $C9                ; Item 206 at (6,9) in To the Kitchens    Main
+                          ; Stairway
+  DEFB $22                ; Item 207 at (9,2) in To the Kitchens    Main
+                          ; Stairway
+  DEFB $F3                ; Item 208 at (7,19) in Dr Jones will never believe
+                          ; this
+  DEFB $B3                ; Item 209 at (13,19) in Tree Top
+  DEFB $70                ; Item 210 at (3,16) in Tree Top
+  DEFB $96                ; Item 211 at (4,22) in Tree Top
+  DEFB $65                ; Item 212 at (11,5) in On a Branch Over the Drive
+  DEFB $EF                ; Item 213 at (7,15) in Cuckoo's Nest
+  DEFB $6A                ; Item 214 at (3,10) in Tree Root
+  DEFB $9D                ; Item 215 at (4,29) in Tree Root
+  DEFB $49                ; Item 216 at (2,9) in Priests' Hole
+  DEFB $91                ; Item 217 at (12,17) in Ballroom West
+  DEFB $92                ; Item 218 at (12,18) in Ballroom West
+  DEFB $94                ; Item 219 at (12,20) in Ballroom West
+  DEFB $96                ; Item 220 at (12,22) in Ballroom West
+  DEFB $97                ; Item 221 at (12,23) in Ballroom West
+  DEFB $5A                ; Item 222 at (2,26) in Rescue Esmerelda
+  DEFB $8B                ; Item 223 at (4,11) in The Front Door
+  DEFB $99                ; Item 224 at (12,25) in Ballroom West
+  DEFB $9B                ; Item 225 at (12,27) in Ballroom West
+  DEFB $7A                ; Item 226 at (3,26) in Rescue Esmerelda
+  DEFB $C2                ; Item 227 at (6,2) in Out on a limb
+  DEFB $25                ; Item 228 at (1,5) in Out on a limb
+  DEFB $92                ; Item 229 at (4,18) in On top of the house
+  DEFB $62                ; Item 230 at (3,2) in The Forgotten Abbey
+  DEFB $61                ; Item 231 at (11,1) in At the Foot of the MegaTree
+  DEFB $44                ; Item 232 at (10,4) in At the Foot of the MegaTree
+  DEFB $67                ; Item 233 at (11,7) in At the Foot of the MegaTree
+  DEFB $9C                ; Item 234 at (4,28) in The Wine Cellar
+  DEFB $E4                ; Item 235 at (7,4) in The Wine Cellar
+  DEFB $FC                ; Item 236 at (7,28) in The Wine Cellar
+  DEFB $42                ; Item 237 at (10,2) in The Wine Cellar
+  DEFB $5C                ; Item 238 at (10,28) in The Wine Cellar
+  DEFB $A4                ; Item 239 at (13,4) in The Wine Cellar
+  DEFB $93                ; Item 240 at (4,19) in The Off Licence
+  DEFB $94                ; Item 241 at (4,20) in The Off Licence
+  DEFB $95                ; Item 242 at (4,21) in The Off Licence
+  DEFB $96                ; Item 243 at (4,22) in The Off Licence
+  DEFB $97                ; Item 244 at (4,23) in The Off Licence
+  DEFB $98                ; Item 245 at (4,24) in The Off Licence
+  DEFB $99                ; Item 246 at (4,25) in The Off Licence
+  DEFB $9A                ; Item 247 at (4,26) in The Off Licence
+  DEFB $9B                ; Item 248 at (4,27) in The Off Licence
+  DEFB $9C                ; Item 249 at (4,28) in The Off Licence
+  DEFB $9D                ; Item 250 at (4,29) in The Off Licence
+  DEFB $9E                ; Item 251 at (4,30) in The Off Licence
+  DEFB $16                ; Item 252 at (0,22) in Under the MegaTree
+  DEFB $3A                ; Item 253 at (9,26) in The Nightmare Room
+  DEFB $C8                ; Item 254 at (14,8) in The Banyan Tree
+  DEFB $B7                ; Item 255 at (13,23) in The Bathroom
+
+; Toilet graphics
+;
+; Used by the routine at DRAWTOILET.
+TOILET0:
+  DEFB $00,$0F,$00,$3F,$00,$0F,$30,$0F,$0C,$0F,$03,$0F,$00,$CF,$00,$2F
+  DEFB $00,$08,$3F,$F8,$3F,$F0,$3F,$EE,$1F,$DF,$1F,$DB,$0F,$FB,$0F,$FB
+TOILET1:
+  DEFB $00,$0F,$00,$3F,$00,$0F,$00,$0F,$00,$0F,$00,$0F,$00,$0F,$3F,$EF
+  DEFB $00,$08,$3F,$F8,$3F,$F0,$3F,$EE,$1F,$DF,$1F,$DB,$0F,$FB,$0F,$FB
+TOILET2:
+  DEFB $03,$AF,$01,$BF,$01,$8F,$01,$8F,$7F,$8F,$7F,$8F,$47,$CF,$0F,$CF
+  DEFB $00,$08,$3F,$F8,$3F,$F0,$3F,$EE,$1F,$DF,$1F,$DB,$0F,$FB,$0F,$FB
+TOILET3:
+  DEFB $00,$0F,$04,$3F,$1E,$2F,$3B,$2F,$5D,$8F,$0E,$8F,$07,$CF,$0F,$CF
+  DEFB $00,$08,$3F,$F8,$3F,$F0,$3F,$EE,$1F,$DF,$1F,$DB,$0F,$FB,$0F,$FB
+
+  DEFS $C0
+
+; Foot/barrel graphic data
+;
+; Used by the routine at GAMEOVER to display the game over sequence.
+;
+; The foot also appears as a guardian in The Nightmare Room.
+FOOT:
+  DEFB $10,$80,$10,$80,$10,$80,$10,$80,$10,$80,$10,$80,$10,$80,$20,$80
+  DEFB $20,$80,$48,$42,$88,$35,$84,$09,$80,$01,$80,$02,$43,$8D,$3C,$76
+; The barrel also appears as a guardian in Ballroom East and Top Landing.
+BARREL:
+  DEFB $37,$EC,$77,$EE,$00,$00,$6F,$F6,$EF,$F7,$EF,$F7,$D5,$5B,$DB,$BB
+  DEFB $D5,$5B,$DF,$FB,$ED,$77,$EE,$F7,$6D,$76,$00,$00,$77,$EE,$37,$EC
+
+; Maria sprite graphic data
+;
+; Used by the routine at BEDANDBATH to draw Maria in Master Bedroom.
+;
+; Maria also appears as a guardian in The Nightmare Room.
+MARIA0:
+  DEFB $03,$00,$03,$C0,$01,$E0,$01,$40,$01,$E0,$07,$80,$1F,$F8,$3F,$FC
+  DEFB $37,$6C,$14,$98,$0F,$F0,$0F,$F0,$0F,$F0,$02,$40,$02,$40,$06,$60
+MARIA1:
+  DEFB $03,$00,$03,$C0,$01,$E0,$01,$40,$01,$E0,$07,$80,$1F,$F8,$3F,$FC
+  DEFB $37,$6C,$14,$98,$0F,$F0,$0F,$F0,$0F,$F0,$02,$40,$06,$40,$02,$60
+MARIA2:
+  DEFB $03,$00,$03,$C0,$01,$E0,$01,$40,$01,$E0,$07,$80,$1F,$FC,$3F,$FE
+  DEFB $37,$66,$14,$92,$0F,$F0,$0F,$F0,$0F,$F0,$02,$40,$02,$40,$06,$60
+MARIA3:
+  DEFB $03,$00,$03,$C0,$01,$E0,$01,$40,$01,$E0,$07,$80,$1F,$FF,$3F,$FE
+  DEFB $37,$60,$14,$90,$0F,$F0,$0F,$F0,$0F,$F0,$02,$40,$02,$40,$06,$60
+
+; Willy sprite graphic data
+;
+; Used by the routines at DRAWLIVES, GAMEOVER and DRAWWILLY.
+MANDAT:
+  DEFB $3C,$00,$3C,$00,$7E,$00,$34,$00,$3E,$00,$3C,$00,$18,$00,$3C,$00
+  DEFB $7E,$00,$7E,$00,$F7,$00,$FB,$00,$3C,$00,$76,$00,$6E,$00,$77,$00
+  DEFB $0F,$00,$0F,$00,$1F,$80,$0D,$00,$0F,$80,$0F,$00,$06,$00,$0F,$00
+  DEFB $1B,$80,$1B,$80,$1B,$80,$1D,$80,$0F,$00,$06,$00,$06,$00,$07,$00
+WILLYR2:
+  DEFB $03,$C0,$03,$C0,$07,$E0,$03,$40,$03,$E0,$03,$C0,$01,$80,$03,$C0
+  DEFB $07,$E0,$07,$E0,$0F,$70,$0F,$B0,$03,$C0,$07,$60,$06,$E0,$07,$70
+  DEFB $00,$F0,$00,$F0,$01,$F8,$00,$D0,$00,$F8,$00,$F0,$00,$60,$00,$F0
+  DEFB $01,$F8,$03,$FC,$07,$FE,$06,$F6,$00,$F8,$01,$DA,$03,$0E,$03,$8C
+  DEFB $0F,$00,$0F,$00,$1F,$80,$0B,$00,$1F,$00,$0F,$00,$06,$00,$0F,$00
+  DEFB $1F,$80,$3F,$C0,$7F,$E0,$6F,$60,$1F,$00,$5B,$80,$70,$C0,$31,$C0
+  DEFB $03,$C0,$03,$C0,$07,$E0,$02,$C0,$07,$C0,$03,$C0,$01,$80,$03,$C0
+  DEFB $07,$E0,$07,$E0,$0E,$F0,$0D,$F0,$03,$C0,$06,$E0,$07,$60,$0E,$E0
+  DEFB $00,$F0,$00,$F0,$01,$F8,$00,$B0,$01,$F0,$00,$F0,$00,$60,$00,$F0
+  DEFB $01,$D8,$01,$D8,$01,$D8,$01,$B8,$00,$F0,$00,$60,$00,$60,$00,$E0
+  DEFB $00,$3C,$00,$3C,$00,$7E,$00,$2C,$00,$7C,$00,$3C,$00,$18,$00,$3C
+  DEFB $00,$7E,$00,$7E,$00,$EF,$00,$DF,$00,$3C,$00,$6E,$00,$76,$00,$EE
+
+; Guardian graphics
+;
+; Used by the routine at DRAWTHINGS.
+;
+; This guardian (page AB, sprites 0-3) appears in The Banyan Tree and A bit of
+; tree.
+GUARDIANS:
+  DEFB $00,$00,$00,$00,$2A,$AA,$7F,$FF,$7F,$FF,$7C,$3F,$7C,$3F,$7F,$FF
+  DEFB $7F,$FF,$7F,$FF,$00,$00,$2A,$AA,$00,$00,$2A,$AA,$00,$00,$00,$00
+  DEFB $00,$48,$01,$2C,$04,$BC,$12,$FE,$4B,$FE,$2E,$7F,$BC,$3F,$FE,$7C
+  DEFB $FF,$F2,$7F,$C9,$7F,$25,$3C,$94,$32,$50,$09,$40,$05,$00,$04,$00
+  DEFB $00,$00,$07,$E0,$0F,$F0,$17,$E8,$0F,$F0,$16,$68,$0E,$70,$16,$68
+  DEFB $0F,$F0,$17,$E8,$0F,$F0,$17,$E8,$08,$10,$17,$E8,$10,$08,$00,$00
+  DEFB $12,$00,$34,$80,$3D,$20,$7F,$48,$7F,$D2,$FE,$74,$FC,$3D,$3E,$7F
+  DEFB $4F,$FF,$93,$FE,$A4,$FE,$29,$3C,$0A,$4C,$02,$90,$00,$A0,$00,$20
+; This guardian (page AB, sprites 4-7) appears in The Chapel and The Banyan
+; Tree.
+  DEFB $00,$00,$00,$00,$00,$00,$02,$02,$22,$02,$A9,$54,$A8,$D8,$71,$74
+  DEFB $22,$DA,$3B,$AE,$2E,$AB,$24,$F9,$20,$DB,$20,$D8,$01,$54,$02,$8A
+  DEFB $00,$00,$02,$02,$02,$02,$01,$74,$00,$D8,$51,$54,$52,$FA,$23,$DE
+  DEFB $E7,$AB,$1E,$F9,$18,$D9,$08,$D9,$09,$54,$06,$8A,$04,$00,$00,$00
+  DEFB $02,$02,$03,$8E,$00,$F8,$01,$54,$02,$DA,$03,$FE,$11,$8B,$4B,$A9
+  DEFB $2B,$FB,$96,$F8,$6C,$D8,$05,$54,$02,$8A,$01,$00,$00,$80,$00,$40
+  DEFB $00,$00,$02,$02,$02,$02,$01,$74,$00,$D8,$51,$54,$52,$FA,$23,$DE
+  DEFB $E7,$AB,$1E,$F9,$18,$D9,$08,$D9,$09,$54,$06,$8A,$04,$00,$00,$00
+; This guardian (page AC, sprites 0-3) appears in East Wall Base, The Chapel
+; and West  Wing.
+  DEFB $20,$04,$AE,$EC,$BB,$7D,$E0,$07,$BD,$B5,$A0,$04,$3B,$7C,$00,$00
+  DEFB $1D,$B0,$20,$04,$3B,$7C,$A2,$44,$FD,$B7,$A0,$04,$3B,$DC,$20,$04
+  DEFB $20,$04,$37,$B4,$A0,$04,$FB,$7F,$A0,$04,$3D,$B4,$20,$04,$1B,$78
+  DEFB $00,$00,$3D,$B4,$A2,$44,$BB,$7D,$E0,$07,$BD,$B5,$B7,$EC,$20,$04
+  DEFB $20,$04,$3A,$DC,$3D,$BD,$E0,$07,$3B,$75,$20,$04,$3D,$BC,$00,$00
+  DEFB $1B,$70,$20,$04,$3D,$BD,$A2,$45,$FB,$77,$A0,$05,$3D,$ED,$20,$04
+  DEFB $20,$04,$3B,$75,$A0,$05,$FD,$BF,$A0,$05,$3B,$75,$20,$04,$1D,$B8
+  DEFB $00,$00,$3B,$74,$24,$84,$3D,$BD,$E0,$07,$3B,$75,$2E,$EC,$20,$04
+; This guardian (page AC, sprites 4-7) appears in The Banyan Tree and Orangery.
+  DEFB $0F,$F0,$17,$E8,$18,$18,$37,$CC,$28,$24,$53,$92,$64,$4A,$A9,$2B
+  DEFB $AA,$2B,$6A,$4A,$69,$92,$24,$24,$33,$CC,$18,$18,$17,$E8,$0F,$F0
+  DEFB $00,$E0,$07,$F0,$38,$18,$73,$CC,$64,$26,$49,$93,$52,$4B,$D4,$2B
+  DEFB $D5,$2A,$D4,$CA,$D2,$12,$49,$E4,$24,$0C,$13,$F4,$08,$78,$07,$80
+  DEFB $01,$80,$07,$E0,$18,$18,$73,$CE,$A4,$25,$C9,$95,$D2,$55,$D4,$55
+  DEFB $D4,$95,$D2,$25,$C9,$C9,$E4,$13,$73,$E6,$18,$18,$07,$E0,$01,$80
+  DEFB $07,$00,$08,$E0,$1F,$DC,$30,$26,$67,$92,$C8,$4A,$D3,$2A,$D4,$AB
+  DEFB $54,$2B,$52,$4B,$49,$93,$24,$26,$33,$CC,$28,$18,$1F,$F0,$01,$E0
+; This guardian (page AD, sprites 0-3) appears in On a Branch Over the Drive,
+; Conservatory Roof and Tool  Shed.
+  DEFB $0C,$00,$0C,$00,$0C,$00,$0C,$00,$0C,$00,$1E,$00,$12,$00,$33,$00
+  DEFB $3F,$00,$73,$80,$61,$80,$61,$80,$C0,$C0,$C0,$C0,$80,$40,$80,$40
+  DEFB $08,$40,$08,$40,$0C,$C0,$04,$80,$07,$80,$07,$80,$0C,$C0,$1C,$E0
+  DEFB $3B,$70,$30,$30,$60,$18,$60,$18,$40,$08,$C0,$0C,$80,$04,$80,$04
+  DEFB $02,$10,$02,$10,$03,$30,$01,$20,$01,$E0,$01,$E0,$03,$30,$07,$38
+  DEFB $0E,$DC,$0C,$0C,$18,$06,$18,$06,$10,$02,$30,$03,$20,$01,$20,$01
+  DEFB $00,$30,$00,$30,$00,$30,$00,$30,$00,$30,$00,$78,$00,$48,$00,$CC
+  DEFB $00,$FC,$01,$CE,$01,$86,$01,$86,$03,$03,$03,$03,$02,$01,$02,$01
+; This guardian (page AD, sprites 4-7) appears in Top Landing, Tree Root and
+; West Bedroom.
+  DEFB $00,$00,$00,$00,$00,$00,$7F,$FE,$40,$02,$FF,$FF,$DE,$7B,$C0,$03
+  DEFB $C0,$03,$DE,$7B,$FF,$FF,$40,$02,$7F,$FE,$00,$00,$00,$00,$00,$00
+  DEFB $0A,$00,$1D,$00,$36,$80,$67,$40,$C3,$A0,$71,$D0,$B8,$68,$5C,$34
+  DEFB $2C,$3A,$16,$1D,$0B,$8E,$05,$C3,$02,$E6,$01,$6C,$00,$B8,$00,$50
+  DEFB $07,$E0,$1F,$F8,$14,$28,$16,$68,$16,$68,$16,$68,$16,$68,$14,$28
+  DEFB $14,$28,$16,$68,$16,$68,$16,$68,$16,$68,$14,$28,$1F,$F8,$07,$E0
+  DEFB $00,$50,$00,$B8,$01,$6C,$02,$E6,$05,$C3,$0B,$8E,$16,$1D,$2C,$3A
+  DEFB $5C,$34,$B8,$68,$71,$D0,$C3,$A0,$67,$40,$36,$80,$1D,$00,$0A,$00
+; This guardian (page AE, sprites 0-3) appears in To the Kitchens    Main
+; Stairway, Halfway up the East Wall, Conservatory Roof and The Bow.
+  DEFB $7E,$00,$99,$00,$FF,$00,$81,$00,$7E,$00,$18,$00,$24,$00,$24,$00
+  DEFB $42,$00,$42,$00,$81,$00,$E7,$00,$A5,$00,$C3,$00,$A5,$00,$E7,$00
+  DEFB $00,$00,$1F,$80,$26,$40,$39,$C0,$30,$C0,$1F,$80,$09,$00,$10,$80
+  DEFB $20,$40,$40,$20,$80,$10,$E0,$70,$A0,$50,$C0,$30,$A0,$50,$E0,$70
+  DEFB $00,$00,$00,$00,$00,$00,$07,$E0,$09,$90,$0E,$70,$0E,$70,$06,$60
+  DEFB $1B,$D8,$60,$06,$80,$01,$E0,$07,$A0,$05,$C0,$03,$A0,$05,$E0,$07
+  DEFB $00,$00,$01,$F8,$02,$64,$03,$9C,$03,$0C,$01,$F8,$00,$90,$01,$08
+  DEFB $02,$04,$04,$02,$08,$01,$0E,$07,$0A,$05,$0C,$03,$0A,$05,$0E,$07
+; This guardian (page AE, sprites 4-7) appears in Under the Drive.
+  DEFB $0C,$00,$12,$00,$21,$10,$12,$20,$8C,$40,$52,$80,$2F,$00,$2F,$00
+  DEFB $5F,$80,$5F,$80,$5F,$80,$00,$00,$FF,$C0,$5D,$80,$5D,$80,$FF,$C0
+  DEFB $00,$01,$00,$02,$83,$04,$4C,$C8,$23,$10,$14,$A0,$0B,$C0,$0B,$C0
+  DEFB $17,$E0,$17,$E0,$17,$E0,$00,$00,$3F,$F0,$1B,$B0,$1B,$B0,$3F,$F0
+  DEFB $80,$00,$40,$00,$20,$01,$11,$E2,$08,$C4,$05,$28,$02,$F0,$02,$F0
+  DEFB $05,$F8,$05,$F8,$05,$F8,$00,$00,$0F,$FC,$0B,$74,$0B,$74,$0F,$FC
+  DEFB $00,$00,$00,$00,$08,$30,$04,$CC,$02,$31,$01,$4A,$00,$BC,$00,$BC
+  DEFB $01,$7E,$01,$7E,$01,$7E,$00,$00,$03,$FF,$02,$ED,$02,$ED,$03,$FF
+; This guardian (page AF, sprites 0-3) appears in Top Landing, Under the Roof
+; and Tool  Shed.
+  DEFB $38,$00,$7C,$00,$7E,$00,$6D,$80,$44,$40,$6C,$40,$7C,$20,$7C,$00
+  DEFB $7C,$0C,$7C,$32,$FC,$CC,$FF,$30,$FC,$C0,$7F,$00,$6C,$00,$38,$00
+  DEFB $0E,$60,$1F,$94,$1F,$08,$1B,$20,$11,$50,$1B,$50,$1F,$A0,$1F,$A0
+  DEFB $7F,$40,$DF,$40,$DF,$80,$9F,$80,$7F,$00,$1F,$00,$1B,$00,$0E,$00
+  DEFB $03,$80,$07,$C0,$07,$E0,$06,$D8,$04,$44,$0E,$C4,$7F,$C2,$EF,$C0
+  DEFB $EF,$C0,$8F,$C0,$77,$C0,$07,$C0,$07,$C0,$07,$C0,$06,$C0,$03,$80
+  DEFB $00,$E0,$01,$F0,$01,$F0,$01,$B2,$01,$15,$01,$B5,$01,$FA,$01,$FA
+  DEFB $07,$F4,$0D,$F4,$0D,$F8,$09,$F8,$07,$F0,$01,$F0,$01,$B0,$00,$E0
+; This guardian (page AF, sprites 4-7) appears in The Drive, Cuckoo's Nest, To
+; the Kitchens    Main Stairway and Back Stairway.
+  DEFB $0C,$00,$16,$00,$2F,$00,$2F,$00,$4F,$80,$5F,$80,$5F,$80,$9F,$C0
+  DEFB $BF,$C0,$BD,$C0,$BA,$C0,$BD,$40,$5A,$80,$5D,$80,$3F,$00,$0C,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$70,$03,$98,$0C,$78,$33,$F8,$47,$F0
+  DEFB $5F,$F0,$BF,$F0,$BE,$A0,$BD,$60,$5A,$C0,$5D,$40,$3F,$80,$0E,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$03,$C0,$1C,$78,$21,$FC,$4F,$FE
+  DEFB $5F,$FE,$9F,$FF,$BF,$EF,$5F,$56,$5F,$AE,$23,$54,$1F,$F8,$03,$C0
+  DEFB $00,$00,$00,$00,$00,$00,$0E,$00,$17,$C0,$17,$F0,$13,$FC,$0B,$FE
+  DEFB $0B,$FE,$0B,$D7,$05,$EB,$05,$D7,$02,$EA,$02,$7E,$01,$8C,$00,$70
+; This guardian (page B0, sprites 0-3) appears in The Attic.
+  DEFB $07,$C0,$18,$30,$23,$88,$44,$44,$88,$22,$90,$13,$90,$13,$88,$22
+  DEFB $44,$44,$23,$88,$18,$30,$07,$C0,$03,$00,$03,$00,$03,$00,$03,$80
+  DEFB $07,$C0,$18,$30,$20,$08,$43,$84,$84,$42,$88,$23,$88,$23,$84,$42
+  DEFB $43,$84,$20,$08,$18,$30,$07,$C0,$0F,$80,$1D,$D0,$08,$E0,$04,$40
+  DEFB $07,$C0,$1F,$F0,$3E,$78,$7C,$3C,$7E,$7C,$FF,$FE,$FF,$FE,$F0,$00
+  DEFB $FF,$80,$7F,$F0,$7F,$FC,$3F,$F8,$1F,$F0,$07,$C0,$00,$00,$00,$00
+  DEFB $07,$C0,$1F,$F0,$3C,$F8,$78,$7C,$7C,$FC,$FF,$80,$FC,$00,$F0,$00
+  DEFB $F8,$00,$7E,$00,$7F,$80,$3F,$E0,$1F,$F0,$07,$C0,$00,$00,$00,$00
+; This guardian (page B0, sprites 4-5) appears in Rescue Esmerelda.
+  DEFB $07,$C0,$08,$20,$0A,$A0,$08,$20,$0B,$A0,$10,$10,$25,$48,$0A,$A0
+  DEFB $3D,$78,$46,$C4,$07,$C0,$02,$80,$05,$40,$0F,$E0,$14,$80,$08,$C0
+  DEFB $07,$C0,$08,$20,$0A,$A0,$08,$20,$39,$38,$00,$00,$05,$40,$0A,$A0
+  DEFB $1D,$70,$16,$D0,$17,$D0,$0A,$A0,$05,$40,$0F,$E0,$02,$50,$06,$20
+; This guardian (page B0, sprites 6-7) appears in The Hall and West  Wing.
+  DEFB $01,$80,$00,$00,$01,$80,$45,$91,$01,$80,$89,$A2,$45,$91,$01,$80
+  DEFB $CD,$B3,$CD,$B3,$CD,$B3,$CD,$B3,$23,$C4,$12,$48,$0D,$B0,$00,$00
+  DEFB $01,$80,$00,$00,$01,$80,$89,$A2,$01,$80,$45,$91,$89,$A2,$01,$80
+  DEFB $CD,$B3,$CD,$B3,$CD,$B3,$CD,$B3,$23,$C4,$12,$48,$0D,$B0,$00,$00
+; This guardian (page B1, sprites 0-7) is not used.
+  DEFB $16,$00,$16,$00,$16,$00,$16,$00,$16,$00,$16,$00,$16,$00,$16,$00
+  DEFB $FF,$C0,$00,$00,$52,$80,$C0,$C0,$33,$00,$B3,$40,$08,$00,$2D,$00
+  DEFB $05,$80,$05,$80,$05,$80,$05,$80,$05,$80,$05,$80,$05,$80,$05,$80
+  DEFB $3F,$F0,$00,$00,$0D,$20,$24,$00,$0C,$D0,$0C,$F0,$28,$00,$0D,$20
+  DEFB $01,$60,$01,$60,$01,$60,$01,$60,$01,$60,$01,$60,$01,$60,$01,$60
+  DEFB $0F,$FC,$00,$00,$02,$D0,$00,$40,$0B,$34,$03,$30,$0C,$0C,$05,$28
+  DEFB $00,$58,$00,$58,$00,$58,$00,$58,$00,$58,$00,$58,$00,$58,$00,$58
+  DEFB $03,$FF,$00,$00,$01,$2C,$00,$05,$03,$CC,$02,$CC,$00,$09,$01,$2C
+  DEFB $00,$40,$01,$80,$02,$40,$05,$C0,$0B,$C0,$0B,$C0,$17,$C0,$17,$C0
+  DEFB $16,$40,$16,$00,$16,$00,$16,$00,$16,$00,$16,$00,$16,$00,$16,$00
+  DEFB $03,$00,$0F,$C0,$08,$40,$13,$20,$13,$20,$08,$40,$0F,$C0,$07,$80
+  DEFB $05,$80,$05,$80,$05,$80,$05,$80,$05,$80,$05,$80,$05,$80,$05,$80
+  DEFB $08,$00,$0E,$00,$0B,$00,$0B,$80,$0B,$C0,$0B,$C0,$0B,$E0,$0F,$E0
+  DEFB $09,$60,$01,$60,$01,$60,$01,$60,$01,$60,$01,$60,$01,$60,$01,$60
+  DEFB $00,$30,$00,$DC,$00,$BC,$01,$7E,$01,$7E,$00,$BC,$00,$BC,$00,$58
+  DEFB $00,$58,$00,$58,$00,$58,$00,$58,$00,$58,$00,$58,$00,$58,$00,$58
+; This guardian (page B2, sprites 0-3) appears in On top of the house and The
+; Yacht.
+  DEFB $00,$03,$00,$0F,$00,$1F,$80,$3F,$C0,$7F,$D1,$FF,$5F,$FF,$9F,$FF
+  DEFB $CF,$FF,$D3,$FF,$DF,$FC,$FF,$F0,$FF,$E0,$7F,$C0,$3F,$80,$0E,$00
+  DEFB $00,$00,$00,$00,$50,$01,$D8,$03,$9C,$07,$4F,$1F,$D7,$FF,$DB,$FF
+  DEFB $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$8F,$FE,$07,$FC,$03,$F8,$00,$E0
+  DEFB $00,$00,$03,$80,$07,$C0,$8F,$C0,$DF,$E0,$DB,$F1,$57,$FF,$8F,$FF
+  DEFB $DF,$FF,$DF,$FF,$FF,$FF,$FC,$7F,$F8,$3F,$70,$3F,$00,$1F,$00,$0E
+  DEFB $00,$38,$00,$FE,$01,$FF,$83,$FF,$C7,$FF,$DF,$FF,$5F,$FF,$9B,$FF
+  DEFB $C7,$FF,$DF,$FF,$DF,$C7,$FF,$01,$FE,$00,$7C,$00,$38,$00,$00,$00
+; This guardian (page B2, sprites 4-7) appears in On a Branch Over the Drive,
+; Orangery, Dr Jones will never believe this, Under the Drive, Nomen Luni and
+; Back Stairway.
+  DEFB $03,$C0,$0E,$F0,$1D,$F8,$3E,$FC,$53,$CE,$65,$A6,$A4,$27,$71,$8F
+  DEFB $BF,$F7,$55,$EF,$6E,$76,$53,$CA,$38,$1C,$16,$78,$0B,$F0,$02,$C0
+  DEFB $03,$C0,$0D,$F0,$1A,$F8,$3F,$FC,$51,$8C,$64,$26,$C5,$A7,$B3,$CF
+  DEFB $5D,$BB,$AA,$77,$5F,$FA,$72,$4E,$38,$1C,$1C,$38,$0B,$F0,$02,$C0
+  DEFB $03,$C0,$0B,$F0,$15,$78,$3F,$FC,$50,$0C,$65,$A6,$C7,$E7,$F1,$8F
+  DEFB $BE,$7F,$DD,$F7,$2C,$3A,$5A,$5E,$2C,$3C,$16,$78,$0B,$F0,$03,$C0
+  DEFB $03,$C0,$0D,$F0,$1A,$F8,$3F,$FC,$51,$8C,$64,$26,$C5,$A7,$B3,$CF
+  DEFB $5D,$BB,$AA,$77,$5F,$FA,$72,$4E,$38,$1C,$1C,$38,$0B,$F0,$02,$C0
+; The next 256 bytes are unused.
+  DEFS $0100
+; This guardian (page B4, sprites 0-7) appears in The Forgotten Abbey, The
+; Chapel, First Landing, Swimming Pool and The Wine Cellar.
+  DEFB $0E,$00,$15,$00,$2A,$80,$17,$00,$FF,$00,$16,$00,$0C,$00,$1F,$80
+  DEFB $3F,$80,$7F,$00,$2A,$00,$7F,$00,$6F,$00,$7F,$00,$18,$00,$38,$00
+  DEFB $03,$80,$05,$40,$0A,$A0,$05,$C0,$7F,$C0,$05,$80,$03,$00,$07,$E0
+  DEFB $0F,$E0,$1F,$C0,$0A,$80,$1F,$C0,$1B,$C0,$1F,$C0,$18,$80,$38,$00
+  DEFB $00,$E0,$01,$50,$02,$A8,$01,$70,$0F,$F0,$01,$60,$00,$C0,$01,$F8
+  DEFB $03,$F8,$07,$F0,$02,$A0,$07,$F0,$06,$F0,$07,$F0,$06,$30,$00,$60
+  DEFB $00,$38,$00,$54,$00,$AA,$00,$5C,$01,$FC,$00,$58,$00,$30,$00,$7E
+  DEFB $00,$FE,$01,$FC,$00,$A8,$01,$FC,$01,$BC,$01,$FC,$01,$18,$00,$38
+  DEFB $1C,$00,$2A,$00,$55,$00,$3A,$00,$3F,$80,$1A,$00,$0C,$00,$7E,$00
+  DEFB $7F,$00,$3F,$80,$15,$00,$3F,$80,$3D,$80,$3F,$80,$18,$80,$1C,$00
+  DEFB $07,$00,$0A,$80,$15,$40,$0E,$80,$0F,$F0,$06,$80,$03,$00,$1F,$80
+  DEFB $1F,$C0,$0F,$E0,$05,$40,$0F,$E0,$0F,$60,$0F,$E0,$0C,$60,$06,$00
+  DEFB $01,$C0,$02,$A0,$05,$50,$03,$A0,$03,$FE,$01,$A0,$00,$C0,$07,$E0
+  DEFB $07,$F0,$03,$F8,$01,$50,$03,$F8,$03,$D8,$03,$F8,$01,$18,$00,$1C
+  DEFB $00,$70,$00,$A8,$01,$54,$00,$E8,$00,$FF,$00,$68,$00,$30,$01,$F8
+  DEFB $01,$FC,$00,$FE,$00,$54,$00,$FE,$00,$F6,$00,$FE,$00,$18,$00,$1C
+; This guardian (page B5, sprites 0-7) appears in At the Foot of the MegaTree,
+; Cuckoo's Nest, Out on a limb, The Banyan Tree, The Wine Cellar, Tool  Shed,
+; West Wing Roof and The Yacht.
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$06,$00,$3F,$00,$1F,$00,$0D,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$01,$80
+  DEFB $0F,$C0,$07,$40,$03,$40,$4F,$40,$07,$40,$03,$20,$0F,$20,$87,$20
+  DEFB $00,$60,$03,$F0,$01,$D0,$00,$D0,$03,$D0,$01,$D0,$00,$C8,$03,$C8
+  DEFB $01,$C8,$00,$C8,$0B,$C8,$21,$C8,$00,$C8,$0B,$C4,$01,$C4,$20,$C4
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$18,$00,$FC,$00,$74
+  DEFB $00,$34,$00,$F4,$00,$74,$01,$36,$00,$FA,$02,$7A,$00,$3A,$04,$FA
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$30,$00,$7E,$00,$7C,$00,$58,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$0C,$00
+  DEFB $1F,$80,$17,$00,$16,$00,$17,$80,$17,$00,$26,$10,$27,$80,$27,$08
+  DEFB $03,$00,$07,$E0,$05,$C0,$05,$80,$05,$E0,$05,$C0,$09,$80,$09,$E0
+  DEFB $09,$D0,$09,$80,$09,$E8,$09,$C2,$09,$80,$11,$E8,$11,$C0,$11,$82
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$C0,$01,$F8,$01,$70
+  DEFB $01,$60,$01,$78,$01,$70,$02,$60,$02,$78,$02,$70,$02,$61,$02,$78
+; This guardian (page B6, sprites 0-7) appears in Under the MegaTree, The Hall,
+; Tree Top and Emergency Generator.
+FLYINGPIG0:
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$13,$40,$17,$80,$3F,$C0
+  DEFB $55,$40,$FA,$A0,$FD,$40,$1F,$A0,$08,$80,$05,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$08,$D0,$05,$E0,$0F,$F0
+  DEFB $16,$B0,$3D,$50,$3E,$A8,$07,$50,$02,$A8,$02,$54,$00,$28,$00,$14
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$02,$34,$01,$78,$03,$FC
+  DEFB $05,$54,$0F,$AA,$0F,$D4,$01,$FA,$00,$88,$01,$04,$00,$00,$00,$00
+  DEFB $00,$03,$00,$0A,$00,$15,$00,$0A,$00,$15,$00,$AB,$00,$56,$00,$EB
+  DEFB $01,$55,$03,$EB,$03,$FF,$00,$7E,$00,$22,$00,$22,$00,$00,$00,$00
+  DEFB $80,$00,$50,$00,$A8,$00,$50,$00,$A8,$00,$D5,$00,$6A,$00,$D7,$00
+  DEFB $AA,$80,$D7,$C0,$FF,$C0,$7E,$00,$44,$00,$44,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$2C,$40,$1E,$80,$3F,$C0
+  DEFB $2A,$A0,$55,$F0,$2B,$F0,$5F,$80,$11,$00,$20,$80,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$0B,$10,$07,$A0,$0F,$F0
+  DEFB $0D,$68,$0A,$BC,$15,$7C,$0A,$E0,$15,$40,$2A,$40,$14,$00,$28,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$02,$C8,$01,$E8,$03,$FC
+  DEFB $02,$AA,$05,$5F,$02,$BF,$05,$F8,$01,$10,$00,$A0,$00,$00,$00,$00
+; This guardian (page B7, sprites 0-1) appears in The Kitchen and West of
+; Kitchen.
+  DEFB $0A,$A0,$15,$50,$0A,$A0,$05,$42,$05,$45,$05,$45,$07,$C2,$0D,$62
+  DEFB $0F,$E3,$3C,$7F,$7B,$BF,$EF,$E3,$AE,$E2,$47,$C2,$CE,$C0,$C0,$E0
+  DEFB $C0,$00,$CA,$A0,$D5,$50,$CA,$A0,$45,$40,$45,$42,$A7,$C5,$CD,$65
+  DEFB $6F,$E2,$7C,$7A,$3A,$BF,$0F,$EF,$0E,$E3,$07,$C2,$06,$E2,$0E,$02
+; This guardian (page B7, sprites 2-3) appears in Tree Root, West Bedroom and
+; Above the West Bedroom.
+  DEFB $03,$00,$04,$80,$05,$C0,$0B,$A0,$15,$40,$17,$60,$17,$60,$1F,$E0
+  DEFB $13,$90,$2D,$68,$2F,$78,$2F,$78,$2F,$78,$2F,$78,$AF,$79,$7F,$FE
+  DEFB $00,$C0,$01,$20,$01,$70,$02,$E8,$05,$50,$05,$D8,$05,$D8,$07,$F8
+  DEFB $09,$C8,$16,$B4,$17,$BC,$17,$BC,$17,$BC,$17,$BC,$97,$BD,$7F,$FE
+; This guardian (page B7, sprites 4-7) appears in To the Kitchens    Main
+; Stairway and Back Stairway.
+  DEFB $76,$00,$00,$00,$6E,$00,$76,$00,$6E,$00,$00,$00,$76,$00,$6E,$00
+  DEFB $00,$00,$76,$00,$00,$00,$00,$00,$6E,$00,$76,$00,$00,$00,$6E,$00
+  DEFB $1D,$80,$2A,$00,$27,$60,$51,$B0,$4B,$D0,$90,$80,$AA,$E8,$94,$B8
+  DEFB $91,$80,$AA,$D8,$91,$00,$55,$00,$4B,$B0,$2B,$60,$24,$00,$1D,$80
+  DEFB $03,$C0,$0C,$30,$10,$98,$32,$14,$68,$82,$40,$2A,$B5,$11,$C8,$45
+  DEFB $A4,$91,$9A,$05,$48,$42,$55,$0A,$28,$54,$12,$88,$0D,$70,$03,$C0
+  DEFB $01,$B8,$00,$54,$06,$E4,$0D,$8A,$0B,$D2,$01,$09,$17,$55,$1D,$29
+  DEFB $01,$89,$1B,$55,$00,$89,$00,$AA,$0D,$D2,$06,$D4,$00,$24,$01,$B8
+; This guardian (page B8, sprites 0-7) appears in Under the MegaTree, On the
+; Roof, Ballroom West and Tree Root.
+  DEFB $00,$00,$06,$00,$08,$00,$38,$00,$50,$00,$F0,$00,$F8,$00,$3C,$00
+  DEFB $3E,$00,$7E,$00,$9F,$00,$1F,$00,$1F,$C0,$0E,$C0,$18,$00,$60,$00
+  DEFB $00,$00,$00,$00,$0F,$00,$14,$80,$3C,$00,$0E,$00,$3F,$00,$0F,$80
+  DEFB $1F,$80,$2F,$C0,$0F,$C0,$07,$F0,$03,$B0,$01,$00,$02,$00,$04,$00
+  DEFB $00,$00,$00,$60,$00,$80,$03,$80,$0D,$00,$07,$00,$03,$80,$07,$C0
+  DEFB $0B,$E0,$07,$E0,$09,$F0,$01,$F0,$01,$FC,$00,$EC,$01,$80,$06,$00
+  DEFB $00,$00,$00,$00,$00,$04,$00,$08,$00,$70,$00,$A0,$01,$E0,$00,$70
+  DEFB $01,$F8,$00,$78,$01,$FC,$00,$7C,$00,$7C,$00,$7F,$00,$3B,$00,$F0
+  DEFB $04,$00,$04,$00,$0C,$00,$0C,$00,$16,$00,$1E,$00,$3E,$00,$6C,$00
+  DEFB $9E,$00,$3F,$00,$3F,$00,$3F,$00,$7F,$00,$56,$00,$1C,$00,$06,$00
+  DEFB $04,$80,$08,$40,$13,$20,$13,$20,$17,$A0,$13,$20,$1F,$E0,$1B,$60
+  DEFB $27,$90,$0F,$C0,$0F,$C0,$0F,$C0,$0F,$C0,$1D,$80,$03,$80,$01,$00
+  DEFB $00,$80,$00,$80,$00,$C0,$00,$C0,$01,$A0,$01,$E0,$01,$F0,$00,$D8
+  DEFB $01,$E4,$03,$F0,$03,$F0,$03,$F0,$03,$F8,$01,$A8,$00,$E0,$01,$80
+  DEFB $00,$48,$00,$84,$01,$32,$01,$02,$01,$7A,$01,$7A,$01,$FE,$01,$B6
+  DEFB $02,$79,$00,$FC,$00,$FC,$00,$FC,$00,$FC,$00,$6E,$00,$70,$00,$20
+; This guardian (page B9, sprites 0-3) appears in On a Branch Over the Drive,
+; To the Kitchens    Main Stairway and The Bathroom.
+  DEFB $3C,$00,$6E,$00,$A7,$00,$A5,$00,$77,$00,$A3,$00,$62,$00,$2C,$00
+  DEFB $34,$00,$46,$00,$C5,$00,$EE,$00,$A5,$00,$E5,$00,$76,$00,$3C,$00
+  DEFB $00,$00,$00,$00,$00,$B0,$01,$48,$03,$FC,$00,$44,$02,$0C,$02,$7C
+  DEFB $35,$D8,$46,$F0,$C5,$00,$EE,$00,$A5,$00,$E5,$00,$76,$00,$3C,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $34,$34,$46,$46,$C5,$C5,$EE,$EE,$A5,$A5,$E5,$E5,$76,$76,$3C,$3C
+  DEFB $00,$00,$00,$00,$0F,$00,$1B,$80,$3E,$40,$30,$40,$22,$00,$3F,$C0
+  DEFB $12,$B4,$0D,$46,$00,$C5,$00,$EE,$00,$A5,$00,$E5,$00,$76,$00,$3C
+; This guardian (page B9, sprites 4-7) appears in The Bridge.
+  DEFB $03,$C0,$06,$60,$0D,$F0,$1A,$D8,$35,$5C,$20,$04,$7F,$FE,$D7,$75
+  DEFB $B2,$27,$D7,$75,$7F,$FE,$15,$78,$25,$A4,$02,$40,$11,$88,$00,$00
+  DEFB $03,$C0,$06,$60,$0D,$F0,$1A,$B8,$35,$5C,$20,$04,$7F,$FE,$AE,$EB
+  DEFB $E4,$4D,$AE,$EB,$7F,$FE,$15,$78,$0A,$50,$01,$80,$04,$20,$01,$00
+  DEFB $03,$C0,$06,$60,$0D,$F0,$1A,$D8,$35,$5C,$20,$04,$7F,$FE,$ED,$DB
+  DEFB $A8,$93,$ED,$DB,$7F,$FE,$15,$78,$25,$A4,$02,$40,$11,$88,$04,$20
+  DEFB $03,$C0,$06,$60,$0D,$F0,$1A,$E8,$35,$5C,$20,$04,$7F,$FE,$DB,$B7
+  DEFB $C9,$15,$DB,$B7,$7F,$FE,$15,$78,$0A,$42,$41,$90,$04,$00,$11,$44
+; This guardian (page BA, sprites 0-3) appears in The Off Licence, Under the
+; MegaTree, Inside the MegaTrunk, Out on a limb, Ballroom East, Ballroom West,
+; East Wall Base and Tree Root.
+  DEFB $07,$E0,$0F,$F0,$DF,$FB,$3F,$FC,$1F,$F8,$1F,$F8,$31,$8C,$6A,$56
+  DEFB $B1,$8D,$9E,$F9,$0D,$F0,$1D,$B8,$36,$6C,$59,$9A,$8C,$31,$07,$E0
+  DEFB $07,$E0,$0F,$F0,$1F,$F8,$FF,$FF,$1F,$F8,$1F,$F8,$31,$8C,$2A,$54
+  DEFB $71,$8E,$9E,$F9,$8D,$F1,$1D,$B8,$32,$4C,$58,$1A,$4C,$32,$07,$E0
+  DEFB $07,$E0,$0F,$F0,$1F,$F8,$DF,$FB,$3F,$FC,$1F,$F8,$31,$8C,$2A,$54
+  DEFB $30,$8C,$5D,$FA,$8D,$B1,$9A,$59,$12,$48,$18,$18,$2C,$34,$C7,$E3
+  DEFB $07,$E0,$8F,$F1,$5F,$FA,$3F,$FC,$1F,$F8,$11,$88,$2E,$74,$2A,$54
+  DEFB $71,$8E,$5E,$FA,$8D,$F1,$1D,$B8,$12,$48,$78,$1E,$8C,$31,$07,$E0
+; This guardian (page BA, sprites 4-7) appears in Entrance to Hades, The Chapel
+; and Priests' Hole.
+  DEFB $15,$03,$2A,$BE,$15,$5E,$4A,$A8,$35,$5C,$8A,$AE,$6D,$5C,$99,$F9
+  DEFB $6E,$BF,$DD,$63,$2E,$49,$59,$81,$04,$82,$2B,$C6,$12,$FC,$0C,$FD
+  DEFB $40,$A8,$FD,$54,$7A,$A8,$15,$52,$3A,$AC,$75,$51,$3A,$B6,$9F,$99
+  DEFB $FD,$76,$C6,$BB,$92,$74,$81,$9A,$41,$20,$63,$D4,$3F,$48,$BF,$30
+  DEFB $FD,$BF,$BF,$EF,$EA,$D7,$AA,$45,$68,$D4,$48,$84,$40,$04,$40,$01
+  DEFB $50,$00,$12,$0A,$40,$0C,$2A,$22,$14,$A8,$20,$84,$14,$28,$05,$20
+  DEFB $FD,$BF,$FF,$FB,$AC,$D7,$AA,$D1,$2A,$54,$82,$44,$42,$01,$08,$04
+  DEFB $4A,$10,$22,$82,$08,$A8,$14,$04,$0A,$90,$01,$40,$00,$00,$00,$00
+; This guardian (page BB, sprites 0-3) appears in Cold Store and Under the
+; Roof.
+  DEFB $0C,$00,$36,$80,$7F,$40,$7E,$80,$FD,$00,$FE,$80,$FF,$80,$FF,$00
+  DEFB $55,$00,$2A,$00,$14,$00,$2A,$00,$14,$00,$08,$00,$14,$00,$08,$00
+  DEFB $03,$00,$0D,$A0,$1F,$D0,$1F,$A0,$3F,$40,$3F,$A0,$3F,$E0,$3F,$C0
+  DEFB $35,$40,$2A,$80,$05,$00,$0A,$80,$05,$00,$02,$00,$05,$00,$02,$00
+  DEFB $00,$C0,$03,$68,$07,$F4,$07,$E8,$0F,$D0,$0F,$E8,$0F,$F8,$0F,$F0
+  DEFB $05,$50,$0A,$A0,$01,$40,$02,$A0,$09,$40,$00,$80,$01,$40,$00,$80
+  DEFB $00,$30,$00,$DA,$01,$FD,$01,$FA,$03,$F4,$03,$FA,$03,$FE,$03,$FC
+  DEFB $03,$54,$02,$A8,$00,$50,$00,$A8,$00,$50,$00,$20,$00,$50,$00,$20
+; This guardian (page BB, sprites 4-7) appears in Inside the MegaTrunk, Tree
+; Top and Watch Tower.
+  DEFB $04,$00,$2A,$80,$55,$40,$2B,$80,$44,$40,$AF,$A0,$5F,$40,$20,$80
+  DEFB $55,$40,$2A,$80,$04,$00,$04,$00,$08,$00,$3E,$00,$41,$00,$81,$00
+  DEFB $02,$00,$15,$40,$2A,$A0,$15,$C0,$22,$20,$5F,$50,$2A,$A0,$10,$40
+  DEFB $2A,$A0,$15,$40,$02,$00,$02,$00,$0E,$00,$11,$80,$20,$40,$00,$00
+  DEFB $00,$40,$02,$A8,$05,$54,$03,$A8,$04,$44,$0B,$EA,$05,$F4,$02,$08
+  DEFB $05,$54,$02,$A8,$00,$40,$00,$40,$00,$70,$01,$88,$02,$04,$00,$00
+  DEFB $00,$20,$01,$54,$02,$AA,$01,$D4,$02,$22,$05,$7D,$02,$FA,$01,$54
+  DEFB $02,$AA,$01,$54,$00,$20,$00,$20,$00,$10,$00,$7C,$00,$82,$00,$81
+; This guardian (page BC, sprites 0-7) appears in The Bridge, The Drive, Inside
+; the MegaTrunk, The Hall, Tree Top, Out on a limb, Rescue Esmerelda, I'm sure
+; I've seen this before.., We must perform a Quirkafleeg, Ballroom East, To the
+; Kitchens    Main Stairway, A bit of tree, Priests' Hole, Under the Drive,
+; Nomen Luni, Watch Tower, West  Wing and West Wing Roof.
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$6F,$40,$BB,$80,$75,$40
+  DEFB $1A,$80,$05,$00,$00,$80,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$A0,$01,$40,$02,$80,$01,$50,$36,$A0,$5D,$70
+  DEFB $37,$E0,$03,$C0,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$F4,$19,$B8,$2F,$54
+  DEFB $19,$A8,$00,$50,$00,$08,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$3D,$03,$7E,$05,$D7
+  DEFB $03,$6A,$00,$14,$00,$28,$00,$14,$00,$0A,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$BC,$00,$7E,$C0,$EB,$A0
+  DEFB $56,$C0,$28,$00,$14,$00,$28,$00,$50,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$2F,$00,$1D,$98,$2A,$F4
+  DEFB $15,$98,$0A,$00,$10,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$05,$00,$02,$80,$01,$40,$0A,$80,$05,$6C,$0E,$BA
+  DEFB $07,$EC,$03,$C0,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$02,$F6,$01,$DD,$02,$AE
+  DEFB $01,$58,$00,$A0,$01,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+; This guardian (page BD, sprites 0-7) appears in Cold Store.
+  DEFB $18,$00,$3C,$00,$D4,$00,$2E,$00,$3A,$00,$3A,$00,$5A,$00,$5D,$00
+  DEFB $4F,$00,$43,$00,$21,$80,$22,$00,$1E,$00,$14,$00,$13,$00,$3C,$00
+  DEFB $06,$00,$0F,$00,$3F,$00,$0B,$80,$0E,$80,$0E,$80,$1F,$00,$17,$80
+  DEFB $11,$C0,$10,$60,$08,$40,$08,$80,$07,$80,$02,$00,$02,$00,$07,$00
+  DEFB $01,$80,$0B,$C0,$05,$40,$0A,$E0,$03,$A0,$03,$A0,$05,$A0,$05,$D0
+  DEFB $04,$F0,$04,$30,$02,$18,$02,$20,$01,$E0,$01,$40,$06,$30,$01,$40
+  DEFB $00,$60,$00,$B0,$03,$50,$00,$B8,$00,$E8,$00,$E8,$01,$68,$01,$74
+  DEFB $01,$3C,$01,$0C,$00,$86,$00,$88,$00,$78,$00,$25,$00,$22,$00,$74
+  DEFB $06,$00,$0D,$00,$0A,$C0,$1D,$00,$17,$00,$17,$00,$16,$80,$2E,$80
+  DEFB $3C,$80,$30,$80,$61,$00,$11,$00,$1E,$00,$A4,$00,$44,$00,$2E,$00
+  DEFB $01,$80,$03,$D0,$02,$A0,$07,$50,$05,$C0,$05,$C0,$05,$A0,$0B,$A0
+  DEFB $0F,$20,$0C,$20,$18,$40,$04,$40,$07,$80,$02,$80,$0C,$60,$02,$80
+  DEFB $00,$60,$00,$F0,$00,$FC,$01,$D0,$01,$70,$01,$70,$00,$F8,$01,$E8
+  DEFB $03,$88,$06,$08,$02,$10,$01,$10,$01,$E0,$00,$40,$00,$40,$00,$E0
+  DEFB $00,$18,$00,$3C,$00,$2B,$00,$74,$00,$5C,$00,$5C,$00,$5A,$00,$BA
+  DEFB $00,$F2,$00,$C2,$01,$84,$00,$44,$00,$78,$00,$50,$01,$90,$00,$78
+; This guardian (page BE, sprites 0-3) appears in The Off Licence, To the
+; Kitchens    Main Stairway, Nomen Luni and The Bow.
+  DEFB $0C,$00,$12,$00,$21,$00,$2D,$00,$21,$00,$12,$00,$0C,$00,$0C,$00
+  DEFB $1E,$00,$00,$00,$37,$00,$40,$00,$0D,$40,$AC,$40,$40,$80,$2E,$00
+  DEFB $0E,$C0,$1D,$A0,$1F,$00,$1F,$E0,$1F,$00,$1D,$A0,$0E,$C0,$03,$00
+  DEFB $07,$80,$00,$00,$0E,$C0,$00,$20,$2B,$00,$23,$50,$10,$60,$07,$00
+  DEFB $04,$08,$06,$18,$07,$38,$0F,$FC,$07,$38,$06,$D8,$04,$C8,$00,$C0
+  DEFB $01,$E0,$00,$00,$01,$D0,$04,$08,$08,$D4,$0A,$C0,$00,$08,$03,$B0
+  DEFB $00,$DC,$01,$6E,$00,$3E,$01,$FE,$00,$3E,$01,$6E,$00,$DC,$00,$30
+  DEFB $00,$78,$00,$00,$00,$B8,$01,$02,$02,$B1,$00,$35,$01,$00,$00,$DC
+; This guardian (page BE, sprites 4-7) appears in The Off Licence.
+  DEFB $00,$00,$00,$00,$07,$E0,$1F,$B8,$3D,$EC,$7F,$FE,$7D,$F6,$FB,$F7
+  DEFB $FB,$F7,$7F,$EE,$7F,$DE,$3F,$FC,$1F,$F8,$07,$E0,$00,$00,$00,$00
+  DEFB $00,$00,$01,$80,$07,$E0,$0D,$70,$1F,$F8,$3F,$FC,$3F,$F4,$7D,$FE
+  DEFB $7B,$F6,$3B,$EC,$3F,$DC,$1F,$38,$0F,$F0,$07,$E0,$01,$80,$00,$00
+  DEFB $01,$80,$07,$E0,$0F,$F0,$1E,$F8,$1F,$78,$3F,$7C,$3B,$FC,$37,$F4
+  DEFB $37,$FC,$3F,$EC,$3F,$EC,$1F,$D8,$1F,$38,$0F,$F0,$07,$E0,$01,$80
+  DEFB $00,$00,$01,$80,$07,$E0,$0F,$F0,$1E,$B8,$3F,$FC,$3F,$F4,$7B,$FE
+  DEFB $77,$F6,$37,$EC,$3F,$DC,$1F,$38,$0F,$F0,$07,$E0,$01,$80,$00,$00
+; This guardian (page BF, sprites 0-3) appears in At the Foot of the MegaTree,
+; Inside the MegaTrunk, On a Branch Over the Drive, Dr Jones will never believe
+; this and Nomen Luni.
+  DEFB $80,$00,$40,$00,$A3,$60,$53,$60,$29,$C0,$16,$A0,$0B,$E0,$07,$70
+  DEFB $02,$A8,$05,$D4,$02,$2A,$03,$E5,$03,$E2,$03,$61,$03,$62,$07,$70
+  DEFB $00,$00,$00,$00,$06,$30,$56,$30,$A9,$C0,$56,$A0,$0B,$E0,$06,$30
+  DEFB $03,$E8,$05,$D4,$02,$2A,$03,$E4,$03,$EA,$17,$64,$0E,$60,$04,$70
+  DEFB $00,$00,$00,$00,$03,$60,$03,$60,$01,$C0,$1E,$A0,$2B,$E0,$56,$B4
+  DEFB $A3,$6A,$45,$D5,$82,$22,$03,$E1,$03,$E2,$03,$60,$03,$60,$07,$70
+  DEFB $00,$00,$00,$00,$06,$30,$56,$30,$A9,$C0,$56,$A0,$0B,$E0,$07,$F4
+  DEFB $02,$2A,$05,$D5,$02,$22,$03,$E1,$03,$E0,$03,$74,$03,$38,$07,$10
+; This guardian (page BF, sprites 4-5) appears in The Security Guard, I'm sure
+; I've seen this before.. and Up on the Battlements.
+  DEFB $02,$04,$05,$0E,$0A,$84,$15,$C4,$17,$44,$2B,$E4,$2F,$E0,$12,$44
+  DEFB $08,$82,$07,$2C,$15,$50,$2A,$A4,$55,$44,$AA,$84,$45,$00,$1D,$C0
+  DEFB $02,$00,$05,$00,$0A,$84,$15,$CE,$17,$44,$2B,$E4,$2F,$E4,$12,$44
+  DEFB $08,$80,$07,$04,$15,$52,$2A,$AC,$55,$40,$AA,$84,$45,$04,$1D,$C4
+; This guardian (page BF, sprites 6-7) appears in Rescue Esmerelda and Above
+; the West Bedroom.
+  DEFB $00,$04,$07,$06,$2F,$A4,$5F,$D4,$30,$64,$42,$14,$32,$60,$1F,$C4
+  DEFB $08,$82,$07,$2C,$15,$50,$2A,$A4,$55,$44,$AA,$84,$45,$00,$0C,$C0
+  DEFB $00,$00,$07,$00,$2F,$A4,$50,$56,$22,$24,$52,$54,$3F,$E4,$17,$44
+  DEFB $08,$80,$07,$04,$15,$52,$2A,$AC,$55,$40,$AA,$84,$45,$04,$19,$84
+
+; Entity definitions
+;
+; Used by the routine at STARTGAME.
+;
+; The following (empty) entity definition (0x00) is copied into one of the
+; entity buffers at ENTITYBUF for any entity specification whose first byte is
+; zero.
+ENTITYDEFS:
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+; The following entity definition (0x01) is used in We must perform a
+; Quirkafleeg, On the Roof, Cold Store, Swimming Pool and The Beach.
+ENTITY1:
+  DEFB %00000011          ; Rope (bits 0-2), initially swinging right to left
+                          ; (bit 7)
+  DEFB $22                ; Initial animation frame index
+  DEFB $00                ; Replaced by the x-coordinate of the top of the rope
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $00                ; Unused
+  DEFB $20                ; Length
+  DEFB $00                ; Unused
+  DEFB $83                ; Unused
+  DEFB $36                ; Animation frame at which the rope changes direction
+; The following entity definition (0x02) is used in The Security Guard, Rescue
+; Esmerelda, I'm sure I've seen this before.. and Up on the Battlements.
+ENTITY2:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %00100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $80                ; Initial pixel y-coordinate: 64
+  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
+  DEFB $50                ; Minimum pixel y-coordinate: 40
+  DEFB $D0                ; Maximum pixel y-coordinate: 104
+; The following entity definition (0x03) is used in The Security Guard, I'm
+; sure I've seen this before.. and Up on the Battlements.
+ENTITY3:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %00101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $A0                ; Initial pixel y-coordinate: 80
+  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
+  DEFB $58                ; Minimum pixel y-coordinate: 44
+  DEFB $D0                ; Maximum pixel y-coordinate: 104
+; The following entity definition (0x04) is used in The Security Guard, Rescue
+; Esmerelda, I'm sure I've seen this before.. and Up on the Battlements.
+ENTITY4:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %00100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $60                ; Initial pixel y-coordinate: 48
+  DEFB $08                ; Initial pixel y-coordinate increment: 4 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
+  DEFB $60                ; Minimum pixel y-coordinate: 48
+  DEFB $C0                ; Maximum pixel y-coordinate: 96
+; The following entity definition (0x05) is used in I'm sure I've seen this
+; before.. and Up on the Battlements.
+ENTITY5:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %00100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $40                ; Initial pixel y-coordinate: 32
+  DEFB $0C                ; Initial pixel y-coordinate increment: 6 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
+  DEFB $40                ; Minimum pixel y-coordinate: 32
+  DEFB $C0                ; Maximum pixel y-coordinate: 96
+; The following entity definition (0x06) is used in At the Foot of the
+; MegaTree.
+ENTITY6:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %00100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $40                ; Initial pixel y-coordinate: 32
+  DEFB $0A                ; Initial pixel y-coordinate increment: 5 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
+  DEFB $40                ; Minimum pixel y-coordinate: 32
+  DEFB $B0                ; Maximum pixel y-coordinate: 88
+; The following entity definition (0x07) is used in At the Foot of the MegaTree
+; and Above the West Bedroom.
+ENTITY7:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %01100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $64                ; Initial pixel y-coordinate: 50
+  DEFB $F4                ; Initial pixel y-coordinate increment: -6 (moving
+                          ; up)
+  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
+  DEFB $20                ; Minimum pixel y-coordinate: 16
+  DEFB $A0                ; Maximum pixel y-coordinate: 80
+; The following entity definition (0x08) is used in At the Foot of the
+; MegaTree.
+ENTITY8:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %01101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $80                ; Initial pixel y-coordinate: 64
+  DEFB $06                ; Initial pixel y-coordinate increment: 3 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
+  DEFB $26                ; Minimum pixel y-coordinate: 19
+  DEFB $B0                ; Maximum pixel y-coordinate: 88
+; The following entity definition (0x09) is used in Inside the MegaTrunk and On
+; a Branch Over the Drive.
+ENTITY9:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %00101011          ; INK 3 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $A0                ; Initial pixel y-coordinate: 80
+  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
+  DEFB $80                ; Minimum pixel y-coordinate: 64
+  DEFB $E0                ; Maximum pixel y-coordinate: 112
+; The following entity definition (0x0A) is used in The Off Licence.
+ENTITY10:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %01101101          ; INK 5 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $60                ; Initial pixel y-coordinate: 48
+  DEFB $08                ; Initial pixel y-coordinate increment: 4 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$13 ; Page containing the sprite graphic data: BE
+  DEFB $10                ; Minimum pixel y-coordinate: 8
+  DEFB $D0                ; Maximum pixel y-coordinate: 104
+; The following entity definition (0x0B) is used in Dr Jones will never believe
+; this and Nomen Luni.
+ENTITY11:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %01100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $C0                ; Initial pixel y-coordinate: 96
+  DEFB $F6                ; Initial pixel y-coordinate increment: -5 (moving
+                          ; up)
+  DEFB GUARDIANS/$100+$14 ; Page containing the sprite graphic data: BF
+  DEFB $70                ; Minimum pixel y-coordinate: 56
+  DEFB $C0                ; Maximum pixel y-coordinate: 96
+; The following entity definition (0x0C) is used in The Off Licence.
+ENTITY12:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %01100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $70                ; Pixel y-coordinate: 56
+  DEFB $01                ; Unused
+  DEFB GUARDIANS/$100+$13 ; Page containing the sprite graphic data: BE
+  DEFB $13                ; Minimum x-coordinate
+  DEFB $1D                ; Maximum x-coordinate
+; The following entity definition (0x0D) is used in Rescue Esmerelda, I'm sure
+; I've seen this before.. and We must perform a Quirkafleeg.
+ENTITY13:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $40                ; Pixel y-coordinate: 32
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
+  DEFB $00                ; Minimum x-coordinate
+  DEFB $09                ; Maximum x-coordinate
+; The following entity definition (0x0E) is used in The Bridge.
+ENTITY14:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %01101100          ; INK 4 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $30                ; Initial pixel y-coordinate: 24
+  DEFB $0C                ; Initial pixel y-coordinate increment: 6 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$0E ; Page containing the sprite graphic data: B9
+  DEFB $00                ; Minimum pixel y-coordinate: 0
+  DEFB $C0                ; Maximum pixel y-coordinate: 96
+; The following entity definition (0x0F) is used in Rescue Esmerelda.
+ENTITY15:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %00100111          ; INK 7 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $10                ; Initial pixel y-coordinate: 8
+  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$05 ; Page containing the sprite graphic data: B0
+  DEFB $00                ; Minimum pixel y-coordinate: 0
+  DEFB $20                ; Maximum pixel y-coordinate: 16
+; The following entity definition (0x10) is used in Entrance to Hades, The
+; Chapel and Priests' Hole.
+ENTITY16:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %00000100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 000 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $60                ; Initial pixel y-coordinate: 48
+  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
+  DEFB $00                ; Minimum pixel y-coordinate: 0
+  DEFB $B0                ; Maximum pixel y-coordinate: 88
+; The following entity definition (0x11) is used in Entrance to Hades, The
+; Chapel and Priests' Hole.
+ENTITY17:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %00000100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 000 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $60                ; Initial pixel y-coordinate: 48
+  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
+  DEFB $00                ; Minimum pixel y-coordinate: 0
+  DEFB $B0                ; Maximum pixel y-coordinate: 88
+; The following entity definition (0x12) is used in Entrance to Hades, The
+; Chapel and Priests' Hole.
+ENTITY18:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %00100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $80                ; Initial pixel y-coordinate: 64
+  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
+  DEFB $20                ; Minimum pixel y-coordinate: 16
+  DEFB $D0                ; Maximum pixel y-coordinate: 104
+; The following entity definition (0x13) is used in Ballroom East and Top
+; Landing.
+ENTITY19:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %00001010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 000 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $20                ; Initial pixel y-coordinate: 16
+  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
+                          ; down)
+  DEFB BARREL/$100        ; Page containing the sprite graphic data: 9C
+  DEFB $20                ; Minimum pixel y-coordinate: 16
+  DEFB $60                ; Maximum pixel y-coordinate: 48
+; The following entity definition (0x14) is used in The Bridge and West  Wing.
+ENTITY20:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $A0                ; Pixel y-coordinate: 80
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
+  DEFB $00                ; Minimum x-coordinate
+  DEFB $0A                ; Maximum x-coordinate
+; The following entity definition (0x15) is used in The Bridge, The Drive and
+; Ballroom East.
+ENTITY21:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %11100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $A0                ; Pixel y-coordinate: 80
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
+  DEFB $0E                ; Minimum x-coordinate
+  DEFB $1D                ; Maximum x-coordinate
+; The following entity definition (0x16) is used in The Drive and Inside the
+; MegaTrunk.
+ENTITY22:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $B0                ; Pixel y-coordinate: 88
+  DEFB $01                ; Unused
+  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
+  DEFB $10                ; Minimum x-coordinate
+  DEFB $1D                ; Maximum x-coordinate
+; The following entity definition (0x17) is used in The Drive.
+ENTITY23:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $80                ; Pixel y-coordinate: 64
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
+  DEFB $05                ; Minimum x-coordinate
+  DEFB $1D                ; Maximum x-coordinate
+; The following entity definition (0x18) is used in The Drive, Inside the
+; MegaTrunk and Tree Top.
+ENTITY24:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11101101          ; INK 5 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $50                ; Pixel y-coordinate: 40
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
+  DEFB $00                ; Minimum x-coordinate
+  DEFB $0A                ; Maximum x-coordinate
+; The following entity definition (0x19) is used in Out on a limb.
+ENTITY25:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11101011          ; INK 3 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $70                ; Pixel y-coordinate: 56
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
+  DEFB $0E                ; Minimum x-coordinate
+  DEFB $17                ; Maximum x-coordinate
+; The following entity definition (0x1A) is used in Under the MegaTree, The
+; Hall, Tree Top and Emergency Generator.
+ENTITY26:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $30                ; Pixel y-coordinate: 24
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$0B ; Page containing the sprite graphic data: B6
+  DEFB $05                ; Minimum x-coordinate
+  DEFB $1E                ; Maximum x-coordinate
+; The following entity definition (0x1B) is used in On a Branch Over the Drive,
+; Orangery, Dr Jones will never believe this and The Yacht.
+ENTITY27:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %01101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $90                ; Initial pixel y-coordinate: 72
+  DEFB $FC                ; Initial pixel y-coordinate increment: -2 (moving
+                          ; up)
+  DEFB GUARDIANS/$100+$07 ; Page containing the sprite graphic data: B2
+  DEFB $80                ; Minimum pixel y-coordinate: 64
+  DEFB $D0                ; Maximum pixel y-coordinate: 104
+; The following entity definition (0x1C) is used in Under the Drive and West
+; Wing Roof.
+ENTITY28:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $B0                ; Pixel y-coordinate: 88
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
+  DEFB $0C                ; Minimum x-coordinate
+  DEFB $1D                ; Maximum x-coordinate
+; The following entity definition (0x1D) is used in On top of the house, Under
+; the Drive, Nomen Luni and Back Stairway.
+ENTITY29:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %01100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $30                ; Initial pixel y-coordinate: 24
+  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$07 ; Page containing the sprite graphic data: B2
+  DEFB $00                ; Minimum pixel y-coordinate: 0
+  DEFB $80                ; Maximum pixel y-coordinate: 64
+; The following entity definition (0x1E) is used in Tree Root and West Bedroom.
+ENTITY30:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %11100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $40                ; Initial pixel y-coordinate: 32
+  DEFB $FC                ; Initial pixel y-coordinate increment: -2 (moving
+                          ; up)
+  DEFB GUARDIANS/$100+$02 ; Page containing the sprite graphic data: AD
+  DEFB $00                ; Minimum pixel y-coordinate: 0
+  DEFB $80                ; Maximum pixel y-coordinate: 64
+; The following entity definition (0x1F) is used in Tree Root.
+ENTITY31:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %00100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $90                ; Initial pixel y-coordinate: 72
+  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$0C ; Page containing the sprite graphic data: B7
+  DEFB $40                ; Minimum pixel y-coordinate: 32
+  DEFB $A0                ; Maximum pixel y-coordinate: 80
+; The following entity definition (0x20) is used in Under the MegaTree.
+ENTITY32:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $D0                ; Pixel y-coordinate: 104
+  DEFB $01                ; Unused
+  DEFB GUARDIANS/$100+$0D ; Page containing the sprite graphic data: B8
+  DEFB $00                ; Minimum x-coordinate
+  DEFB $1E                ; Maximum x-coordinate
+; The following entity definition (0x21) is used in Ballroom West.
+ENTITY33:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $B0                ; Pixel y-coordinate: 88
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$0D ; Page containing the sprite graphic data: B8
+  DEFB $10                ; Minimum x-coordinate
+  DEFB $1A                ; Maximum x-coordinate
+; The following entity definition (0x22) is used in On the Roof.
+ENTITY34:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %11100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $D0                ; Pixel y-coordinate: 104
+  DEFB $01                ; Unused
+  DEFB GUARDIANS/$100+$0D ; Page containing the sprite graphic data: B8
+  DEFB $0E                ; Minimum x-coordinate
+  DEFB $18                ; Maximum x-coordinate
+; The following entity definition (0x23) is used in Tree Root.
+ENTITY35:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %11101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $90                ; Pixel y-coordinate: 72
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$0D ; Page containing the sprite graphic data: B8
+  DEFB $0F                ; Minimum x-coordinate
+  DEFB $17                ; Maximum x-coordinate
+; The following entity definition (0x24) is used in The Drive, Top Landing and
+; Back Stairway.
+ENTITY36:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %01100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $D0                ; Pixel y-coordinate: 104
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$04 ; Page containing the sprite graphic data: AF
+  DEFB $0A                ; Minimum x-coordinate
+  DEFB $1E                ; Maximum x-coordinate
+; The following entity definition (0x25) is used in Priests' Hole.
+ENTITY37:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $A0                ; Pixel y-coordinate: 80
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
+  DEFB $08                ; Minimum x-coordinate
+  DEFB $18                ; Maximum x-coordinate
+; The following entity definition (0x26) is used in Halfway up the East Wall.
+ENTITY38:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %01101110          ; INK 6 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $60                ; Pixel y-coordinate: 48
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$03 ; Page containing the sprite graphic data: AE
+  DEFB $02                ; Minimum x-coordinate
+  DEFB $07                ; Maximum x-coordinate
+; The following entity definition (0x27) is used in Cuckoo's Nest and Under the
+; Roof.
+ENTITY39:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %01100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $80                ; Pixel y-coordinate: 64
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$04 ; Page containing the sprite graphic data: AF
+  DEFB $0C                ; Minimum x-coordinate
+  DEFB $12                ; Maximum x-coordinate
+; The following entity definition (0x28) is used in Ballroom East, Ballroom
+; West and Tree Root.
+ENTITY40:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %01000101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 010 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $70                ; Initial pixel y-coordinate: 56
+  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
+  DEFB $60                ; Minimum pixel y-coordinate: 48
+  DEFB $C0                ; Maximum pixel y-coordinate: 96
+; The following entity definition (0x29) is used in Ballroom East.
+ENTITY41:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %01100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $96                ; Initial pixel y-coordinate: 75
+  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
+  DEFB $90                ; Minimum pixel y-coordinate: 72
+  DEFB $C0                ; Maximum pixel y-coordinate: 96
+; The following entity definition (0x2A) is used in Under the MegaTree,
+; Ballroom East and Ballroom West.
+ENTITY42:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %01001011          ; INK 3 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 010 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $90                ; Initial pixel y-coordinate: 72
+  DEFB $FA                ; Initial pixel y-coordinate increment: -3 (moving
+                          ; up)
+  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
+  DEFB $60                ; Minimum pixel y-coordinate: 48
+  DEFB $AE                ; Maximum pixel y-coordinate: 87
+; The following entity definition (0x2B) is not used.
+ENTITY43:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %01001010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 010 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $B0                ; Initial pixel y-coordinate: 88
+  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
+  DEFB $90                ; Minimum pixel y-coordinate: 72
+  DEFB $B8                ; Maximum pixel y-coordinate: 92
+; The following entity definition (0x2C) is used in The Off Licence and Inside
+; the MegaTrunk.
+ENTITY44:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %01001010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 010 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $40                ; Initial pixel y-coordinate: 32
+  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
+  DEFB $00                ; Minimum pixel y-coordinate: 0
+  DEFB $D0                ; Maximum pixel y-coordinate: 104
+; The following entity definition (0x2D) is used in Out on a limb and East Wall
+; Base.
+ENTITY45:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %01000101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 010 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $B0                ; Initial pixel y-coordinate: 88
+  DEFB $08                ; Initial pixel y-coordinate increment: 4 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$0F ; Page containing the sprite graphic data: BA
+  DEFB $00                ; Minimum pixel y-coordinate: 0
+  DEFB $D0                ; Maximum pixel y-coordinate: 104
+; The following entity definition (0x2E) is used in Tree Top.
+ENTITY46:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %01100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $A0                ; Pixel y-coordinate: 80
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$10 ; Page containing the sprite graphic data: BB
+  DEFB $00                ; Minimum x-coordinate
+  DEFB $13                ; Maximum x-coordinate
+; The following entity definition (0x2F) is used in Inside the MegaTrunk.
+ENTITY47:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %01101110          ; INK 6 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $30                ; Pixel y-coordinate: 24
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$10 ; Page containing the sprite graphic data: BB
+  DEFB $11                ; Minimum x-coordinate
+  DEFB $1E                ; Maximum x-coordinate
+; The following entity definition (0x30) is used in The Kitchen and West of
+; Kitchen.
+ENTITY48:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %00101011          ; INK 3 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $40                ; Initial pixel y-coordinate: 32
+  DEFB $06                ; Initial pixel y-coordinate increment: 3 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$0C ; Page containing the sprite graphic data: B7
+  DEFB $10                ; Minimum pixel y-coordinate: 8
+  DEFB $D0                ; Maximum pixel y-coordinate: 104
+; The following entity definition (0x31) is used in The Kitchen and West of
+; Kitchen.
+ENTITY49:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %00100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $C0                ; Initial pixel y-coordinate: 96
+  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$0C ; Page containing the sprite graphic data: B7
+  DEFB $00                ; Minimum pixel y-coordinate: 0
+  DEFB $D0                ; Maximum pixel y-coordinate: 104
+; The following entity definition (0x32) is used in The Kitchen and West of
+; Kitchen.
+ENTITY50:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %00100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $80                ; Initial pixel y-coordinate: 64
+  DEFB $F8                ; Initial pixel y-coordinate increment: -4 (moving
+                          ; up)
+  DEFB GUARDIANS/$100+$0C ; Page containing the sprite graphic data: B7
+  DEFB $00                ; Minimum pixel y-coordinate: 0
+  DEFB $D0                ; Maximum pixel y-coordinate: 104
+; The following entity definition (0x33) is used in West Bedroom and Above the
+; West Bedroom.
+ENTITY51:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %00101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $30                ; Initial pixel y-coordinate: 24
+  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$0C ; Page containing the sprite graphic data: B7
+  DEFB $00                ; Minimum pixel y-coordinate: 0
+  DEFB $A0                ; Maximum pixel y-coordinate: 80
+; The following entity definition (0x34) is used in The Wine Cellar, Tool  Shed
+; and West Wing Roof.
+ENTITY52:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $D0                ; Pixel y-coordinate: 104
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$0A ; Page containing the sprite graphic data: B5
+  DEFB $07                ; Minimum x-coordinate
+  DEFB $16                ; Maximum x-coordinate
+; The following entity definition (0x35) is used in At the Foot of the MegaTree
+; and The Yacht.
+ENTITY53:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11101011          ; INK 3 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $D0                ; Pixel y-coordinate: 104
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$0A ; Page containing the sprite graphic data: B5
+  DEFB $04                ; Minimum x-coordinate
+  DEFB $0E                ; Maximum x-coordinate
+; The following entity definition (0x36) is used in Cold Store.
+ENTITY54:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $D0                ; Pixel y-coordinate: 104
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$12 ; Page containing the sprite graphic data: BD
+  DEFB $00                ; Minimum x-coordinate
+  DEFB $18                ; Maximum x-coordinate
+; The following entity definition (0x37) is used in Cold Store and Under the
+; Roof.
+ENTITY55:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %01100111          ; INK 7 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $90                ; Pixel y-coordinate: 72
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$10 ; Page containing the sprite graphic data: BB
+  DEFB $00                ; Minimum x-coordinate
+  DEFB $05                ; Maximum x-coordinate
+; The following entity definition (0x38) is used in Cold Store.
+ENTITY56:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %11100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $60                ; Pixel y-coordinate: 48
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$12 ; Page containing the sprite graphic data: BD
+  DEFB $00                ; Minimum x-coordinate
+  DEFB $06                ; Maximum x-coordinate
+; The following entity definition (0x39) is used in Cold Store.
+ENTITY57:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %01100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $30                ; Pixel y-coordinate: 24
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$10 ; Page containing the sprite graphic data: BB
+  DEFB $00                ; Minimum x-coordinate
+  DEFB $09                ; Maximum x-coordinate
+; The following entity definition (0x3A) is used in Top Landing.
+ENTITY58:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %01100111          ; INK 7 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $40                ; Initial pixel y-coordinate: 32
+  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$02 ; Page containing the sprite graphic data: AD
+  DEFB $20                ; Minimum pixel y-coordinate: 16
+  DEFB $D0                ; Maximum pixel y-coordinate: 104
+; The following entity definition (0x3B) is used in The Bathroom.
+ENTITY59:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %01100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $30                ; Pixel y-coordinate: 24
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$0E ; Page containing the sprite graphic data: B9
+  DEFB $00                ; Minimum x-coordinate
+  DEFB $1B                ; Maximum x-coordinate
+; The following entity definition (0x3C) is used in Cuckoo's Nest, On a Branch
+; Over the Drive, The Hall, I'm sure I've seen this before.., We must perform a
+; Quirkafleeg, Orangery, The Attic, Under the Roof, West Wing Roof and The
+; Beach.
+ENTITY60:
+  DEFB %10000100          ; Arrow (bits 0-2), flying left to right (bit 7)
+  DEFB $06                ; Unused
+  DEFB $00                ; Replaced by the pixel y-coordinate (copied from the
+                          ; second byte of the entity specification in the room
+                          ; definition)
+  DEFB $00                ; Unused
+  DEFB $D0                ; Initial x-coordinate: 208
+  DEFB $00                ; Unused
+  DEFB %10000010          ; Top/bottom pixel row (drawn either side of the
+                          ; shaft)
+  DEFB $00                ; Unused
+; The following entity definition (0x3D) is used in On a Branch Over the Drive
+; and Conservatory Roof.
+ENTITY61:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %01100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $50                ; Pixel y-coordinate: 40
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$02 ; Page containing the sprite graphic data: AD
+  DEFB $10                ; Minimum x-coordinate
+  DEFB $1E                ; Maximum x-coordinate
+; The following entity definition (0x3E) is used in On a Branch Over the Drive.
+ENTITY62:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %01100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $60                ; Initial pixel y-coordinate: 48
+  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$0E ; Page containing the sprite graphic data: B9
+  DEFB $00                ; Minimum pixel y-coordinate: 0
+  DEFB $70                ; Maximum pixel y-coordinate: 56
+; The following entity definition (0x3F) is not used.
+  DEFB $FF,$00,$00,$00,$00,$00,$00,$00
+; The following entity definition (0x40) is used in The Wine Cellar.
+ENTITY64:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $30                ; Pixel y-coordinate: 24
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
+  DEFB $00                ; Minimum x-coordinate
+  DEFB $1B                ; Maximum x-coordinate
+; The following entity definition (0x41) is used in The Wine Cellar.
+ENTITY65:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $60                ; Pixel y-coordinate: 48
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
+  DEFB $04                ; Minimum x-coordinate
+  DEFB $1B                ; Maximum x-coordinate
+; The following entity definition (0x42) is used in The Wine Cellar.
+ENTITY66:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $90                ; Pixel y-coordinate: 72
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
+  DEFB $02                ; Minimum x-coordinate
+  DEFB $1B                ; Maximum x-coordinate
+; The following entity definition (0x43) is used in First Landing.
+ENTITY67:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $C0                ; Pixel y-coordinate: 96
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
+  DEFB $18                ; Minimum x-coordinate
+  DEFB $1E                ; Maximum x-coordinate
+; The following entity definition (0x44) is used in Under the Drive.
+ENTITY68:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $80                ; Pixel y-coordinate: 64
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$03 ; Page containing the sprite graphic data: AE
+  DEFB $15                ; Minimum x-coordinate
+  DEFB $1E                ; Maximum x-coordinate
+; The following entity definition (0x45) is used in The Hall, Tree Top, I'm
+; sure I've seen this before.., Up on the Battlements, A bit of tree and The
+; Attic.
+ENTITY69:
+  DEFB %00000100          ; Arrow (bits 0-2), flying right to left (bit 7)
+  DEFB $06                ; Unused
+  DEFB $00                ; Replaced by the pixel y-coordinate (copied from the
+                          ; second byte of the entity specification in the room
+                          ; definition)
+  DEFB $00                ; Unused
+  DEFB $1C                ; Initial x-coordinate: 28
+  DEFB $00                ; Unused
+  DEFB %01000001          ; Top/bottom pixel row (drawn either side of the
+                          ; shaft)
+  DEFB $00                ; Unused
+; The following entity definition (0x46) is used in The Nightmare Room.
+ENTITY70:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %01100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $40                ; Initial pixel y-coordinate: 32
+  DEFB $FC                ; Initial pixel y-coordinate increment: -2 (moving
+                          ; up)
+  DEFB MARIA0/$100        ; Page containing the sprite graphic data: 9C
+  DEFB $00                ; Minimum pixel y-coordinate: 0
+  DEFB $A0                ; Maximum pixel y-coordinate: 80
+; The following entity definition (0x47) is used in The Nightmare Room.
+ENTITY71:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %00100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $20                ; Initial pixel y-coordinate: 16
+  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
+                          ; down)
+  DEFB MARIA0/$100        ; Page containing the sprite graphic data: 9C
+  DEFB $00                ; Minimum pixel y-coordinate: 0
+  DEFB $D0                ; Maximum pixel y-coordinate: 104
+; The following entity definition (0x48) is used in The Nightmare Room.
+ENTITY72:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %00000110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 000 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $90                ; Initial pixel y-coordinate: 72
+  DEFB $06                ; Initial pixel y-coordinate increment: 3 (moving
+                          ; down)
+  DEFB MARIA0/$100        ; Page containing the sprite graphic data: 9C
+  DEFB $00                ; Minimum pixel y-coordinate: 0
+  DEFB $C0                ; Maximum pixel y-coordinate: 96
+; The following entity definition (0x49) is used in The Nightmare Room.
+ENTITY73:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %01101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $80                ; Initial pixel y-coordinate: 64
+  DEFB $F8                ; Initial pixel y-coordinate increment: -4 (moving
+                          ; up)
+  DEFB MARIA0/$100        ; Page containing the sprite graphic data: 9C
+  DEFB $10                ; Minimum pixel y-coordinate: 8
+  DEFB $D0                ; Maximum pixel y-coordinate: 104
+; The following entity definition (0x4A) is used in The Forgotten Abbey.
+ENTITY74:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %11100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $50                ; Pixel y-coordinate: 40
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
+  DEFB $04                ; Minimum x-coordinate
+  DEFB $14                ; Maximum x-coordinate
+; The following entity definition (0x4B) is used in The Forgotten Abbey.
+ENTITY75:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $50                ; Pixel y-coordinate: 40
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
+  DEFB $0C                ; Minimum x-coordinate
+  DEFB $1C                ; Maximum x-coordinate
+; The following entity definition (0x4C) is used in The Forgotten Abbey.
+ENTITY76:
+  DEFB %00100001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 1 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $90                ; Pixel y-coordinate: 72
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
+  DEFB $09                ; Minimum x-coordinate
+  DEFB $14                ; Maximum x-coordinate
+; The following entity definition (0x4D) is used in The Forgotten Abbey.
+ENTITY77:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %11100111          ; INK 7 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $90                ; Pixel y-coordinate: 72
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
+  DEFB $16                ; Minimum x-coordinate
+  DEFB $1B                ; Maximum x-coordinate
+; The following entity definition (0x4E) is used in The Forgotten Abbey and
+; Swimming Pool.
+ENTITY78:
+  DEFB %00100001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 1 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $D0                ; Pixel y-coordinate: 104
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
+  DEFB $05                ; Minimum x-coordinate
+  DEFB $0C                ; Maximum x-coordinate
+; The following entity definition (0x4F) is used in The Forgotten Abbey.
+ENTITY79:
+  DEFB %01000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 2 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11101001          ; INK 1 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $D0                ; Pixel y-coordinate: 104
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
+  DEFB $0B                ; Minimum x-coordinate
+  DEFB $12                ; Maximum x-coordinate
+; The following entity definition (0x50) is used in The Forgotten Abbey.
+ENTITY80:
+  DEFB %01100001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 3 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $D0                ; Pixel y-coordinate: 104
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
+  DEFB $10                ; Minimum x-coordinate
+  DEFB $17                ; Maximum x-coordinate
+; The following entity definition (0x51) is used in The Forgotten Abbey.
+ENTITY81:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100010          ; INK 2 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $D0                ; Pixel y-coordinate: 104
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
+  DEFB $17                ; Minimum x-coordinate
+  DEFB $1E                ; Maximum x-coordinate
+; The following entity definition (0x52) is used in The Attic.
+ENTITY82:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %00100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $84                ; Initial pixel y-coordinate: 66
+  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$05 ; Page containing the sprite graphic data: B0
+  DEFB $70                ; Minimum pixel y-coordinate: 56
+  DEFB $B0                ; Maximum pixel y-coordinate: 88
+; The following entity definition (0x53) is used in The Attic.
+ENTITY83:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %00100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $8C                ; Initial pixel y-coordinate: 70
+  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$05 ; Page containing the sprite graphic data: B0
+  DEFB $70                ; Minimum pixel y-coordinate: 56
+  DEFB $B0                ; Maximum pixel y-coordinate: 88
+; The following entity definition (0x54) is used in The Attic.
+ENTITY84:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %00101001          ; INK 1 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $94                ; Initial pixel y-coordinate: 74
+  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$05 ; Page containing the sprite graphic data: B0
+  DEFB $70                ; Minimum pixel y-coordinate: 56
+  DEFB $B0                ; Maximum pixel y-coordinate: 88
+; The following entity definition (0x55) is used in The Attic.
+ENTITY85:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %00100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $9C                ; Initial pixel y-coordinate: 78
+  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$05 ; Page containing the sprite graphic data: B0
+  DEFB $70                ; Minimum pixel y-coordinate: 56
+  DEFB $B0                ; Maximum pixel y-coordinate: 88
+; The following entity definition (0x56) is used in The Attic.
+ENTITY86:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %00100010          ; INK 2 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $A4                ; Initial pixel y-coordinate: 82
+  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$05 ; Page containing the sprite graphic data: B0
+  DEFB $70                ; Minimum pixel y-coordinate: 56
+  DEFB $B0                ; Maximum pixel y-coordinate: 88
+; The following entity definition (0x57) is used in The Attic.
+ENTITY87:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %00100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $AC                ; Initial pixel y-coordinate: 86
+  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$05 ; Page containing the sprite graphic data: B0
+  DEFB $70                ; Minimum pixel y-coordinate: 56
+  DEFB $B0                ; Maximum pixel y-coordinate: 88
+; The following entity definition (0x58) is used in Out on a limb and The
+; Banyan Tree.
+ENTITY88:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $A0                ; Pixel y-coordinate: 80
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$0A ; Page containing the sprite graphic data: B5
+  DEFB $13                ; Minimum x-coordinate
+  DEFB $1E                ; Maximum x-coordinate
+; The following entity definition (0x59) is used in The Hall and West  Wing.
+ENTITY89:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %00100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 001 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $60                ; Initial pixel y-coordinate: 48
+  DEFB $00                ; Initial pixel y-coordinate increment: 0 (not
+                          ; moving)
+  DEFB GUARDIANS/$100+$05 ; Page containing the sprite graphic data: B0
+  DEFB $50                ; Minimum pixel y-coordinate: 40
+  DEFB $70                ; Maximum pixel y-coordinate: 56
+; The following entity definition (0x5A) is used in To the Kitchens    Main
+; Stairway.
+ENTITY90:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %01100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $30                ; Pixel y-coordinate: 24
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$03 ; Page containing the sprite graphic data: AE
+  DEFB $00                ; Minimum x-coordinate
+  DEFB $0B                ; Maximum x-coordinate
+; The following entity definition (0x5B) is used in To the Kitchens    Main
+; Stairway.
+ENTITY91:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %01100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $30                ; Pixel y-coordinate: 24
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$13 ; Page containing the sprite graphic data: BE
+  DEFB $0D                ; Minimum x-coordinate
+  DEFB $15                ; Maximum x-coordinate
+; The following entity definition (0x5C) is used in To the Kitchens    Main
+; Stairway and Back Stairway.
+ENTITY92:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %01100111          ; INK 7 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $01                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $60                ; Pixel y-coordinate: 48
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$0C ; Page containing the sprite graphic data: B7
+  DEFB $0C                ; Minimum x-coordinate
+  DEFB $18                ; Maximum x-coordinate
+; The following entity definition (0x5D) is used in To the Kitchens    Main
+; Stairway.
+ENTITY93:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %01100010          ; INK 2 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $90                ; Pixel y-coordinate: 72
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$0E ; Page containing the sprite graphic data: B9
+  DEFB $02                ; Minimum x-coordinate
+  DEFB $06                ; Maximum x-coordinate
+; The following entity definition (0x5E) is used in To the Kitchens    Main
+; Stairway.
+ENTITY94:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $C0                ; Pixel y-coordinate: 96
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$04 ; Page containing the sprite graphic data: AF
+  DEFB $00                ; Minimum x-coordinate
+  DEFB $1E                ; Maximum x-coordinate
+; The following entity definition (0x5F) is used in The Hall and To the
+; Kitchens    Main Stairway.
+ENTITY95:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $A0                ; Pixel y-coordinate: 80
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
+  DEFB $09                ; Minimum x-coordinate
+  DEFB $11                ; Maximum x-coordinate
+; The following entity definition (0x60) is used in East Wall Base.
+ENTITY96:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %01101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $90                ; Initial pixel y-coordinate: 72
+  DEFB $FC                ; Initial pixel y-coordinate increment: -2 (moving
+                          ; up)
+  DEFB GUARDIANS/$100+$01 ; Page containing the sprite graphic data: AC
+  DEFB $00                ; Minimum pixel y-coordinate: 0
+  DEFB $C0                ; Maximum pixel y-coordinate: 96
+; The following entity definition (0x61) is used in Orangery and West  Wing.
+ENTITY97:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %01100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $40                ; Initial pixel y-coordinate: 32
+  DEFB $08                ; Initial pixel y-coordinate increment: 4 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$01 ; Page containing the sprite graphic data: AC
+  DEFB $00                ; Minimum pixel y-coordinate: 0
+  DEFB $C0                ; Maximum pixel y-coordinate: 96
+; The following entity definition (0x62) is used in Tool  Shed.
+ENTITY98:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %01100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $90                ; Pixel y-coordinate: 72
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$04 ; Page containing the sprite graphic data: AF
+  DEFB $07                ; Minimum x-coordinate
+  DEFB $14                ; Maximum x-coordinate
+; The following entity definition (0x63) is used in Tool  Shed.
+ENTITY99:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %01100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $60                ; Pixel y-coordinate: 48
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$02 ; Page containing the sprite graphic data: AD
+  DEFB $07                ; Minimum x-coordinate
+  DEFB $11                ; Maximum x-coordinate
+; The following entity definition (0x64) is used in The Chapel and The Banyan
+; Tree.
+ENTITY100:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %01100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $80                ; Initial pixel y-coordinate: 64
+  DEFB $FE                ; Initial pixel y-coordinate increment: -1 (moving
+                          ; up)
+  DEFB GUARDIANS/$100+$01 ; Page containing the sprite graphic data: AC
+  DEFB $70                ; Minimum pixel y-coordinate: 56
+  DEFB $A0                ; Maximum pixel y-coordinate: 80
+; The following entity definition (0x65) is used in The Banyan Tree and A bit
+; of tree.
+ENTITY101:
+  DEFB %00000010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every second pass (bit 4), initial
+                          ; animation frame 0 (bits 5 and 6)
+  DEFB %01101011          ; INK 3 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $60                ; Initial pixel y-coordinate: 48
+  DEFB $04                ; Initial pixel y-coordinate increment: 2 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$00 ; Page containing the sprite graphic data: AB
+  DEFB $50                ; Minimum pixel y-coordinate: 40
+  DEFB $A0                ; Maximum pixel y-coordinate: 80
+; The following entity definition (0x66) is used in The Chapel and The Banyan
+; Tree.
+ENTITY102:
+  DEFB %00010010          ; Vertical guardian (bits 0-2), animation frame
+                          ; updated on every pass (bit 4), initial animation
+                          ; frame 0 (bits 5 and 6)
+  DEFB %01100101          ; INK 5 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and x-coordinate
+                          ; (copied from the second byte of the entity
+                          ; specification in the room definition)
+  DEFB $98                ; Initial pixel y-coordinate: 76
+  DEFB $02                ; Initial pixel y-coordinate increment: 1 (moving
+                          ; down)
+  DEFB GUARDIANS/$100+$00 ; Page containing the sprite graphic data: AB
+  DEFB $50                ; Minimum pixel y-coordinate: 40
+  DEFB $A0                ; Maximum pixel y-coordinate: 80
+; The following entity definition (0x67) is used in The Chapel.
+ENTITY103:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %01100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $C0                ; Pixel y-coordinate: 96
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$09 ; Page containing the sprite graphic data: B4
+  DEFB $00                ; Minimum x-coordinate
+  DEFB $0F                ; Maximum x-coordinate
+; The following entity definition (0x68) is used in A bit of tree and Nomen
+; Luni.
+ENTITY104:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $20                ; Pixel y-coordinate: 16
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
+  DEFB $00                ; Minimum x-coordinate
+  DEFB $0A                ; Maximum x-coordinate
+; The following entity definition (0x69) is used in The Bow.
+ENTITY105:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %01100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $30                ; Pixel y-coordinate: 24
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$13 ; Page containing the sprite graphic data: BE
+  DEFB $16                ; Minimum x-coordinate
+  DEFB $1E                ; Maximum x-coordinate
+; The following entity definition (0x6A) is used in Conservatory Roof.
+ENTITY106:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %01101010          ; INK 2 (bits 0-2), BRIGHT 1 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $B0                ; Pixel y-coordinate: 88
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$03 ; Page containing the sprite graphic data: AE
+  DEFB $11                ; Minimum x-coordinate
+  DEFB $1E                ; Maximum x-coordinate
+; The following entity definition (0x6B) is used in Nomen Luni.
+ENTITY107:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %01100100          ; INK 4 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $30                ; Pixel y-coordinate: 24
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$13 ; Page containing the sprite graphic data: BE
+  DEFB $12                ; Minimum x-coordinate
+  DEFB $16                ; Maximum x-coordinate
+; The following entity definition (0x6C) is used in Watch Tower.
+ENTITY108:
+  DEFB %10000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving left to
+                          ; right (bit 7)
+  DEFB %01100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $90                ; Pixel y-coordinate: 72
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$10 ; Page containing the sprite graphic data: BB
+  DEFB $0B                ; Minimum x-coordinate
+  DEFB $12                ; Maximum x-coordinate
+; The following entity definition (0x6D) is used in Watch Tower.
+ENTITY109:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %11100110          ; INK 6 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 111 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $70                ; Pixel y-coordinate: 56
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$11 ; Page containing the sprite graphic data: BC
+  DEFB $09                ; Minimum x-coordinate
+  DEFB $1E                ; Maximum x-coordinate
+; The following entity definition (0x6E) is used in The Bow.
+ENTITY110:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %01100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $D0                ; Pixel y-coordinate: 104
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$03 ; Page containing the sprite graphic data: AE
+  DEFB $11                ; Minimum x-coordinate
+  DEFB $1E                ; Maximum x-coordinate
+; The following entity definition (0x6F) is used in Cuckoo's Nest.
+ENTITY111:
+  DEFB %00000001          ; Horizontal guardian (bits 0-2), initial animation
+                          ; frame 0 (bits 5 and 6), initially moving right to
+                          ; left (bit 7)
+  DEFB %01100011          ; INK 3 (bits 0-2), BRIGHT 0 (bit 3), animation frame
+                          ; mask 011 (bits 5-7)
+  DEFB $00                ; Replaced by the base sprite index and initial
+                          ; x-coordinate (copied from the second byte of the
+                          ; entity specification in the room definition)
+  DEFB $B0                ; Pixel y-coordinate: 88
+  DEFB $00                ; Unused
+  DEFB GUARDIANS/$100+$0A ; Page containing the sprite graphic data: B5
+  DEFB $00                ; Minimum x-coordinate
+  DEFB $0B                ; Maximum x-coordinate
+; The next 15 entity definitions (0x70-0x7E) are unused.
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+  DEFB $00,$00,$00,$00,$00,$00,$00,$00
+; The following entity definition (0x7F) - whose eighth byte is at FIRSTITEM -
+; is copied into one of the entity buffers at ENTITYBUF for any entity
+; specification whose first byte is $7F or $FF; the first byte of the
+; definition ($FF) serves to terminate the entity buffers.
+ENTITY127:
+  DEFB $FF,$00,$00,$00,$00,$00,$00,$00
 
   END BEGIN
 
