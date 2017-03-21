@@ -73,9 +73,8 @@
 /* Possible types of exttab entries */
 /* Stored in the byte following zero terminating the name */
 
-#define rtsfunc 1
-#define userfunc 2
-#define statref 3
+#define userfunc 1
+#define statref 2
 
 
 /*	Define possible entries for "ident"	*/
@@ -341,15 +340,14 @@ extdump()
 /* ### cpcn-4 */
 outextrn(ptr)
 	char *ptr;
-	{
+{
 	char *functype;
 	functype=ptr+strlen(ptr)+1;
 	if(*functype==statref) return;
 	ot("EXTRN ");
-	if(*functype==rtsfunc) outasm(ptr);
-	else outname(ptr);
-	col();outstr("NEAR");nl();
-	}
+	outname(ptr);
+	outstr(":NEAR");nl();
+}
 
 
 /*					*/
@@ -2249,21 +2247,30 @@ putmem(sym)
 /*	at the address on the top of the stack */
 putstk(typeobj)
 	char typeobj;
-{	zpop();
-	if(typeobj==cint)
-		callrts("ccpint");
-	else {
-		ol("MOV BP,DX");
+{
+	zpop();
+	ol("MOV BP,DX");
+	if (typeobj==cchar) {
 		ol("MOV [BP],BL");
-		}
 	}
+	else {
+		ol("MOV [BP],BX");
+	}
+}
 /* ### cpcn-42 */
 /* Fetch the specified object type indirect through the */
 /*	primary register into the primary register */
 indirect(typeobj)
 	char typeobj;
-{	if(typeobj==cchar)callrts("ccgchar");
-		else callrts("ccgint");
+{
+	if (typeobj==cchar) {
+		ol("MOV AL,SS:[BX]");
+		ol("CBW");
+		ol("MOV BX,AX");
+	}
+	else {
+		ol("MOV BX,SS:[BX]");
+	}
 }
 /* Swap the primary and secondary registers */
 swap()
@@ -2302,16 +2309,6 @@ zcall(sname)
 	nl();
 	addext(sname,userfunc);
 }
-/* Call a run-time library routine */
-callrts(sname)
-char *sname;
-{
-	ot("CALL ");
-	outasm(sname);
-	nl();
-	addext(sname,rtsfunc);
-/*end callrts*/}
-
 
 /* Return from subroutine */
 zret()
@@ -2346,10 +2343,6 @@ testjump(label)
 defbyte()
 {	ot("DB ");
 }
-/*Print pseudo-op to define storage */
-defstorage()
-{	ot("DS ");
-}
 /* Print pseudo-op to define a word */
 defword()
 {	ot("DW ");
@@ -2357,40 +2350,20 @@ defword()
 /* Modify the stack pointer to the new value indicated */
 modstk(newsp)
 	int newsp;
- {	int k;
+{	int k;
 	k=newsp-Zsp;
-	if(k==0)return newsp;
-	if(k>=0)
-		{if(k<7)
-			{if(k&1)
-				{
-				ol("INC SP");
-				k--;
-				}
-			while(k)
-				{ol("POP CX");
-				k=k-2;
-				}
-			return newsp;
-			}
+	if (k) {
+		if (k==1) {
+			ol("INC SP");
 		}
-	if(k<0)
-		{if(k>-7)
-			{if(k&1)
-				{ ol("DEC SP");
-				k++;
-				}
-			while(k)
-				{ol("PUSH CX");
-				k=k+2;
-				}
-			return newsp;
-			}
+		else if (k==-1) {
+			ol("DEC SP");
 		}
-	swap();
-	immed();outdec(k);nl();
-	ol("ADD SP,BX");
-	swap();
+		else {
+			ot("ADD SP,");
+			outdec(k);nl();
+		}
+	}
 	return newsp;
 }
 /* ### cpcn-44 */
@@ -2413,20 +2386,30 @@ zsub()
 /* Multiply the primary and secondary registers */
 /*	(results in primary */
 mult()
-{	callrts("ccmult");
+{
+	ol("MOV AX,DX");
+	ol("IMUL BX");
+	ol("MOV BX,AX");
 }
 /* Divide the secondary register by the primary */
 /*	(quotient in primary, remainder in secondary) */
 div()
-{	callrts("ccdiv");
+{
+	ol("MOV AX,DX");
+	ol("CWD");
+	ol("IDIV BX");
+	ol("MOV BX,AX");
 }
 /* Compute remainder (mod) of secondary register divided */
 /*	by the primary */
 /*	(remainder in primary, quotient in secondary) */
 zmod()
-{	div();
-	swap();
-	}
+{
+	ol("MOV AX,DX");
+	ol("CWD");
+	ol("IDIV BX");
+	ol("MOV BX,DX");
+}
 /* Inclusive 'or' the primary and the secondary registers */
 /*	(results in primary) */
 zor()
@@ -2469,35 +2452,82 @@ dec()
 
 /* Test for equal */
 zeq()
-	{callrts("cceq");}
+{
+	ol("CMP DX,BX");
+	ol("MOV BX,1");
+	ol("JE $+3");
+	ol("DEC BX");
+}
 /* Test for not equal */
 zne()
-	{callrts("ccne");}
+{
+	ol("CMP DX,BX");
+	ol("MOV BX,1");
+	ol("JNE $+3");
+	ol("DEC BX");
+}
 /* Test for less than (signed) */
 zlt()
-	{callrts("cclt");}
+{
+	ol("CMP DX,BX");
+	ol("MOV BX,1");
+	ol("JL $+3");
+	ol("DEC BX");
+}
 /* Test for less than or equal to (signed) */
 zle()
-	{callrts("ccle");}
+{
+	ol("CMP DX,BX");
+	ol("MOV BX,1");
+	ol("JLE $+3");
+	ol("DEC BX");
+}
 /* Test for greater than (signed) */
 zgt()
-	{callrts("ccgt");}
+{
+	ol("CMP DX,BX");
+	ol("MOV BX,1");
+	ol("JG $+3");
+	ol("DEC BX");
+}
 /* Test for greater than or equal to (signed) */
 zge()
-	{callrts("ccge");}
+{
+	ol("CMP DX,BX");
+	ol("MOV BX,1");
+	ol("JGE $+3");
+	ol("DEC BX");
+}
 /* Test for less than (unsigned) */
 ult()
-	{callrts("ccult");}
+{
+	ol("CMP DX,BX");
+	ol("MOV BX,1");
+	ol("JB $+3");
+	ol("DEC BX");
+}
 /* Test for less than or equal to (unsigned) */
 ule()
-	{callrts("ccule");}
+{
+	ol("CMP DX,BX");
+	ol("MOV BX,1");
+	ol("JBE $+3");
+	ol("DEC BX");
+}
 /* Test for greater than (unsigned) */
 ugt()
-	{callrts("ccugt");}
+{
+	ol("CMP DX,BX");
+	ol("MOV BX,1");
+	ol("JA $+3");
+	ol("DEC BX");
+}
 /* Test for greater than or equal to (unsigned) */
 uge()
-	{callrts("ccuge");}
-
-
-/*	<<<<<  End of small-c:PC compiler  >>>>>	*/
+{
+	ol("CMP DX,BX");
+	ol("MOV BX,1");
+	ol("JAE $+3");
+	ol("DEC BX");
+}
 
